@@ -1,325 +1,282 @@
-# TASK 002 — Scene and Player Foundation Refactor
+# TASK 003 — Playing Card and Deck Foundation
 
-The current prototype was useful for validating the visual concept, but its architecture needs to be changed before gameplay development.
+We are now beginning gameplay development for Shields.
 
-Do not add networking yet.
-Do not implement Shields rules yet.
-Do not improve the art beyond what is necessary.
-Preserve the current approximate visual dimensions and feel where sensible.
+Do NOT implement the Shields game rules yet.
+Do NOT change the current room, table, player placement, camera, or scene architecture.
+Do NOT implement networking yet.
+Do NOT implement bots yet.
+Do NOT install packages.
 
-The game is intended to be a 3–8 player multiplayer tabletop game, so the architecture must be designed with that future requirement in mind.
+This task is only the pure playing-card and deck foundation.
 
-## 1. Static scene architecture
+The current GameScene and player/table foundation are working and should remain intact.
 
-The room, decoration, lighting, and table must be normal persistent scene objects.
+## 1. Important architecture requirement
 
-Do not procedurally regenerate the room or lighting.
+The card/deck GAME LOGIC must be independent from Unity GameObjects and presentation.
 
-Restructure the scene approximately as:
+Do not make the authoritative card model a MonoBehaviour.
 
-GameScene
-    Environment
-        Room
-        Lighting
+Do not make 52 ScriptableObject card assets.
 
-    Table
-        TableVisual
-        CenterDeckAnchor
-        CenterPlayArea
+Do not make gameplay logic inspect card GameObjects to determine card values.
 
-    Match
-        MatchBootstrap
-        TableLayoutController
+The logical card/deck system should be plain C# and usable later by:
 
-    RuntimePlayers
-    RuntimeTableAreas
+- local gameplay
+- bots
+- authoritative multiplayer host/server
+- automated tests
 
-The environment and table must survive player-layout rebuilds.
-
-Remove any builder behavior that changes global RenderSettings or recreates the room.
+3D card visuals will be a separate presentation layer later.
 
 ---
 
-## 2. Match player count
+## 2. Standard playing card model
 
-Before the prototype match begins, provide a simple temporary UI allowing the user to select a total player count from 3 through 8.
+A standard deck contains exactly 52 cards.
 
-Call this targetPlayerCount.
+Suits:
 
-For the current offline prototype:
+- Clubs
+- Diamonds
+- Hearts
+- Spades
 
-- exactly one player is the local human
-- every remaining player is a bot placeholder
+Suits have NO gameplay effect in Shields.
 
-Example:
+Ranks and gameplay values:
 
-targetPlayerCount = 6
+Ace = 1
+2 = 2
+3 = 3
+4 = 4
+5 = 5
+6 = 6
+7 = 7
+8 = 8
+9 = 9
+10 = 10
+Jack = 11
+Queen = 12
+King = 13
 
-Player 0 = Local Human
-Player 1–5 = Bots
+There are no Jokers.
 
-Bots do not need any gameplay AI yet.
+Create clear enums/types such as:
 
-Their purpose is only to occupy seats and provide player objects for testing.
+CardSuit
+CardRank
+PlayingCard
 
-Do not create a networking lobby yet.
-
----
-
-## 3. Player prefab
-
-Create one reusable PlayerCharacter prefab.
-
-Human players and bots must use the SAME physical PlayerCharacter prefab.
-
-Do not create separate BotCharacter and HumanCharacter prefabs.
-
-The prefab should contain a clean hierarchy similar to:
-
-PlayerCharacter
-    Body
-    HeadPivot
-        HeadVisual
-        CameraAnchor
-
-The current primitive placeholder character visuals are sufficient.
-
-The architecture must make it easy to replace the placeholder body/head with real character art later.
-
-Add a PlayerCharacter component containing at least the runtime identity needed for the prototype:
-
-- playerIndex
-- isLocalPlayer
-- isBot
-
-Avoid networking-specific APIs for now, but keep the design compatible with future networking.
+Names may differ slightly if there is a good reason.
 
 ---
 
-## 4. Head and first-person camera architecture
+## 3. Card identity
 
-The first-person camera must behave as if it is attached to the local player's head.
+Each physical card instance must have a unique identity.
 
-Mouse look must rotate the player's HeadPivot.
+This is important because the game can use TWO decks.
 
-Because the CameraAnchor is a child of HeadPivot, the camera follows the same rotation.
+With two decks there can therefore be:
 
-Other players should therefore eventually be able to visually observe where another player is looking.
-
-Important:
-
-- Only ONE gameplay camera may be active.
-- Bot players must not have active cameras.
-- Prefer having a single MainCamera that is attached/reparented to the local PlayerCharacter's CameraAnchor at runtime.
-- Do not hard-code Player 0 inside the camera system except that Player 0 is currently chosen as the local player by the offline prototype bootstrap.
-- The local HeadVisual may be hidden from the local camera if necessary to avoid first-person clipping.
-- There is no walking movement.
-- The player remains seated.
-- Clamp head rotation to sensible seated limits.
-
----
-
-## 5. Player placement around the table
-
-Players must be positioned evenly around the round table.
-
-For targetPlayerCount N:
-
-angleStep = 360 / N
-
-Each player receives one evenly spaced position around the table and faces the table center.
-
-Support all counts:
-
-3
-4
-5
-6
-7
-8
-
-The system should calculate this dynamically.
-
-Keep the placement logic separate from PlayerCharacter.
-
----
-
-## 6. Table sizing
-
-The table may adjust its visible diameter depending on targetPlayerCount if necessary for comfortable spacing.
-
-Do NOT scale the entire Table hierarchy.
-
-If dynamic sizing is used, only resize/scale the appropriate visual tabletop geometry.
-
-CenterDeckAnchor and other gameplay anchors must remain logically stable and must not inherit undesirable scaling.
-
-Prioritize:
-
-- readable cards
-- comfortable player spacing
-- players remaining close enough for a social tabletop feeling
-- all other players being reasonably visible
-
-Keep the system simple and tunable.
-
----
-
-## 7. Shields card layout — replace the old hand concept
-
-Important gameplay information:
-
-Players do NOT hold cards in their hands in Shields.
-
-Each player has exactly three visible cards placed on the table in front of them.
-
-The layout is:
-
-two portrait/vertical cards side by side closer to the player
+King of Spades from deck 0
 
 and
 
-one landscape/horizontal card in front of those two, toward the table center.
+King of Spades from deck 1
 
-Conceptually:
+They have the same rank, suit, and gameplay value but must still be two different card instances.
 
-[ Vertical ] [ Vertical ]
+A card should therefore conceptually contain:
 
-      [ Horizontal ]
+- unique card instance ID
+- source deck index
+- suit
+- rank
+- gameplay value
 
-All three cards are face-up and lie on the table.
-
-The remaining deck is located at the center of the table.
-
-Remove the old hand/fanned-card placeholder concept.
-
-Do not call this a HandAnchor.
-
-For each player, create a PlayerTableArea associated with that seat/player.
-
-Each PlayerTableArea should expose three future gameplay card slots:
-
-- VerticalCardSlotLeft
-- VerticalCardSlotRight
-- HorizontalCardSlot
-
-These slots belong to the TABLE layout, not to the character body.
-
-Also maintain:
-
-- CenterDeckAnchor
-
-at the center of the table.
-
-For now, create simple placeholder face-up cards in these slots only to validate position and first-person readability.
-
-Do not implement card rules or card state yet.
+Do not rely on GameObject instance IDs for gameplay identity.
 
 ---
 
-## 8. Runtime organization
+## 4. One-deck and two-deck support
 
-Runtime-created objects should be clearly organized:
+The logical deck system must support:
 
-RuntimePlayers
-    Player_00
-    Player_01
-    ...
+deckCount = 1
+or
+deckCount = 2
 
-RuntimeTableAreas
-    PlayerArea_00
-    PlayerArea_01
-    ...
+One deck:
+52 cards.
 
-The static Environment and Table should NOT be children of generated/runtime containers.
+Two decks:
+104 cards.
 
----
+The second deck is another complete standard 52-card deck.
 
-## 9. Bot placeholders
+Do not change rank probabilities or introduce special cards.
 
-Create a minimal BotController component if useful.
-
-It should NOT make decisions yet.
-
-Do not implement AI behavior.
-
-It may simply mark the PlayerCharacter as bot-controlled for future development.
+Deck count will eventually be selected in the multiplayer lobby, but no lobby implementation is needed now.
 
 ---
 
-## 10. Remove obsolete prototype architecture
+## 5. Draw pile
 
-Inspect the current implementation before changing anything.
+Create a plain-C# deck implementation responsible for the draw pile.
 
-Reuse useful existing code such as seat-layout math or seated-look logic where appropriate.
+It must support:
 
-However, remove or simplify systems that are now architecturally obsolete, including:
+- creating the required 52 or 104 cards
+- shuffling
+- drawing the top card
+- querying remaining draw count
 
-- procedural room generation
-- procedural lighting generation
-- global ambient/render setting manipulation
-- old hand/fanned-card preview
-- camera permanently owned by Seat_00
-- unnecessary primitive/material generation infrastructure that is no longer needed
+Drawing must remove that card from the draw pile.
 
-Do NOT perform unnecessary abstraction or broad rewrites beyond what this new architecture requires.
+Use a proper shuffle such as Fisher-Yates.
 
----
+Prefer a design where a deterministic random seed can optionally be supplied for testing.
 
-## 11. Multiplayer readiness
-
-Do not add Netcode for GameObjects yet.
-
-However, ensure the design does not assume there will only ever be one human player.
-
-Avoid code that finds players by GameObject name.
-
-Avoid gameplay logic being coupled to Player 0.
-
-Player index, local/remote ownership, bot/human control, and visual character representation should remain conceptually separate.
+Do not use deterministic deck generation as a security mechanism; the seed support is only for debugging/tests.
 
 ---
 
-## 12. Validation
+## 6. Discard pile
 
-Validate all player counts from 3 to 8.
+The deck system must also maintain a discard pile.
 
-Specifically test at least:
+It must support moving previously drawn cards into discard.
 
-3 players
-6 players
-8 players
+Cards in player health, shield, charge, or other active gameplay locations are NOT considered discarded.
 
-Confirm:
+Only cards explicitly sent to the discard pile should exist there.
 
-- correct number of PlayerCharacter instances
-- one local human
-- remaining players marked as bots
-- exactly one active camera
-- camera is attached to the local player's CameraAnchor
-- rotating the camera/head rotates HeadPivot
-- player bodies remain facing the table
-- players are evenly distributed using 360 / playerCount
-- all players have one corresponding PlayerTableArea
-- every PlayerTableArea has exactly:
-  - 2 portrait card slots
-  - 1 landscape card slot
-- CenterDeckAnchor exists
-- cards are readable from the local first-person camera
-- room and lighting remain unchanged when rebuilding player layout
-- no compile errors
-- no Console errors
+---
+
+## 7. Deck exhaustion
+
+When a draw is requested and the DrawPile is empty:
+
+- take the current DiscardPile
+- move those cards into DrawPile
+- shuffle them
+- continue the draw
+
+The cards that are currently in active gameplay zones are NOT included.
+
+If both DrawPile and DiscardPile are empty, fail gracefully instead of inventing a card.
+
+Do not implement virtual health markers in this task.
+That belongs to the Shields rules layer later.
+
+---
+
+## 8. No Shields mechanics yet
+
+Do NOT implement:
+
+- health
+- shield behavior
+- attacking
+- charging
+- turns
+- player elimination
+- card selection
+- health replacement cards
+- virtual health markers
+- bots
+
+Those will use this card system in later tasks.
+
+---
+
+## 9. Presentation separation
+
+Do not replace the current placeholder table cards yet.
+
+Do not create final card artwork.
+
+If you create any CardView-related type at all, it must contain presentation only and must not own authoritative gameplay state.
+
+Prefer NOT creating CardView in this task unless required for validation.
+
+---
+
+## 10. Project organization
+
+Use a clean location such as:
+
+Assets/Scripts/Cards/
+
+Keep the amount of code small.
+
+Avoid unnecessary:
+
+- interfaces
+- service locators
+- dependency injection frameworks
+- event buses
+- generic card-game frameworks
+
+This game only needs a clean standard playing-card model.
+
+---
+
+## 11. Validation
+
+Before implementation, inspect the current project.
+
+After implementation validate:
+
+ONE DECK:
+
+- exactly 52 cards created
+- every suit contains 13 ranks
+- values are Ace=1 through King=13
+- all card instance IDs are unique
+
+TWO DECKS:
+
+- exactly 104 cards created
+- every suit/rank combination appears twice
+- all 104 card instance IDs are still unique
+- cards correctly record which source deck they came from
+
+DRAW:
+
+- drawing decreases DrawPile count
+- the drawn card no longer exists in DrawPile
+
+DISCARD:
+
+- discarding increases DiscardPile count
+- discarded card identity remains unchanged
+
+RESHUFFLE:
+
+- when DrawPile becomes empty, DiscardPile is shuffled back into DrawPile
+- cards currently outside the discard pile are not magically restored
+
+If Unity Test Framework is ALREADY installed in this project, add focused EditMode tests for this logic.
+
+If it is not installed, do NOT install it. Use another minimal validation method and report that automated Unity tests were skipped.
+
+No compile errors.
+No Console errors.
 
 Report:
 
-1. Final hierarchy
-2. Files created
-3. Files modified
-4. Files removed
-5. Prefabs created
-6. Any architecture decisions that differ from this task and why
+1. Files created
+2. Files modified
+3. How PlayingCard identity works
+4. How one/two deck generation works
+5. How shuffle/draw/discard/reshuffle work
+6. Validation results
+
+Do not continue into Shields gameplay.
 
 Stop when this task is complete.
-
-Do not implement Shields gameplay.
-Do not add networking.

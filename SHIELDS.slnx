@@ -1,4 +1,6 @@
 ﻿<Solution>
+  <Project Path="Shields.Cards.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Shields.Cards.EditModeTests.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
 </Solution>
