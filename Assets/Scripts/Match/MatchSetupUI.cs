@@ -88,7 +88,7 @@ namespace Shields.Match
 
             if (bootstrap.AwaitingLocalShieldChoice)
             {
-                GUILayout.Label("Click one of your three cards to make it your Shield.");
+                GUILayout.Label("Look at one of your three cards and click to make it your Shield.");
             }
             else if (bootstrap.InitialSetupComplete)
             {

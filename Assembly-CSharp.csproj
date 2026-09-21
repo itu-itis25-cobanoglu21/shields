@@ -57,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\Match\GameplayCamera.cs" />
+    <Compile Include="Assets\Scripts\Presentation\CrosshairInteraction.cs" />
     <Compile Include="Assets\Scripts\Match\MatchBootstrap.cs" />
     <Compile Include="Assets\Scripts\Presentation\LocalShieldSelection.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />

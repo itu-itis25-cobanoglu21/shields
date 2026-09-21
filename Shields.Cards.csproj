@@ -54,6 +54,7 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\Cards\PlayingCard.cs" />
     <Compile Include="Assets\Scripts\Cards\CardTypes.cs" />
+    <Compile Include="Assets\Scripts\Cards\AssemblyInfo.cs" />
     <Compile Include="Assets\Scripts\Cards\CardDeck.cs" />
   </ItemGroup>
   <ItemGroup>

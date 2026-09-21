@@ -421,6 +421,97 @@ namespace Shields.Cards.Tests
             CollectionAssert.AreEquivalent(discardOrder, afterReshuffle);
         }
 
+        // ---------------------------------------------------------------- take by value
+
+        [Test]
+        public void TakeFromDrawPile_RemovesExactlyOneCardAndPreservesOrder()
+        {
+            CardDeck deck = new CardDeck(2, TestSeed);
+            deck.Shuffle();
+
+            List<PlayingCard> before = deck.DrawPile.ToList();
+
+            PlayingCard taken;
+            Assert.IsTrue(deck.TryTakeFromDrawPile(5, out taken));
+
+            Assert.AreEqual(5, taken.Value);
+            Assert.AreEqual(before.Count - 1, deck.DrawCount);
+            Assert.IsFalse(deck.DrawPile.Contains(taken));
+            Assert.AreEqual(0, deck.ReshuffleCount, "Taking a card must not shuffle.");
+
+            List<PlayingCard> expected = before.Where(c => c != taken).ToList();
+            CollectionAssert.AreEqual(expected, deck.DrawPile.ToList(), "Every other card keeps its order.");
+        }
+
+        [Test]
+        public void TakeFromDrawPile_FailsWhenNoCardOfThatValueIsLeft()
+        {
+            CardDeck deck = new CardDeck(1);
+
+            PlayingCard card;
+            for (int i = 0; i < 4; i++) Assert.IsTrue(deck.TryTakeFromDrawPile(7, out card));
+
+            List<PlayingCard> before = deck.DrawPile.ToList();
+
+            Assert.IsFalse(deck.TryTakeFromDrawPile(7, out card));
+            Assert.AreEqual(PlayingCard.Nothing, card);
+            CollectionAssert.AreEqual(before, deck.DrawPile.ToList());
+        }
+
+        [Test]
+        public void TakeFromDiscardPile_RemovesOneMatchingCardOnly()
+        {
+            CardDeck deck = new CardDeck(1, TestSeed);
+            deck.Shuffle();
+
+            for (int i = 0; i < 20; i++)
+            {
+                PlayingCard drawn;
+                deck.TryDraw(out drawn);
+                deck.Discard(drawn);
+            }
+
+            int value = deck.DiscardPile[3].Value;
+            int matchesBefore = deck.DiscardPile.Count(c => c.Value == value);
+
+            PlayingCard taken;
+            Assert.IsTrue(deck.TryTakeFromDiscardPile(value, out taken));
+
+            Assert.AreEqual(value, taken.Value);
+            Assert.AreEqual(19, deck.DiscardCount);
+            Assert.AreEqual(matchesBefore - 1, deck.DiscardPile.Count(c => c.Value == value));
+            Assert.IsFalse(deck.DiscardPile.Contains(taken));
+            Assert.IsFalse(deck.DrawPile.Contains(taken));
+        }
+
+        [Test]
+        public void TakeFromDiscardPile_FailsWhenThereIsNoMatch()
+        {
+            CardDeck deck = new CardDeck(1);
+
+            PlayingCard card;
+            Assert.IsFalse(deck.TryTakeFromDiscardPile(5, out card));
+            Assert.AreEqual(PlayingCard.Nothing, card);
+        }
+
+        [Test]
+        public void MoveToTopOfDrawPile_MakesThatCardTheNextDraw()
+        {
+            CardDeck deck = new CardDeck(1, TestSeed);
+            deck.Shuffle();
+
+            PlayingCard wanted = deck.DrawPile[10];
+            List<PlayingCard> others = deck.DrawPile.Where(c => c != wanted).ToList();
+
+            deck.MoveToTopOfDrawPile(wanted);
+
+            PlayingCard drawn;
+            deck.TryDraw(out drawn);
+
+            Assert.AreEqual(wanted, drawn);
+            CollectionAssert.AreEqual(others, deck.DrawPile.ToList());
+        }
+
         // ---------------------------------------------------------------- accounting
 
         [Test]

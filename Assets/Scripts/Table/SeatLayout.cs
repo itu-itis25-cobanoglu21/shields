@@ -13,7 +13,7 @@ namespace Shields.Table
     {
         [Header("Table")]
         [Tooltip("Table edge length reserved per player. Drives how the tabletop grows with the player count.")]
-        [Range(0.5f, 1.2f)] public float arcPerPlayer = 0.74f;
+        [Range(0.5f, 1.2f)] public float arcPerPlayer = 0.70f;
 
         [Tooltip("Smallest tabletop radius, so a 3 player table is still a real card table.")]
         [Range(0.4f, 1.5f)] public float minTableRadius = 0.70f;
@@ -23,11 +23,14 @@ namespace Shields.Table
 
         [Header("Seats")]
         [Tooltip("Distance from the tabletop edge back to the seated player's body center.")]
-        public float seatSetback = 0.55f;
+        public float seatSetback = 0.30f;
 
         [Header("Card Areas")]
         [Tooltip("How far inside the tabletop edge a player's card area origin sits.")]
-        public float cardAreaInset = 0.16f;
+        public float cardAreaInset = 0.20f;
+
+        [Tooltip("Uniform scale of each card area, cards and slot spacing together. Presentation only; above 1 reads better across the table.")]
+        [Range(1f, 2f)] public float cardAreaScale = 1.5f;
     }
 
     /// <summary>Resolved layout numbers for one player count.</summary>

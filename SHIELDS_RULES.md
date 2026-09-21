@@ -498,3 +498,36 @@ If both currently displayed Health cards have the same value and one must be dis
 Gameplay Health math is unaffected, but physical card identity may matter.
 
 Ask before implementing this edge case if necessary.
+
+## Additional confirmed rules
+
+### Self targeting
+
+Normal Attack and Charged Attack may only target another living player.
+
+A player may never attack themselves.
+
+Shield Replacement may target either:
+- the acting player
+- another living player
+
+### Equal Health-card tie breaking
+
+If the two currently displayed Health cards have the same value and damage requires exactly one of them to be discarded:
+
+- discard the LEFT Health card
+- keep the RIGHT Health card
+
+This rule exists only to make physical card identity deterministic.
+
+### Planned local controls
+
+The intended prototype controls for turn gameplay are:
+
+- 1 = Attack
+- 2 = Replace Shield
+- 3 = Charge
+
+When an action requires a target, the player aims at a valid target using the center-screen crosshair and confirms with left click.
+
+This input scheme is presentation behavior, not part of the authoritative game rules.

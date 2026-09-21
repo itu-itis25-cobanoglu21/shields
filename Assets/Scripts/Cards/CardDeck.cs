@@ -146,7 +146,55 @@ namespace Shields.Cards
             foreach (PlayingCard card in cards) Discard(card);
         }
 
+        /// <summary>
+        /// Removes one card of the given value from the discard pile, searching from the
+        /// most recently discarded card down. Returns false and yields
+        /// <see cref="PlayingCard.Nothing"/> when no card of that value is there.
+        /// </summary>
+        public bool TryTakeFromDiscardPile(int value, out PlayingCard card)
+        {
+            return TryTakeValue(_discardPile, value, out card);
+        }
+
+        /// <summary>
+        /// Removes one specific card of the given value from the draw pile, searching from
+        /// the top down. Every other card keeps its relative order; nothing is shuffled.
+        /// Returns false and yields <see cref="PlayingCard.Nothing"/> when there is none.
+        /// </summary>
+        public bool TryTakeFromDrawPile(int value, out PlayingCard card)
+        {
+            return TryTakeValue(_drawPile, value, out card);
+        }
+
+        /// <summary>
+        /// Test support only: moves a card that is already in the draw pile onto the top,
+        /// so the next draw is known. Every other card keeps its relative order.
+        /// </summary>
+        internal void MoveToTopOfDrawPile(PlayingCard card)
+        {
+            int index = _drawPile.IndexOf(card);
+            if (index < 0) throw new ArgumentException("That card is not in the draw pile.", nameof(card));
+
+            _drawPile.RemoveAt(index);
+            _drawPile.Add(card);
+        }
+
         // ------------------------------------------------------------------ internals
+
+        static bool TryTakeValue(List<PlayingCard> pile, int value, out PlayingCard card)
+        {
+            for (int i = pile.Count - 1; i >= 0; i--)
+            {
+                if (pile[i].Value != value) continue;
+
+                card = pile[i];
+                pile.RemoveAt(i);
+                return true;
+            }
+
+            card = PlayingCard.Nothing;
+            return false;
+        }
 
         /// <summary>
         /// Creates every card once per deck, in deck then suit then rank order, giving

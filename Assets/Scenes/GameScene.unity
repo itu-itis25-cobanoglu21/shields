@@ -517,6 +517,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Shields.Match.MatchBootstrap
   tableLayout: {fileID: 1343093440}
   gameplayCamera: {fileID: 878030571}
+  crosshair: {fileID: 878030575}
   shieldSelection: {fileID: 521735741}
   deckView: {fileID: 550828067}
   cardViewPrefab: {fileID: 7638927518640464226, guid: f749e1fae5e728243aa2080f37ccdc88, type: 3}
@@ -526,6 +527,7 @@ MonoBehaviour:
   autoStartOnPlay: 0
   useFixedSeed: 0
   fixedSeed: 12345
+  restAimTowardOwnCards: 0.08
 --- !u!114 &521735741
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -538,7 +540,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a98f29f08bc9df4496f09c1f445d3fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Shields.Presentation.LocalShieldSelection
-  rayDistance: 5
 --- !u!1 &539922372
 GameObject:
   m_ObjectHideFlags: 0
@@ -1174,6 +1175,7 @@ GameObject:
   - component: {fileID: 878030573}
   - component: {fileID: 878030572}
   - component: {fileID: 878030571}
+  - component: {fileID: 878030575}
   m_Layer: 0
   m_Name: MainCamera
   m_TagString: MainCamera
@@ -1267,6 +1269,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &878030575
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 878030570}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07cece071f22c574d8153ad487cd53a7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Presentation.CrosshairInteraction
+  rayDistance: 4
+  interactionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  dotSize: 4
+  dotColor: {r: 1, g: 1, b: 1, a: 0.85}
+  outlineColor: {r: 0, g: 0, b: 0, a: 0.55}
 --- !u!1 &953223166
 GameObject:
   m_ObjectHideFlags: 0
@@ -1513,11 +1534,12 @@ MonoBehaviour:
   playerPrefab: {fileID: 7366946670251388567, guid: 0c1d8db69e7e5564ba598fa592a42753, type: 3}
   tableAreaPrefab: {fileID: 8744435427766011923, guid: dde82ddf699554644b97159223e3d080, type: 3}
   layout:
-    arcPerPlayer: 0.74
+    arcPerPlayer: 0.7
     minTableRadius: 0.7
     maxTableRadius: 1.1
-    seatSetback: 0.55
-    cardAreaInset: 0.16
+    seatSetback: 0.3
+    cardAreaInset: 0.2
+    cardAreaScale: 1.5
   resizeTabletop: 1
   playerMaterials:
   - {fileID: 2100000, guid: ebf1f65b95ef0004d8644bb49a610871, type: 2}

@@ -14,7 +14,7 @@ namespace Shields.Match
     /// has to assume player 0 or assume a single human.
     ///
     /// It also runs initial setup: build and shuffle the deck, deal three cards to every
-    /// seat, let bots choose their Shield, and let the local player click theirs. The
+    /// seat, let bots choose their Shield, and let the local player aim at theirs. The
     /// authoritative state lives in the plain C# <see cref="MatchSetup"/>; the table only
     /// shows it. Turn play is not implemented.
     /// </summary>
@@ -24,6 +24,7 @@ namespace Shields.Match
         [Header("Scene References")]
         [SerializeField] TableLayoutController tableLayout;
         [SerializeField] GameplayCamera gameplayCamera;
+        [SerializeField] CrosshairInteraction crosshair;
         [SerializeField] LocalShieldSelection shieldSelection;
         [SerializeField] DeckView deckView;
 
@@ -50,6 +51,11 @@ namespace Shields.Match
         [SerializeField] bool useFixedSeed = false;
 
         [SerializeField] int fixedSeed = 12345;
+
+        [Header("First Person View")]
+        [Tooltip("Where the local view rests: 0 aims at the deck, 1 at the player's own cards.")]
+        [Range(0f, 1f)]
+        [SerializeField] float restAimTowardOwnCards = 0.08f;
 
         public int TargetPlayerCount
         {
@@ -86,6 +92,15 @@ namespace Shields.Match
         }
 
         public PlayerCharacter LocalPlayer { get; private set; }
+
+        void Awake()
+        {
+            if (crosshair == null && gameplayCamera != null)
+                crosshair = gameplayCamera.GetComponent<CrosshairInteraction>();
+
+            // No crosshair until a seat owns the camera.
+            if (crosshair != null) crosshair.enabled = false;
+        }
 
         void Start()
         {
@@ -132,6 +147,7 @@ namespace Shields.Match
         {
             if (shieldSelection != null) shieldSelection.End();
             if (gameplayCamera != null) gameplayCamera.Detach();
+            if (crosshair != null) crosshair.enabled = false;
             if (deckView != null) deckView.Clear();
 
             Setup = null;
@@ -199,12 +215,11 @@ namespace Shields.Match
                 return;
             }
 
+            // Only this seat's own dealt cards are offered, so no other card can be picked.
             PlayerTableArea area = tableLayout.GetAreaForPlayer(local.PlayerIndex);
-            SeatedHeadLook look = LocalPlayer != null ? LocalPlayer.GetComponent<SeatedHeadLook>() : null;
-            Camera camera = gameplayCamera != null ? gameplayCamera.GetComponent<Camera>() : Camera.main;
 
             bool started = shieldSelection != null && area != null &&
-                shieldSelection.Begin(camera, look, area.CardViews, OnLocalShieldChosen);
+                shieldSelection.Begin(crosshair, area.CardViews, OnLocalShieldChosen);
 
             if (!started)
             {
@@ -272,13 +287,20 @@ namespace Shields.Match
             }
         }
 
-        /// <summary>Rests the local view on the deck, derived from geometry rather than a fixed angle.</summary>
+        /// <summary>
+        /// Rests the local view between the deck and the player's own cards, so both are
+        /// in frame. Derived from geometry rather than a fixed angle.
+        /// </summary>
         void RestLookOnTable(PlayerCharacter player, SeatedHeadLook look)
         {
             if (player.CameraAnchor == null || player.HeadPivot == null) return;
 
+            Vector3 aim = tableLayout.DeckAimPoint;
+            PlayerTableArea ownArea = tableLayout.GetAreaForPlayer(player.PlayerIndex);
+            if (ownArea != null) aim = Vector3.Lerp(aim, ownArea.transform.position, restAimTowardOwnCards);
+
             look.restPitch = SeatedHeadLook.NeutralPitchToward(
-                player.HeadPivot, player.CameraAnchor.position, tableLayout.DeckAimPoint);
+                player.HeadPivot, player.CameraAnchor.position, aim);
 
             look.ResetLook();
         }
@@ -287,10 +309,12 @@ namespace Shields.Match
         {
             if (gameplayCamera == null) return;
 
-            if (LocalPlayer != null && LocalPlayer.CameraAnchor != null)
-                gameplayCamera.AttachTo(LocalPlayer.CameraAnchor);
-            else
-                gameplayCamera.Detach();
+            bool attached = LocalPlayer != null && LocalPlayer.CameraAnchor != null;
+
+            if (attached) gameplayCamera.AttachTo(LocalPlayer.CameraAnchor);
+            else gameplayCamera.Detach();
+
+            if (crosshair != null) crosshair.enabled = attached;
         }
     }
 }

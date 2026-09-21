@@ -54,6 +54,7 @@
   <ItemGroup>
     <Compile Include="Assets\Tests\EditMode\MatchSetupTests.cs" />
     <Compile Include="Assets\Tests\EditMode\CardDeckTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\ShieldsMatchTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\Tests\EditMode\Shields.Cards.EditModeTests.asmdef" />

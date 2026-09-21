@@ -167,6 +167,10 @@ namespace Shields.Table
                 new Vector3(center.x + offset.x, CardAreaHeight, center.z + offset.z),
                 SeatLayout.SeatRotation(index, _metrics));
 
+            // Scaling the area root scales the card views with their slot spacing, so
+            // the three card arrangement keeps its shape at any size.
+            area.transform.localScale = Vector3.one * Mathf.Max(0.1f, layout.cardAreaScale);
+
             area.AssignPlayer(index);
 
             // Cards are placed by the match setup once the deal happens.

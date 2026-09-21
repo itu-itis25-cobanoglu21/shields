@@ -52,8 +52,14 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.2f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\System.Text.Json.SourceGeneration.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\Game\MatchPlayerState.cs" />
+    <Compile Include="Assets\Scripts\Game\ShieldsMatch.cs" />
+    <Compile Include="Assets\Scripts\Game\AssemblyInfo.cs" />
     <Compile Include="Assets\Scripts\Game\MatchConfig.cs" />
+    <Compile Include="Assets\Scripts\Game\TurnTypes.cs" />
     <Compile Include="Assets\Scripts\Game\PlayerSetupState.cs" />
+    <Compile Include="Assets\Scripts\Game\HealthSlot.cs" />
+    <Compile Include="Assets\Scripts\Game\TurnActionResult.cs" />
     <Compile Include="Assets\Scripts\Game\MatchSetup.cs" />
   </ItemGroup>
   <ItemGroup>
