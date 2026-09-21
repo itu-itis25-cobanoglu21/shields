@@ -4,7 +4,8 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Shields.Cards"
+        "Shields.Cards",
+        "Shields.Game"
     ],
     "includePlatforms": [
         "Editor"

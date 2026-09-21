@@ -50,8 +50,6 @@ namespace Shields.Table
         [Tooltip("Placeholder body colours, indexed by player. Purely to tell seats apart while testing.")]
         [SerializeField] Material[] playerMaterials;
 
-        [SerializeField] bool showPlaceholderCards = true;
-
         readonly List<PlayerCharacter> _players = new List<PlayerCharacter>();
         readonly List<PlayerTableArea> _tableAreas = new List<PlayerTableArea>();
 
@@ -170,7 +168,9 @@ namespace Shields.Table
                 SeatLayout.SeatRotation(index, _metrics));
 
             area.AssignPlayer(index);
-            area.SetPlaceholderCardsVisible(showPlaceholderCards);
+
+            // Cards are placed by the match setup once the deal happens.
+            area.ClearCards();
 
             _tableAreas.Add(area);
         }

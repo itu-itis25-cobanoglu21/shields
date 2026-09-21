@@ -1,282 +1,400 @@
-# TASK 003 — Playing Card and Deck Foundation
+# TASK 004 — Initial Deal and Card Presentation
 
-We are now beginning gameplay development for Shields.
+Read SHIELDS_RULES.md before implementing this task.
 
-Do NOT implement the Shields game rules yet.
-Do NOT change the current room, table, player placement, camera, or scene architecture.
-Do NOT implement networking yet.
-Do NOT implement bots yet.
-Do NOT install packages.
+The card/deck foundation from TASK 003 is complete and tested.
 
-This task is only the pure playing-card and deck foundation.
-
-The current GameScene and player/table foundation are working and should remain intact.
-
-## 1. Important architecture requirement
-
-The card/deck GAME LOGIC must be independent from Unity GameObjects and presentation.
-
-Do not make the authoritative card model a MonoBehaviour.
-
-Do not make 52 ScriptableObject card assets.
-
-Do not make gameplay logic inspect card GameObjects to determine card values.
-
-The logical card/deck system should be plain C# and usable later by:
-
-- local gameplay
-- bots
-- authoritative multiplayer host/server
-- automated tests
-
-3D card visuals will be a separate presentation layer later.
-
----
-
-## 2. Standard playing card model
-
-A standard deck contains exactly 52 cards.
-
-Suits:
-
-- Clubs
-- Diamonds
-- Hearts
-- Spades
-
-Suits have NO gameplay effect in Shields.
-
-Ranks and gameplay values:
-
-Ace = 1
-2 = 2
-3 = 3
-4 = 4
-5 = 5
-6 = 6
-7 = 7
-8 = 8
-9 = 9
-10 = 10
-Jack = 11
-Queen = 12
-King = 13
-
-There are no Jokers.
-
-Create clear enums/types such as:
-
-CardSuit
-CardRank
-PlayingCard
-
-Names may differ slightly if there is a good reason.
-
----
-
-## 3. Card identity
-
-Each physical card instance must have a unique identity.
-
-This is important because the game can use TWO decks.
-
-With two decks there can therefore be:
-
-King of Spades from deck 0
-
-and
-
-King of Spades from deck 1
-
-They have the same rank, suit, and gameplay value but must still be two different card instances.
-
-A card should therefore conceptually contain:
-
-- unique card instance ID
-- source deck index
-- suit
-- rank
-- gameplay value
-
-Do not rely on GameObject instance IDs for gameplay identity.
-
----
-
-## 4. One-deck and two-deck support
-
-The logical deck system must support:
-
-deckCount = 1
-or
-deckCount = 2
-
-One deck:
-52 cards.
-
-Two decks:
-104 cards.
-
-The second deck is another complete standard 52-card deck.
-
-Do not change rank probabilities or introduce special cards.
-
-Deck count will eventually be selected in the multiplayer lobby, but no lobby implementation is needed now.
-
----
-
-## 5. Draw pile
-
-Create a plain-C# deck implementation responsible for the draw pile.
-
-It must support:
-
-- creating the required 52 or 104 cards
-- shuffling
-- drawing the top card
-- querying remaining draw count
-
-Drawing must remove that card from the draw pile.
-
-Use a proper shuffle such as Fisher-Yates.
-
-Prefer a design where a deterministic random seed can optionally be supplied for testing.
-
-Do not use deterministic deck generation as a security mechanism; the seed support is only for debugging/tests.
-
----
-
-## 6. Discard pile
-
-The deck system must also maintain a discard pile.
-
-It must support moving previously drawn cards into discard.
-
-Cards in player health, shield, charge, or other active gameplay locations are NOT considered discarded.
-
-Only cards explicitly sent to the discard pile should exist there.
-
----
-
-## 7. Deck exhaustion
-
-When a draw is requested and the DrawPile is empty:
-
-- take the current DiscardPile
-- move those cards into DrawPile
-- shuffle them
-- continue the draw
-
-The cards that are currently in active gameplay zones are NOT included.
-
-If both DrawPile and DiscardPile are empty, fail gracefully instead of inventing a card.
-
-Do not implement virtual health markers in this task.
-That belongs to the Shields rules layer later.
-
----
-
-## 8. No Shields mechanics yet
+Do NOT modify the existing PlayingCard/CardDeck behavior unless a genuine bug is discovered.
 
 Do NOT implement:
 
-- health
-- shield behavior
-- attacking
-- charging
-- turns
-- player elimination
-- card selection
-- health replacement cards
-- virtual health markers
-- bots
+- attacks
+- Shield replacement during turns
+- Charge
+- turn order
+- damage
+- Health redistribution after damage
+- death
+- winner detection
+- networking
+- real bot AI
 
-Those will use this card system in later tasks.
-
----
-
-## 9. Presentation separation
-
-Do not replace the current placeholder table cards yet.
-
-Do not create final card artwork.
-
-If you create any CardView-related type at all, it must contain presentation only and must not own authoritative gameplay state.
-
-Prefer NOT creating CardView in this task unless required for validation.
+This task ends when a match can be configured, cards can be dealt, players can choose their initial Shield/Health roles, and those cards are correctly represented on the 3D table.
 
 ---
 
-## 10. Project organization
+# 1. Match setup UI
 
-Use a clean location such as:
+Extend the existing temporary match setup UI.
 
-Assets/Scripts/Cards/
+Before starting the prototype match, allow selection of:
 
-Keep the amount of code small.
+Player Count:
+3 through 8
 
-Avoid unnecessary:
+Deck Count:
+1 or 2
 
-- interfaces
-- service locators
-- dependency injection frameworks
-- event buses
-- generic card-game frameworks
+The selected values should become match configuration.
 
-This game only needs a clean standard playing-card model.
+Do not build the final lobby UI.
+
+This is still prototype setup UI.
 
 ---
 
-## 11. Validation
+# 2. Start match setup
 
-Before implementation, inspect the current project.
+When setup begins:
 
-After implementation validate:
+1. Create a CardDeck using the selected deck count.
+2. Shuffle it.
+3. Create the requested players using the existing player/table foundation.
+4. Deal exactly three cards to every player.
 
-ONE DECK:
+All dealt cards leave the DrawPile and are now considered active/in-play cards.
 
-- exactly 52 cards created
-- every suit contains 13 ranks
-- values are Ace=1 through King=13
-- all card instance IDs are unique
+No dealt card may be duplicated by identity.
 
-TWO DECKS:
+---
 
-- exactly 104 cards created
-- every suit/rank combination appears twice
-- all 104 card instance IDs are still unique
-- cards correctly record which source deck they came from
+# 3. Pure gameplay setup state
 
-DRAW:
+Introduce only the minimum plain-C# state required to represent initial Shields setup.
 
-- drawing decreases DrawPile count
-- the drawn card no longer exists in DrawPile
+Gameplay state must NOT depend on GameObjects.
 
-DISCARD:
+A player setup state should conceptually know:
 
-- discarding increases DiscardPile count
-- discarded card identity remains unchanged
+- player index
+- three initially dealt cards
+- selected Health cards
+- selected Shield card
+- numeric starting Health
+- whether initial selection is complete
 
-RESHUFFLE:
+Names may differ if the architecture remains clear.
 
-- when DrawPile becomes empty, DiscardPile is shuffled back into DrawPile
-- cards currently outside the discard pile are not magically restored
+Prefer placing pure Shields gameplay/setup logic in its own assembly that does not depend on UnityEngine if practical.
 
-If Unity Test Framework is ALREADY installed in this project, add focused EditMode tests for this logic.
+Do not create a large generic card-game framework.
 
-If it is not installed, do NOT install it. Use another minimal validation method and report that automated Unity tests were skipped.
+---
 
-No compile errors.
-No Console errors.
+# 4. Bot initial selection
 
-Report:
+Bots do not need strategic AI.
+
+For every bot:
+
+randomly choose exactly one of its three dealt cards as Shield.
+
+The remaining two automatically become Health.
+
+The random choice should operate on gameplay state rather than scene objects.
+
+Prefer allowing a deterministic random seed for tests/debugging.
+
+Bot selection must not inspect other players' cards in order to make the choice.
+
+It is intentionally random.
+
+---
+
+# 5. Local human initial selection
+
+The local player receives three visible cards.
+
+All three are face-up.
+
+The player chooses exactly ONE card to be their Shield.
+
+The remaining two automatically become Health.
+
+Use direct interaction with the cards if practical.
+
+Preferred prototype interaction:
+
+- enable mouse cursor during initial selection
+- player clicks one of their three visible cards
+- clicked card becomes Shield
+- other two become Health
+
+Do not require selecting two Health cards separately.
+
+After selection is complete, restore the normal first-person mouse-look input state.
+
+---
+
+# 6. Card presentation architecture
+
+Create a CardView or equivalent presentation component.
+
+Important:
+
+PlayingCard remains authoritative game data.
+
+CardView is ONLY presentation.
+
+CardView must not determine:
+
+- card value
+- rank
+- suit
+- identity
+- gameplay behavior
+
+It receives a PlayingCard and renders it.
+
+Do not put authoritative state into Unity GameObjects.
+
+---
+
+# 7. Prototype card visuals
+
+Replace the current 1/2/3 pip placeholder cards with readable standard-card placeholders.
+
+Final artwork is NOT required.
+
+Each face-up card should visibly communicate at minimum:
+
+- rank
+- suit
+
+Examples:
+
+A ♠
+7 ♥
+Q ♦
+K ♣
+
+Use existing Unity text capabilities already available in the project.
+
+Do not install a new package solely for card text.
+
+Simple prototype visuals are sufficient.
+
+The four suits should be distinguishable.
+
+Do not spend time creating final card art.
+
+---
+
+# 8. Initial three-card presentation
+
+Before the local player selects their Shield, their three dealt cards must be visible and clickable.
+
+They may temporarily use the existing three table positions if that produces a clear interaction.
+
+After role selection:
+
+two cards occupy:
+
+- VerticalCardSlotLeft
+- VerticalCardSlotRight
+
+These are Health cards.
+
+The selected Shield occupies:
+
+- HorizontalCardSlot
+
+The Shield should remain visually distinguishable by its landscape orientation.
+
+All cards remain face-up.
+
+---
+
+# 9. Bot table presentation
+
+Bots make their Shield choice automatically.
+
+After their random selection:
+
+- two Health cards appear in their vertical Health slots
+- their Shield appears in their horizontal Shield slot
+
+All bot cards are public and face-up.
+
+There is no hidden information during initial setup.
+
+---
+
+# 10. Numeric starting Health
+
+Once a player's roles are selected:
+
+Starting Health =
+HealthCard1.Value + HealthCard2.Value
+
+Store this as authoritative numeric gameplay state.
+
+Do NOT calculate Health later by reading CardView objects.
+
+The physical cards represent the state; they do not define it.
+
+Example:
+
+King + Jack
+
+13 + 11 = 24
+
+Starting Health = 24
+
+---
+
+# 11. Match setup completion
+
+Initial setup is complete only when every player has:
+
+- two Health cards
+- one Shield card
+- numeric starting Health
+- completed initial selection
+
+Bots should complete this automatically.
+
+The local player's choice may complete last.
+
+When every player is ready, expose/log a clear:
+
+InitialSetupComplete
+
+state or equivalent.
+
+Do NOT begin implementing actual turns yet.
+
+---
+
+# 12. Deck presentation
+
+The remaining DrawPile stays conceptually at CenterDeckAnchor.
+
+A simple deck visual is sufficient.
+
+Optionally display remaining card count for debugging.
+
+Do not instantiate one hidden 3D GameObject for every card remaining in the deck.
+
+The authoritative DrawPile remains the plain-C# CardDeck.
+
+---
+
+# 13. Input separation
+
+Initial card-selection interaction and seated camera mouse-look must not fight each other.
+
+During local Shield selection:
+
+- cursor can interact with local cards
+- camera look should not consume the same mouse interaction
+
+After selection:
+
+- selection interaction ends
+- normal seated first-person camera control resumes
+
+Keep this simple.
+
+---
+
+# 14. Do not disturb the working scene foundation
+
+Do not redesign:
+
+- room
+- table
+- player prefab
+- seating layout
+- lighting
+- player-count placement
+- camera architecture
+
+Only make changes required to connect initial card gameplay/presentation.
+
+---
+
+# 15. Tests
+
+Add focused tests for pure gameplay setup logic.
+
+At minimum validate:
+
+### Deal
+
+For player counts 3 through 8:
+
+- every player receives exactly 3 cards
+- no card identity appears in two players' deals
+- DrawPile count decreases by playerCount * 3
+
+Test with one deck.
+
+Also test a representative two-deck match.
+
+### Selection
+
+Given three known cards:
+
+selecting one as Shield:
+
+- selected card becomes Shield
+- other two become Health
+- Starting Health equals their value sum
+- all three original identities are preserved
+
+### Bot selection
+
+- bot selects exactly one of its three cards
+- two remaining cards become Health
+- deterministic seed reproduces the same choice
+- choice remains one of the actual dealt cards
+
+Do not install new testing packages.
+
+Use the existing EditMode test setup.
+
+---
+
+# 16. Runtime validation
+
+Validate in GameScene with at least:
+
+3 players / 1 deck
+6 players / 1 deck
+8 players / 2 decks
+
+Confirm:
+
+- setup UI accepts Player Count and Deck Count
+- correct deck size is used
+- exactly three cards are dealt per player
+- bots choose roles automatically
+- local player can choose Shield by clicking a card
+- remaining cards become Health
+- all rank/suit labels match the underlying PlayingCard
+- Starting Health values are correct
+- all players show exactly two Health cards and one Shield
+- exactly one gameplay camera remains active
+- first-person look resumes after local setup selection
+- no compile errors
+- no Console errors
+
+---
+
+# 17. Report
+
+When complete, report:
 
 1. Files created
 2. Files modified
-3. How PlayingCard identity works
-4. How one/two deck generation works
-5. How shuffle/draw/discard/reshuffle work
-6. Validation results
+3. New pure gameplay state types
+4. How CardView binds to PlayingCard
+5. How local Shield selection works
+6. How bot random selection works
+7. Test results
+8. Runtime validation results
 
-Do not continue into Shields gameplay.
+Stop after InitialSetupComplete.
 
-Stop when this task is complete.
+Do NOT implement turn gameplay.

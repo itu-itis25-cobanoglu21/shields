@@ -58,7 +58,10 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\Match\GameplayCamera.cs" />
     <Compile Include="Assets\Scripts\Match\MatchBootstrap.cs" />
+    <Compile Include="Assets\Scripts\Presentation\LocalShieldSelection.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
+    <Compile Include="Assets\Scripts\Presentation\CardView.cs" />
+    <Compile Include="Assets\Scripts\Presentation\DeckView.cs" />
     <Compile Include="Assets\Scripts\Player\BotController.cs" />
     <Compile Include="Assets\Scripts\Player\SeatedHeadLook.cs" />
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
@@ -1325,10 +1328,6 @@
       <HintPath>Library\ScriptAssemblies\Unity.Timeline.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Unity.Collections.Tests.CoreCLR.PrivateJobNested">
-      <HintPath>Library\ScriptAssemblies\Unity.Collections.Tests.CoreCLR.PrivateJobNested.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="Unity.Pipeline.IlInterpreter">
       <HintPath>Library\ScriptAssemblies\Unity.Pipeline.IlInterpreter.dll</HintPath>
       <Private>False</Private>
@@ -1343,6 +1342,10 @@
     </Reference>
     <Reference Include="Unity.AI.Assistant.Integrations.Profiler.Editor">
       <HintPath>Library\ScriptAssemblies\Unity.AI.Assistant.Integrations.Profiler.Editor.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.Collections.Tests.CoreCLR.PrivateJobNested">
+      <HintPath>Library\ScriptAssemblies\Unity.Collections.Tests.CoreCLR.PrivateJobNested.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.RenderPipelines.Core.Runtime.Shared">
@@ -1628,6 +1631,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Shields.Cards.csproj" />
+    <ProjectReference Include="Shields.Game.csproj" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <ItemGroup>
