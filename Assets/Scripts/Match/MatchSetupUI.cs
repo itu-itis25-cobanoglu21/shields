@@ -90,6 +90,15 @@ namespace Shields.Match
             {
                 GUILayout.Label("Look at one of your three cards and click to make it your Shield.");
             }
+            else if (bootstrap.Match != null)
+            {
+                ShieldsMatch match = bootstrap.Match;
+                MatchPlayerState local = match.Players[bootstrap.LocalPlayerIndex];
+                GUILayout.Label(local.IsAlive
+                    ? string.Format("Your Health {0}, Shield {1}{2}. Deck {3} left.",
+                        local.Health, local.ShieldValue, local.HasCharge ? ", Charge stored" : "", match.Deck.DrawCount)
+                    : string.Format("You are eliminated. Deck {0} left.", match.Deck.DrawCount));
+            }
             else if (bootstrap.InitialSetupComplete)
             {
                 MatchSetup setup = bootstrap.Setup;

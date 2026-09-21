@@ -16,7 +16,8 @@ namespace Shields.Match
     /// It also runs initial setup: build and shuffle the deck, deal three cards to every
     /// seat, let bots choose their Shield, and let the local player aim at theirs. The
     /// authoritative state lives in the plain C# <see cref="MatchSetup"/>; the table only
-    /// shows it. Turn play is not implemented.
+    /// shows it. Once every seat has chosen, the same setup becomes one authoritative
+    /// <see cref="ShieldsMatch"/> and <see cref="MatchTurnController"/> runs the turns.
     /// </summary>
     [DisallowMultipleComponent]
     public class MatchBootstrap : MonoBehaviour
@@ -27,6 +28,9 @@ namespace Shields.Match
         [SerializeField] CrosshairInteraction crosshair;
         [SerializeField] LocalShieldSelection shieldSelection;
         [SerializeField] DeckView deckView;
+
+        [Tooltip("Runs turn play once setup completes. Found or added on this object when empty.")]
+        [SerializeField] MatchTurnController turnController;
 
         [Header("Card Presentation")]
         [SerializeField] CardView cardViewPrefab;
@@ -77,6 +81,9 @@ namespace Shields.Match
         /// <summary>Authoritative setup state for the running match, or null.</summary>
         public MatchSetup Setup { get; private set; }
 
+        /// <summary>The authoritative turn engine once setup has completed, or null.</summary>
+        public ShieldsMatch Match { get { return turnController != null ? turnController.Match : null; } }
+
         /// <summary>True once every seat has two Health cards, one Shield and numeric Health.</summary>
         public bool InitialSetupComplete { get { return Setup != null && Setup.InitialSetupComplete; } }
 
@@ -97,6 +104,9 @@ namespace Shields.Match
         {
             if (crosshair == null && gameplayCamera != null)
                 crosshair = gameplayCamera.GetComponent<CrosshairInteraction>();
+
+            if (turnController == null) turnController = GetComponent<MatchTurnController>();
+            if (turnController == null) turnController = gameObject.AddComponent<MatchTurnController>();
 
             // No crosshair until a seat owns the camera.
             if (crosshair != null) crosshair.enabled = false;
@@ -130,6 +140,7 @@ namespace Shields.Match
 
             // Park the camera first. It rides under a player's head, so rebuilding the
             // layout while it is still attached would destroy it with the outgoing seat.
+            if (turnController != null) turnController.End();
             if (gameplayCamera != null) gameplayCamera.Detach();
             if (shieldSelection != null) shieldSelection.End();
 
@@ -145,6 +156,7 @@ namespace Shields.Match
         /// <summary>Tears the match down and parks the camera so a new count can be chosen.</summary>
         public void EndMatch()
         {
+            if (turnController != null) turnController.End();
             if (shieldSelection != null) shieldSelection.End();
             if (gameplayCamera != null) gameplayCamera.Detach();
             if (crosshair != null) crosshair.enabled = false;
@@ -251,6 +263,24 @@ namespace Shields.Match
             if (!InitialSetupComplete) return;
 
             Debug.Log("InitialSetupComplete\n" + Setup.DescribeSetup(), this);
+
+            StartTurnPlay();
+        }
+
+        /// <summary>
+        /// Hands the finished setup to the turn engine. Same deck, same cards: nothing is
+        /// redealt or recreated.
+        /// </summary>
+        void StartTurnPlay()
+        {
+            if (turnController == null || turnController.IsRunning) return;
+
+            ShieldsMatch match = new ShieldsMatch(Setup);
+            Debug.Log(string.Format("Turn play begins: player {0} starts, {1}.",
+                match.StartingPlayerIndex, match.Direction), this);
+
+            turnController.Begin(match, localPlayerIndex, tableLayout, crosshair, cardViewPrefab, deckView,
+                useFixedSeed ? fixedSeed : (int?)null);
         }
 
         // ------------------------------------------------------------------ roles

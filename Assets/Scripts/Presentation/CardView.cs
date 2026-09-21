@@ -25,6 +25,13 @@ namespace Shields.Presentation
         static readonly Color RedInk = new Color(0.72f, 0.10f, 0.12f);
         static readonly Color BlackInk = new Color(0.10f, 0.10f, 0.12f);
 
+        static readonly Color BackColor = new Color(0.16f, 0.26f, 0.52f);
+        static readonly Color MarkerColor = new Color(0.62f, 0.80f, 0.66f);
+        static readonly Color MarkerInk = new Color(0.08f, 0.25f, 0.12f);
+
+        static MaterialPropertyBlock _tintBlock;
+        Renderer _faceRenderer;
+
         /// <summary>The card this view was told to draw. Presentation data, not authority.</summary>
         public PlayingCard Card { get; private set; }
 
@@ -44,6 +51,36 @@ namespace Shields.Presentation
                 : "Card_Unbound";
 
             Redraw();
+        }
+
+        /// <summary>
+        /// Draws a plain card back with no card behind it. Used for a hidden Charge: the
+        /// view is never given the card, so it cannot reveal it.
+        /// </summary>
+        public void ShowFaceDown(int ownerPlayerIndex)
+        {
+            Card = PlayingCard.Nothing;
+            OwnerPlayerIndex = ownerPlayerIndex;
+            name = "Card_FaceDown";
+
+            SetLabels(string.Empty, string.Empty, BlackInk);
+            SetFaceTint(BackColor);
+            SetHighlighted(false);
+        }
+
+        /// <summary>
+        /// Draws a Virtual Health Marker: a number only, visibly not a playing card. It has
+        /// no suit, no rank and no card identity.
+        /// </summary>
+        public void ShowVirtualMarker(int value, int ownerPlayerIndex)
+        {
+            Card = PlayingCard.Nothing;
+            OwnerPlayerIndex = ownerPlayerIndex;
+            name = "VirtualHealth_" + value;
+
+            SetLabels(value + "\nHP", "V", MarkerInk);
+            SetFaceTint(MarkerColor);
+            SetHighlighted(false);
         }
 
         public void SetHighlighted(bool on)
@@ -70,19 +107,54 @@ namespace Shields.Presentation
 
             Color ink = Card.IsValid ? InkColor(Card.Suit) : BlackInk;
 
+            SetLabels(face, face, ink);
+            ClearFaceTint();
+            SetHighlighted(false);
+        }
+
+        void SetLabels(string center, string corner, Color ink)
+        {
             if (centerLabel != null)
             {
-                centerLabel.text = face;
+                centerLabel.text = center;
                 centerLabel.color = ink;
             }
 
             if (cornerLabel != null)
             {
-                cornerLabel.text = face;
+                cornerLabel.text = corner;
                 cornerLabel.color = ink;
             }
+        }
 
-            SetHighlighted(false);
+        Renderer FaceRenderer
+        {
+            get
+            {
+                if (_faceRenderer == null)
+                {
+                    Transform face = transform.Find("Face");
+                    if (face != null) _faceRenderer = face.GetComponent<Renderer>();
+                }
+
+                return _faceRenderer;
+            }
+        }
+
+        void SetFaceTint(Color color)
+        {
+            if (FaceRenderer == null) return;
+
+            if (_tintBlock == null) _tintBlock = new MaterialPropertyBlock();
+            _tintBlock.Clear();
+            _tintBlock.SetColor("_BaseColor", color);
+            _tintBlock.SetColor("_Color", color);
+            FaceRenderer.SetPropertyBlock(_tintBlock);
+        }
+
+        void ClearFaceTint()
+        {
+            if (FaceRenderer != null) FaceRenderer.SetPropertyBlock(null);
         }
 
         // ---------------------------------------------------------------- symbols

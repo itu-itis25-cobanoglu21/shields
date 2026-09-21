@@ -56,13 +56,16 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.2f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\System.Text.Json.SourceGeneration.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\Match\MatchPresenter.cs" />
     <Compile Include="Assets\Scripts\Match\GameplayCamera.cs" />
     <Compile Include="Assets\Scripts\Presentation\CrosshairInteraction.cs" />
     <Compile Include="Assets\Scripts\Match\MatchBootstrap.cs" />
+    <Compile Include="Assets\Scripts\Presentation\WorldLabel.cs" />
     <Compile Include="Assets\Scripts\Presentation\LocalShieldSelection.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
     <Compile Include="Assets\Scripts\Presentation\CardView.cs" />
     <Compile Include="Assets\Scripts\Presentation\DeckView.cs" />
+    <Compile Include="Assets\Scripts\Match\MatchTurnController.cs" />
     <Compile Include="Assets\Scripts\Player\BotController.cs" />
     <Compile Include="Assets\Scripts\Player\SeatedHeadLook.cs" />
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
@@ -1631,6 +1634,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="Shields.Bots.csproj" />
     <ProjectReference Include="Shields.Cards.csproj" />
     <ProjectReference Include="Shields.Game.csproj" />
   </ItemGroup>

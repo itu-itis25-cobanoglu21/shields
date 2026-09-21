@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Shields.Cards;
+using Shields.Game;
 using Shields.Presentation;
 
 namespace Shields.Table
@@ -30,6 +31,12 @@ namespace Shields.Table
         [Tooltip("Landscape Shield card, in front of the Health cards toward the table centre.")]
         [SerializeField] Transform horizontalCardSlot;
 
+        [Tooltip("Face-down stored Charge card, beside the Shield. Created at runtime when missing.")]
+        [SerializeField] Transform chargeSlot;
+
+        [Tooltip("Local position used when the Charge slot has to be created at runtime.")]
+        [SerializeField] Vector3 chargeSlotLocalPosition = new Vector3(0.1f, 0f, 0.085f);
+
         readonly List<Transform> _slots = new List<Transform>();
         readonly List<CardView> _cardViews = new List<CardView>();
 
@@ -38,6 +45,25 @@ namespace Shields.Table
         public Transform VerticalCardSlotLeft { get { return verticalCardSlotLeft; } }
         public Transform VerticalCardSlotRight { get { return verticalCardSlotRight; } }
         public Transform HorizontalCardSlot { get { return horizontalCardSlot; } }
+
+        /// <summary>Where a stored Charge shows face-down. Created on first use if the prefab has none.</summary>
+        public Transform ChargeSlot
+        {
+            get
+            {
+                if (chargeSlot == null)
+                {
+                    chargeSlot = new GameObject("ChargeSlot").transform;
+                    chargeSlot.SetParent(transform, false);
+                    chargeSlot.localPosition = chargeSlotLocalPosition;
+                }
+
+                return chargeSlot;
+            }
+        }
+
+        /// <summary>The view drawing this player's Shield card, or null.</summary>
+        public CardView ShieldView { get; private set; }
 
         /// <summary>The card views currently on this area.</summary>
         public IReadOnlyList<CardView> CardViews { get { return _cardViews; } }
@@ -94,6 +120,7 @@ namespace Shields.Table
         {
             CardView shieldView = FindView(shieldCard);
             if (shieldView != null) shieldView.PlaceAt(horizontalCardSlot, true);
+            ShieldView = shieldView;
 
             if (healthCards == null) return;
 
@@ -104,6 +131,44 @@ namespace Shields.Table
 
                 view.PlaceAt(i == 0 ? verticalCardSlotLeft : verticalCardSlotRight, false);
             }
+        }
+
+        /// <summary>
+        /// Redraws this area from the authoritative turn state: each Health slot as a
+        /// real card, a Virtual Health Marker or nothing; the Shield; and one face-down
+        /// card while a Charge is stored. Nothing here is read back into gameplay.
+        /// </summary>
+        public void ShowMatchState(MatchPlayerState state, CardView cardViewPrefab)
+        {
+            ClearCards();
+
+            if (state == null || cardViewPrefab == null) return;
+
+            ShowHealthSlot(state.LeftHealth, verticalCardSlotLeft, cardViewPrefab);
+            ShowHealthSlot(state.RightHealth, verticalCardSlotRight, cardViewPrefab);
+
+            if (state.ShieldCard.IsValid)
+            {
+                ShieldView = Spawn(cardViewPrefab, horizontalCardSlot, true);
+                ShieldView.Bind(state.ShieldCard, playerIndex);
+            }
+
+            // Only the fact that a Charge exists is public. The view never gets the card.
+            if (state.HasCharge) Spawn(cardViewPrefab, ChargeSlot, false).ShowFaceDown(playerIndex);
+        }
+
+        void ShowHealthSlot(HealthSlot slot, Transform where, CardView cardViewPrefab)
+        {
+            if (slot.IsCard) Spawn(cardViewPrefab, where, false).Bind(slot.Card, playerIndex);
+            else if (slot.IsVirtual) Spawn(cardViewPrefab, where, false).ShowVirtualMarker(slot.Value, playerIndex);
+        }
+
+        CardView Spawn(CardView cardViewPrefab, Transform slot, bool landscape)
+        {
+            CardView view = Instantiate(cardViewPrefab);
+            view.PlaceAt(slot, landscape);
+            _cardViews.Add(view);
+            return view;
         }
 
         /// <summary>The view currently drawing a given card, or null.</summary>
@@ -128,6 +193,7 @@ namespace Shields.Table
             }
 
             _cardViews.Clear();
+            ShieldView = null;
         }
 
         /// <summary>Editor convenience so the prefab can be wired from code.</summary>
