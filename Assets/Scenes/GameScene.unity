@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 23963199}
   - component: {fileID: 23963202}
   - component: {fileID: 23963201}
+  - component: {fileID: 23963203}
   m_Layer: 0
   m_Name: NetworkSession
   m_TagString: Untagged
@@ -157,9 +158,9 @@ MonoBehaviour:
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
-  m_InScenePlaced: 0
+  m_InScenePlaced: 1
   ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 1
+  SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
@@ -211,6 +212,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Shields.Network.NetworkSeatRegistry
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &23963203
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 23963198}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42e3378bb21ed9b4098d532c65651065, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Network.NetworkMatchController
+  ShowTopMostFoldoutHeaderGroup: 1
+  seatRegistry: {fileID: 23963202}
+  postActionDelay: 2.5
+  botThinkDelay: 2.5
 --- !u!1 &54045732
 GameObject:
   m_ObjectHideFlags: 0
@@ -965,6 +982,7 @@ GameObject:
   - component: {fileID: 716784351}
   - component: {fileID: 716784350}
   - component: {fileID: 716784349}
+  - component: {fileID: 716784354}
   m_Layer: 0
   m_Name: Networking
   m_TagString: Untagged
@@ -1002,7 +1020,9 @@ MonoBehaviour:
   sessionController: {fileID: 716784352}
   seatRegistry: {fileID: 23963202}
   headPoseBridge: {fileID: 23963201}
+  matchController: {fileID: 23963203}
   presenter: {fileID: 716784351}
+  matchDriver: {fileID: 716784354}
   tableLayout: {fileID: 1343093440}
   offlineBootstrap: {fileID: 521735740}
 --- !u!114 &716784351
@@ -1050,6 +1070,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &716784354
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 716784348}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8deae860a274472468ecec68d98b9fd8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Network.OnlineMatchDriver
+  matchController: {fileID: 23963203}
+  seatRegistry: {fileID: 23963202}
+  layoutPresenter: {fileID: 716784351}
+  tableLayout: {fileID: 1343093440}
+  cardViewPrefab: {fileID: 7638927518640464226, guid: f749e1fae5e728243aa2080f37ccdc88, type: 3}
+  deckView: {fileID: 550828067}
+  crosshair: {fileID: 878030575}
+  shieldSelection: {fileID: 521735741}
+  feedbackSeconds: 1.8
+  hudFeedbackSeconds: 3
+  showDiagnostics: 1
 --- !u!1 &764301143
 GameObject:
   m_ObjectHideFlags: 0

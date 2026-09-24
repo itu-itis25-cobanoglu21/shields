@@ -1,706 +1,1259 @@
-# TASK 008 — Multiplayer Connection Vertical Slice
+# TASK 009 — Full Host-Authoritative Online Shields Gameplay
 
-Read CLAUDE.md and SHIELDS_RULES.md completely before making changes.
+Read CLAUDE.md and SHIELDS_RULES.md completely before editing.
 
-The local/offline Shields game is complete enough for multiplayer integration.
+TASK 008 implemented the multiplayer connection foundation:
 
-The existing architecture already separates:
+- Unity Multiplayer Services Sessions
+- Relay
+- Netcode for GameObjects
+- explicit network participant -> seat mapping
+- per-client LocalPlayerIndex
+- deterministic shared table/player layout
+- synchronized head-look
+- prototype Host / Join flow
 
-Human/Bot decision
-    ->
-TurnActionRequest
-    ->
+TASK 008 has passed its automated tests but its final real two-participant runtime validation may still be performed manually by the project owner while this task is being implemented.
+
+Preserve the TASK 008 connection architecture.
+
+If a genuine TASK 008 runtime networking defect is discovered while implementing this task, fix it narrowly and report it.
+
+Do not broadly rewrite the session layer.
+
+The objective of TASK 009 is:
+
+A complete host-authoritative online Shields match playable by multiple human clients plus bots.
+
+---
+
+# 1. Core authority model
+
+The HOST is the only authority for Shields gameplay.
+
+Only the host may own and execute:
+
 ShieldsMatch
-    ->
-TurnActionResult
-    ->
-Unity Presentation
 
-Do NOT rewrite the Shields rules engine.
+Clients must NOT maintain their own authoritative ShieldsMatch simulation.
 
-This task is NOT yet about networking the full Shields match.
+Clients must NOT independently:
 
-The goal of TASK 008 is to prove the multiplayer connection and player-ownership foundation before authoritative gameplay synchronization is added.
+- shuffle
+- draw cards
+- determine Attack cards
+- calculate damage
+- replace Shields
+- calculate Charge attacks
+- redistribute Health
+- eliminate players
+- advance turns
+- determine the winner
 
-At the end of this task:
+Clients only submit player INTENT.
 
-- one machine/editor instance can HOST
-- another instance can JOIN using a join code
-- both are connected through Unity's current multiplayer stack
-- both receive an explicit player/seat assignment
-- both see the same seated player layout
-- each human controls only their own first-person camera/head
-- each client sees the other human player's head/look direction update
-- offline mode remains functional
+Conceptually:
 
-Do NOT network the Shields gameplay engine yet.
+CLIENT
+    |
+    | TurnActionRequest
+    v
+HOST
+    |
+    | ShieldsMatch.Submit(...)
+    v
+Authoritative Result
+    |
+    v
+ALL CLIENTS
 
----
-
-# 1. Official/current Unity multiplayer stack
-
-Use the CURRENT Unity 6 multiplayer stack.
-
-Preferred packages:
-
-- Multiplayer Services SDK:
-  com.unity.services.multiplayer
-
-- Netcode for GameObjects:
-  com.unity.netcode.gameobjects
-
-- Multiplayer Play Mode:
-  com.unity.multiplayer.playmode
-  only if compatible/useful for local multi-client testing
-
-Use Multiplayer Services Sessions and Relay.
-
-Do NOT install or use deprecated standalone packages such as old standalone:
-
-- Lobby SDK
-- Relay SDK
-- Matchmaker SDK
-
-unless the currently installed Unity package/version absolutely requires something different.
-
-Before installation, inspect the current project/package state.
-
-You are explicitly authorized to install the official Unity packages listed above if they are missing.
-
-Do not install unrelated packages.
-
-If the Unity project must be linked to a Unity Cloud Project, or if authentication/service configuration requires an action only the project owner can perform:
-
-STOP at that point and clearly tell me the exact action I must perform in the Unity Editor/dashboard.
-
-Do not invent project IDs, service IDs, environment IDs, credentials, or configuration values.
+Bots use the same host-side ShieldsMatch.
 
 ---
 
-# 2. Preserve offline mode
+# 2. Keep pure assemblies pure
 
-The current offline/local mode must continue working.
-
-Do not delete or replace it.
-
-Conceptually the prototype should now support:
-
-Offline
-Host Online
-Join Online
-
-Offline must continue to use the existing:
-
-one local human + bots
-
-flow.
-
-Networking code must not contaminate ShieldsMatch with Unity networking dependencies.
-
----
-
-# 3. Minimal connection UI
-
-Create only a PROTOTYPE networking UI.
-
-Do not build the final main menu or lobby art.
-
-Provide:
-
-OFFLINE
-
-HOST ONLINE
-
-JOIN ONLINE
-
-For Host Online:
-
-allow selecting:
-
-- Target Player Count: 3–8
-- Deck Count: 1 or 2
-
-Then:
-
-CREATE SESSION
-
-After session creation show:
-
-- Join Code
-- connected human count
-- assigned local seat
-- basic connection status
-
-Provide a prototype:
-
-START NETWORK TEST
-
-button for the host.
-
-For Join Online:
-
-provide:
-
-Join Code input
-
-and:
-
-JOIN
-
-After joining show:
-
-- waiting for host
-- assigned local seat
-- connection status
-
-No session browser.
-No matchmaking.
-No Steam invites.
-No final UI.
-
-Join Code is sufficient.
-
----
-
-# 4. Unity Services initialization
-
-Use the current supported Unity Gaming Services initialization flow.
-
-For development/testing, anonymous authentication is acceptable.
-
-Handle initialization failures cleanly.
-
-Do not hard-code credentials.
-
-Do not assume authentication succeeded.
-
-Show/log a useful error if services cannot initialize or authenticate.
-
----
-
-# 5. Sessions + Relay
-
-Use Multiplayer Services Sessions.
-
-Host creates a session using Relay networking.
-
-Use the current API for the installed package version.
-
-Prefer the current session abstraction rather than manually recreating legacy Lobby + Relay workflows.
-
-Do not copy old tutorials blindly.
-
-Inspect the installed package/API and current Unity documentation/samples available to the project.
-
-The host must receive/share a join code.
-
-The joining player must be able to join using that code.
-
----
-
-# 6. Netcode for GameObjects
-
-Use Netcode for GameObjects for the network transport/message layer.
-
-Configure the project's network connection using the supported integration between:
-
-Multiplayer Services Sessions
-+
-Relay
-+
-Netcode for GameObjects
-
-Keep networking objects/components minimal.
-
-Do not convert every existing scene object into a NetworkObject.
-
-The room, table and deterministic static environment do NOT need network synchronization.
-
----
-
-# 7. Explicit player ownership
-
-This is critical.
-
-Do NOT infer gameplay seat from:
-
-- client ID
-- GameObject name
-- connection order alone inside presentation code
-- Player 0 assumptions
-
-Create an explicit authoritative mapping:
-
-network participant/client
-    ->
-player/seat index
-
-The host owns this mapping.
-
-For the prototype it is acceptable for the host to assign available seats in connection order.
-
-Example:
-
-Host -> Player 0
-First joining client -> Player 1
-Second joining client -> Player 2
-
-But this relationship must be explicitly stored and communicated.
-
-Presentation should consume:
-
-LocalPlayerIndex
-
-rather than assuming local player = 0.
-
-This is important because future clients will each have a different local seat.
-
----
-
-# 8. Humans and bots are different concepts
-
-A match seat may eventually represent:
-
-- local human
-- remote human
-- bot
-
-Keep these concepts explicit.
-
-Do not mark every non-local player as a bot.
-
-During TASK 008 we are testing human network participants.
-
-When the host eventually starts a real match, unoccupied target seats will become bots.
-
-Do NOT implement that gameplay behavior yet.
-
----
-
-# 9. Network-test layout
-
-When the host presses START NETWORK TEST:
-
-all connected clients receive the same test configuration:
-
-- target player count
-- deck count
-- human seat assignments
-
-Create/rebuild the existing deterministic table/player layout accordingly.
-
-The same seat positions must appear on every client.
-
-The room/table are static local scene objects.
-
-Player layout may be created locally from the shared configuration rather than synchronizing transforms that can already be deterministically calculated.
-
-Do NOT start ShieldsMatch.
-
-Do NOT deal cards.
-
-Do NOT perform initial Shield selection.
-
-This task is testing connectivity/ownership only.
-
----
-
-# 10. Local first-person ownership
-
-Each client must attach its one gameplay camera to its OWN assigned PlayerCharacter CameraAnchor.
-
-Examples:
-
-Host:
-LocalPlayerIndex = 0
-camera sits at Player 0
-
-Client:
-LocalPlayerIndex = 1
-camera sits at Player 1
-
-Each client controls only its own:
-
-- HeadPivot
-- first-person camera
-- local head-look input
-
-Remote human characters must not respond to local mouse input.
-
-There must still be exactly one active gameplay camera per client.
-
----
-
-# 11. Head/look synchronization
-
-Synchronize human head/look direction.
-
-When a human player looks:
-
-left/right/up/down
-
-the other connected clients should see that player's HeadPivot rotate correspondingly.
-
-Do NOT synchronize full PlayerCharacter transforms every frame.
-
-Players are seated and their body/seat transforms are deterministic.
-
-Only synchronize the minimum changing pose information required for head look.
-
-Keep bandwidth reasonable.
-
-A small throttled/unreliable or otherwise appropriate current-NGO mechanism is acceptable.
-
-Use the current NGO API for the installed version.
-
-Do not use obsolete RPC syntax if the installed package has superseded it.
-
----
-
-# 12. Host authority
-
-The host is authoritative for:
-
-- session/match configuration
-- seat assignments
-- which network participants are connected
-- starting the network test
-
-Clients must not assign themselves arbitrary seats.
-
-Clients may send their local head/look input, but ownership must be validated.
-
-Do not implement authoritative Shields gameplay yet.
-
----
-
-# 13. Network architecture boundary
-
-Do NOT add networking references inside:
+Do NOT add Unity networking dependencies to:
 
 - Shields.Cards
 - Shields.Game
 - Shields.Bots
+- Shields.Session
 
-Those assemblies should remain pure.
+Do not make ShieldsMatch a NetworkBehaviour.
 
-Create a networking/integration layer outside them.
+Do not put RPC attributes in the pure gameplay engine.
+
+Create/adapt a Unity networking integration layer around the existing engine.
+
+---
+
+# 3. Session configuration
+
+The host controls pre-match configuration:
+
+- Target Player Count: 3–8
+- Deck Count: 1 or 2
+
+All connected session members must receive/display the same configuration.
+
+Use the existing Session/host architecture appropriately.
+
+Session properties may be used for low-frequency pre-match metadata if useful.
+
+Do NOT use cloud/session properties for real-time turn gameplay.
+
+Real-time gameplay synchronization belongs to NGO.
+
+---
+
+# 4. Human seat allocation
+
+Continue using the existing authoritative SeatRegistry / NetworkSeatRegistry from TASK 008.
+
+Each connected human has exactly one explicit seat.
+
+Do NOT derive seat from:
+
+- Player 0 assumptions
+- GameObject names
+- BotController
+- presentation hierarchy
+
+Every client resolves their own LocalPlayerIndex from the authoritative seat mapping.
+
+---
+
+# 5. Filling empty match seats with bots
+
+When the host starts the match:
+
+TargetPlayerCount determines the total number of gameplay players.
+
+Connected human seats remain human.
+
+Every unoccupied seat required to reach TargetPlayerCount becomes a bot.
+
+Example:
+
+TargetPlayerCount = 6
+
+Connected humans:
+Seat 0
+Seat 1
+Seat 2
+
+Result:
+
+Seat 0 = Human
+Seat 1 = Human
+Seat 2 = Human
+Seat 3 = Bot
+Seat 4 = Bot
+Seat 5 = Bot
+
+Bots exist only as HOST-side decision makers.
+
+Remote clients must not run RandomBotPolicy.
+
+BotController MonoBehaviour remains non-authoritative presentation scaffolding.
+
+Authoritative bot/human identity comes from match/network state.
+
+---
+
+# 6. Starting the online match
+
+Only the host may start the online match.
+
+Before starting validate:
+
+- target player count valid
+- deck count valid
+- all connected humans have valid unique seats
+- there are not more humans than target player count
+- network connection is active
+
+When START MATCH is accepted:
+
+- prevent new participants from joining if supported by current session API
+- finalize gameplay seat occupancy
+- mark empty required seats as bots
+- create ONE authoritative MatchSetup on the host
+- create ONE CardDeck on the host
+- deal only on the host
+
+Clients must NOT create their own CardDeck for online gameplay.
+
+---
+
+# 7. Networked initial deal
+
+The host performs the initial deal.
+
+Every gameplay seat receives three cards from the host's authoritative deck.
+
+All initial dealt cards are PUBLIC according to SHIELDS_RULES.md.
+
+Replicate enough public setup state so every client can render:
+
+- player index
+- each of the three dealt PlayingCards
+- card identity
+- rank
+- suit
+- value where needed for presentation
+- whether that seat is human or bot
+- whether initial selection is complete
+
+Do not replicate a second logical CardDeck to clients.
+
+Clients only need presentation/public state.
+
+---
+
+# 8. Initial Shield selection — human
+
+Every connected human chooses their own Shield using the existing:
+
+head-look
++
+crosshair
++
+left click
+
+interaction.
+
+The client's click must NOT directly mutate MatchSetup.
+
+Instead:
+
+CLIENT
+    ->
+InitialShieldChoiceRequest(card identity)
+    ->
+HOST
+
+The host validates:
+
+- sender corresponds to that seat
+- setup phase is active
+- card belongs to that player's original 3-card deal
+- selection was not already finalized
+
+Then host performs the authoritative selection.
+
+A client must never be able to choose a Shield for another human seat.
+
+Rejected requests must not mutate setup state.
+
+---
+
+# 9. Initial Shield selection — bots
+
+Bot initial Shield choice is performed only by the host.
+
+Use the existing confirmed random bot behavior:
+
+- choose one of the three dealt cards randomly as Shield
+- remaining two become Health
+
+Remote clients do not run this random selection.
+
+---
+
+# 10. Initial setup synchronization
+
+After every accepted setup choice:
+
+replicate updated public setup state.
+
+All clients should see:
+
+- correct two Health cards
+- correct Shield
+- numeric starting Health
+- selection-complete state
+
+When every seat has completed selection:
+
+the HOST transitions the existing authoritative MatchSetup into ONE ShieldsMatch.
+
+Clients do NOT create their own ShieldsMatch.
+
+---
+
+# 11. Public network gameplay state
+
+Create an explicit network-safe PUBLIC representation of the authoritative match.
+
+Do NOT serialize ShieldsMatch wholesale.
+
+Do NOT expose internal fields by reflection or serializer convenience.
+
+Create narrowly scoped DTO/snapshot structures containing only public information required for presentation.
+
+A public player state conceptually needs:
+
+- PlayerIndex
+- IsAlive
+- IsBot
+- CurrentHealth
+- Health slot presentation:
+  - physical PlayingCard if public
+  - Virtual Health value if virtual
+- current Shield card
+- HasCharge
+- NO unresolved Charge card identity
+
+Public match state conceptually needs:
+
+- CurrentPlayerIndex
+- TurnDirection
+- MatchOver
+- Winner
+- DrawPile remaining count if desired for existing deck UI
+- public player states
+- monotonically increasing state/revision number
+
+Exact names/serialization form are your choice.
+
+---
+
+# 12. CRITICAL — hidden Charge privacy
+
+An unresolved stored Charge is the only hidden gameplay card.
+
+It is unknown to EVERY gameplay participant, including the player who owns it.
+
+The host's authoritative ShieldsMatch internally knows its PlayingCard.
+
+NO client may receive that card's:
+
+- CardId
+- DeckIndex
+- Suit
+- Rank
+- Value
+
+before resolution.
+
+Not even the Charge-owning client.
+
+Network state may only contain:
+
+HasCharge = true
+
+for an unresolved Charge.
+
+Do NOT:
+
+- include ChargeCard in public snapshot structs
+- include it in NetworkVariables
+- include it in NetworkLists
+- send it in RPC payloads
+- send it in debug replication
+- bind it to a hidden client CardView
+- log its value in client-visible debug messages
+
+When the Charged Attack resolves:
+
+the two Charge cards become public through the resolved action result.
+
+Add tests specifically protecting this property.
+
+---
+
+# 13. Network action request format
+
+Create a small network-safe action request.
+
+Client sends only intent such as:
+
+- actor is derived from sender ownership, NOT trusted from payload
+- action type
+- target player index when required
+
+The client must NOT send:
+
+- drawn card
+- AttackPower
+- damage
+- Shield result
+- Charge value
+- Health result
+- next player
+- winner
+
+The HOST derives actor PlayerIndex from the authenticated NGO sender/client -> seat mapping.
+
+Never trust a client-provided actor index.
+
+---
+
+# 14. Human Attack online
+
+Client local human:
+
+press 1
+->
+Attack targeting mode
+->
+crosshair target
+->
+left click
+
+Then send request to host:
+
+Action = Attack
+Target = X
+
+Host validates through both:
+
+network ownership/seat mapping
+and
+ShieldsMatch.Submit(...)
+
+Only after host accepts does the authoritative engine draw the card.
+
+Host then sends:
+
+- public TurnActionResult
+- updated public state
+
+to all clients.
+
+---
+
+# 15. Replace Shield online
+
+Same pattern:
+
+Client chooses action and target.
+
+Valid presentation targets remain:
+
+- own Shield for self
+- living players / Shields for others
+
+Request sent to host.
+
+Host derives actor from sender.
+
+Host calls ShieldsMatch.
+
+Host publishes result/state.
+
+The client never pre-draws or predicts the replacement card.
+
+---
+
+# 16. Charge online — first Charge
+
+Client presses 3 with no stored Charge.
+
+Send only:
+
+Action = Charge
+
+No target.
+
+Host executes ShieldsMatch.
+
+The result sent to clients may reveal only:
+
+Player X CHARGED
+HasCharge = true
+
+The result must NOT contain the hidden card identity.
+
+All clients render one generic face-down Charge card.
+
+---
+
+# 17. Charge online — completion
+
+If public state says local human HasCharge:
+
+pressing 3 enters Charged Attack targeting.
+
+Client selects another living player.
+
+Client sends:
+
+Action = Charge
+Target = X
+
+Host resolves second Charge.
+
+Now BOTH Charge cards become public because the attack resolved.
+
+The public action result may contain the revealed cards and calculated result.
+
+After resolution:
+
+HasCharge becomes false.
+
+---
+
+# 18. Host-side bots
+
+Random bots act ONLY on the host.
+
+When authoritative CurrentPlayerIndex is a bot:
+
+use the existing RandomBotPolicy.
+
+Submit the chosen TurnActionRequest directly to the host-owned ShieldsMatch.
+
+Preserve existing bot pacing in presentation.
+
+Do NOT network bot decision logic.
+
+Do NOT have every client make the same random bot choice.
+
+The host result/state is replicated just like a human action result.
+
+---
+
+# 19. Client action permissions
+
+A client may submit a gameplay action only when:
+
+- online match has started
+- match is not over
+- its mapped seat is alive
+- authoritative public state says it is that player's turn
+
+This client-side condition is UX only.
+
+The HOST must still independently validate every request.
+
+Malicious or stale requests must be rejected.
+
+---
+
+# 20. Sender validation
+
+For every gameplay RPC from a client:
+
+derive sender ClientId using current NGO RpcParams / current installed API.
+
+Map:
+
+SenderClientId
+->
+authoritative SeatRegistry
+->
+PlayerIndex
+
+Do not accept an actor index from the caller as truth.
+
+Reject if:
+
+- sender has no seat
+- sender's seat is bot
+- sender does not correspond to current player
+- match not active
+- match over
+- target invalid
+
+Do not disconnect the client merely for an ordinary stale request.
+
+---
+
+# 21. State revision / ordering
+
+Network messages may arrive over time.
+
+Add a simple monotonically increasing authoritative revision/version to public gameplay state.
+
+Clients must not apply an older state snapshot over a newer one.
+
+Do not build a complex rollback/prediction system.
+
+This game is turn-based and does not need prediction.
+
+Host-confirmed state is sufficient.
+
+---
+
+# 22. Presentation synchronization
+
+Reuse the existing presentation architecture where possible.
+
+Offline currently follows:
+
+ShieldsMatch
+->
+TurnActionResult
+->
+MatchPresenter
+
+Online clients should consume public replicated state/result and drive the SAME visual concepts.
+
+Do not duplicate the entire presentation stack.
+
+Create an adapter/integration path so:
+
+OFFLINE:
+local ShieldsMatch state -> presentation
+
+ONLINE:
+network public state -> presentation
+
+Avoid making CardView network-aware.
+
+CardView remains presentation only.
+
+---
+
+# 23. Online Health presentation
+
+Replicate enough public state for every client to show:
+
+- physical Health cards
+- one/two slots
+- Virtual Health markers
+- numeric Health
+
+FIFO replacement remains HOST authority.
+
+Clients do not perform:
+
+- discard lookup
+- DrawPile lookup
+- virtual waiting queues
+
+They simply render the resulting public state.
+
+---
+
+# 24. Online Shield presentation
+
+Shield is always public.
+
+Every client displays the host-authoritative current Shield PlayingCard for each living player.
+
+Clients do not independently mutate Shield CardViews from their own action assumptions.
+
+Wait for host-confirmed state/result.
+
+---
+
+# 25. Online deck presentation
+
+Clients may receive:
+
+RemainingDrawCount
+
+for the prototype deck counter.
+
+Do not replicate actual DrawPile contents/order.
+
+Do not serialize the remaining deck.
+
+Only the host knows the authoritative DrawPile.
+
+---
+
+# 26. Public action results
+
+Define a network-safe public action result based on existing TurnActionResult.
+
+It should support the existing presentation feedback:
+
+Attack:
+- actor
+- target
+- revealed attack card
+- Shield value
+- damage
+- resulting Health
+- blocked/success state
+- Charge interrupted
+- death if any
+
+ReplaceShield:
+- actor
+- target
+- old public Shield
+- new public Shield
+
+First Charge:
+- actor
+- NO hidden card information
+
+Charged Attack:
+- actor
+- target
+- both now-revealed Charge cards
+- combined AttackPower
+- Shield
+- damage
+- resulting Health
+- interrupted Charge
+- death
+
+Match end:
+- winner
+
+Do not expose information beyond what SHIELDS_RULES.md permits.
+
+---
+
+# 27. Action feedback / pacing
+
+Preserve the current readable gameplay pacing:
+
+- existing botThinkDelay
+- existing postActionDelay
+- large screen-space action panel
+- world-space labels
+
+Online actions must produce the same presentation feedback as offline actions.
+
+Clients should understand:
+
+who acted
+what action happened
+target
+drawn/revealed public cards
+damage/result
+
+Do not reveal unresolved Charge.
+
+---
+
+# 28. Turn input
+
+Preserve current local controls:
+
+1 = Attack
+2 = Replace Shield
+3 = Charge
+
+Mouse remains first-person head look.
+
+Crosshair remains centered.
+
+Left click confirms world targets.
+
+No free cursor during world gameplay.
+
+Input must use each client's actual LocalPlayerIndex.
+
+Never assume seat 0.
+
+---
+
+# 29. Camera and head synchronization
+
+Preserve TASK 008:
+
+- one active gameplay camera per machine
+- camera mounted at that machine's assigned seat
+- local head look
+- remote synchronized head pose
+
+Do not let gameplay snapshot synchronization overwrite HeadPivot networking.
+
+These are separate concerns.
+
+---
+
+# 30. Session start locking
+
+When the host commits START MATCH:
+
+if supported by current Multiplayer Services Sessions API:
+
+prevent new players from joining that active match.
+
+Use current supported session lifecycle/locking API.
+
+Do not invent legacy Lobby calls.
+
+If session locking semantics differ in the installed MPS 2.3.3 API, use the current API and report how it works.
+
+---
+
+# 31. Online match phases
+
+Represent online flow clearly.
 
 Conceptually:
 
-Presentation/Input
-      ↓
-Network Layer
-      ↓
-Authoritative host
+SessionLobby
+->
+InitialDeal
+->
+WaitingForShieldSelections
+->
+Playing
+->
+MatchOver
 
-and later:
+Clients must know which phase is active.
 
-Authoritative host
-      ↓
-ShieldsMatch
+Do not use UI object existence as phase state.
 
-But TASK 008 stops before that final connection.
-
----
-
-# 14. Do not serialize ShieldsMatch wholesale
-
-Do NOT simply serialize or replicate the entire ShieldsMatch object.
-
-This will be important later because unresolved Charge cards contain hidden information.
-
-The future design will replicate explicit public state DTOs/snapshots.
-
-TASK 008 should not implement those gameplay snapshots yet.
-
-Do not expose internal Charge state while preparing networking.
+Host owns phase transitions.
 
 ---
 
-# 15. Disconnect behavior for this task
+# 32. Prototype lobby state
 
-Keep disconnect behavior minimal.
+Extend the existing network prototype UI only as needed.
 
-Before real gameplay exists:
+Before host starts:
 
-If a client leaves:
-- remove them from the connected-human/seat mapping
-- update host prototype UI
+show:
 
-If the host ends/leaves the session:
-- joining clients should receive a clear disconnected/session-ended state
-- return safely to networking setup UI if practical
+- Join Code
+- connected humans
+- seat assignments
+- Target Player Count
+- Deck Count
+- START MATCH host-only button
 
-Do NOT implement:
+Client shows:
 
-- host migration
-- reconnect
-- bot takeover
-- mid-match rejoin
+- join code/session status
+- assigned seat
+- Waiting for host
 
-Those are outside TASK 008.
-
----
-
-# 16. No late networking feature creep
-
-Do NOT implement:
-
-- full lobby browser
-- Steam networking
-- Steam invites
-- matchmaking
-- Vivox
-- player accounts/profiles
-- cosmetics
-- chat
-- full Shields gameplay replication
-- networked cards
-- networked bots
-- NetworkVariables for every game property
-- host migration
-- reconnect
-
-This task is only the multiplayer connection foundation.
+Do NOT build final lobby art.
 
 ---
 
-# 17. Multiplayer Play Mode testing
+# 33. Human readiness for start
 
-If the compatible Unity Multiplayer Play Mode package is available, prefer using it to run at least two local editor players.
+For this prototype, explicit Ready buttons are NOT required.
 
-If that path is unavailable or unreliable:
+Host may start when desired provided:
 
-use one Editor instance plus one development build.
+- at least one host/human exists
+- connected humans do not exceed TargetPlayerCount
+- all current participants have valid seats
 
-Do not fake the network test in one process.
+Unfilled seats become bots.
 
-The validation must use two independently networked participants.
-
----
-
-# 18. Required validation — connection
-
-Validate an actual two-participant session.
-
-HOST:
-
-1. Initialize services.
-2. Authenticate.
-3. Create Relay-backed session.
-4. Obtain join code.
-
-CLIENT:
-
-5. Initialize services independently.
-6. Authenticate independently.
-7. Join using the host's join code.
-
-Confirm:
-
-- both report connected
-- host sees 2 human participants
-- client receives an explicit seat assignment
-- host and client agree on seat mapping
+Do not invent a ready-state system.
 
 ---
 
-# 19. Required validation — cameras
+# 34. Mid-match joining
 
-Start the network test.
+Do NOT support joining an already active match in TASK 009.
 
-Confirm on host:
+Once match starts, reject/lock late joins.
 
-- exactly one active gameplay camera
-- camera attached to host's assigned player
+No spectator mode.
 
-Confirm on client:
-
-- exactly one active gameplay camera
-- camera attached to client's DIFFERENT assigned player
-
-The two clients must therefore see the table from different seats.
+No replacing bots with late joiners.
 
 ---
 
-# 20. Required validation — head synchronization
+# 35. Disconnects during active match
 
-Move host mouse/head:
+Do not implement reconnect or host migration.
 
-client must see host character's head rotate.
+HOST disconnect:
 
-Move client mouse/head:
+- session/match ends for clients
+- clients return safely to network setup
+- show understandable message
 
-host must see client character's head rotate.
+Non-host client disconnect during an active game:
 
-Confirm:
+For TASK 009, do NOT invent a new gameplay rule such as automatic bot takeover.
 
-- remote body does not rotate incorrectly
-- remote camera is never activated locally
-- head rotations do not fight local input
-- no obvious feedback loop/jitter caused by both sides writing the same pose
+Instead:
 
----
+- stop/pause/end the online match safely
+- surface a clear "Player disconnected" state
+- allow returning to networking setup
 
-# 21. Required validation — 3/6/8 layout compatibility
+Do not leave ShieldsMatch softlocked waiting for a vanished human.
 
-It is not necessary to connect 8 human machines.
-
-But validate the network-test configuration/layout at:
-
-- target 3
-- target 6
-- target 8
-
-with at least two real network humans connected.
-
-Human seat assignments must remain valid.
-
-Remaining seat positions may simply contain passive placeholder players for this task.
-
-Do not run bot gameplay.
+Bot takeover can be a later explicit product decision.
 
 ---
 
-# 22. Offline regression
+# 36. Offline mode regression
 
-After adding networking, run the existing OFFLINE path.
+OFFLINE mode must continue working exactly as before:
 
-Confirm:
+one local human
++
+bots
++
+local ShieldsMatch
 
-- initial deal works
-- Shield selection works
-- bots work
-- one complete local match can still finish
+Do not route offline gameplay through Relay/NGO unnecessarily.
 
-The full existing EditMode suite must still pass.
-
-Do not change existing gameplay tests merely to accommodate networking.
-
----
-
-# 23. Testing
-
-Run the complete current EditMode suite.
-
-Expected baseline before networking changes:
-
-166 passing tests.
-
-Add focused pure/unit tests for newly extractable networking-independent logic such as:
-
-- seat-assignment mapping
-- duplicate assignment prevention
-- release/reuse after pre-match disconnect
-
-Do not attempt to unit-test Unity Relay itself.
-
-Runtime connection testing is required for the actual service/network flow.
+The existing 1/2/3 controls and complete local match must remain playable.
 
 ---
 
-# 24. Error handling
+# 37. Network serialization
 
-The prototype UI/logging must make failures understandable.
+Use explicit compact serializable DTOs.
+
+Do not serialize:
+
+- arbitrary C# object graphs
+- ShieldsMatch
+- CardDeck
+- MatchSetup internals
+
+PlayingCard public DTO should contain only what is required to faithfully identify/render a PUBLIC physical card.
+
+Be careful with:
+
+- readonly structs
+- nullable values
+- enums
+- lists
+
+Use current NGO-supported serialization mechanisms for package 2.13.3.
+
+Inspect the installed package/API rather than assuming an old tutorial.
+
+---
+
+# 38. Reliable vs unreliable messages
+
+Gameplay actions/results/state are turn-based and correctness matters.
+
+Use reliable delivery where appropriate for:
+
+- action requests
+- authoritative action results
+- important state snapshots
+- setup selections
+
+Continue using the existing efficient/unreliable mechanism for frequent head-look pose updates.
+
+Do not optimize prematurely beyond this.
+
+---
+
+# 39. Host-client duplicate execution
+
+Host mode is both server and client.
+
+Be especially careful that the host does NOT:
+
+- apply an action twice
+- show duplicate action feedback
+- apply a snapshot twice incorrectly
+- schedule a host bot twice
+
+A host human action should result in exactly ONE ShieldsMatch.Submit.
+
+Add regression coverage for host-mode paths where possible.
+
+---
+
+# 40. Match restart / cleanup
+
+At the end of an online match:
+
+stop gameplay input and bots.
+
+Do not automatically begin a second match.
+
+Ensure authoritative gameplay objects/state can be cleaned up.
+
+For TASK 009, returning to the session/lobby prototype after match end may be simple.
+
+Do not implement full rematch voting yet.
+
+---
+
+# 41. Automated pure tests — network DTO privacy
+
+Add tests ensuring public network state cannot contain hidden Charge card identity.
+
+At minimum:
+
+- public player snapshot with unresolved Charge exposes HasCharge
+- no Charge PlayingCard field is populated/exposed
+- first-Charge public action result contains no card face/id/value
+- Charged Attack resolved result DOES expose its two now-public cards
+
+This privacy test is critical.
+
+---
+
+# 42. Automated tests — request authority
+
+Add tests around extractable request-routing logic.
+
+At minimum:
+
+- sender seat is derived from mapping
+- client cannot act as another seat
+- client cannot submit for a bot seat
+- out-of-turn sender rejected
+- invalid target does not mutate state
+- valid human action reaches ShieldsMatch exactly once
+- host-local human also resolves exactly once
+
+Prefer pure adapters/routers for testability rather than requiring Relay for all tests.
+
+---
+
+# 43. Automated tests — setup authority
+
+Test:
+
+- host deals once
+- clients do not create decks
+- human Shield choice can affect only sender's seat
+- foreign card identity rejected
+- repeat initial selection rejected
+- bots select only on host
+- match starts only after all setup selections complete
+
+---
+
+# 44. Card accounting
+
+Preserve the existing physical-card identity guarantees.
+
+In representative online-host simulations:
+
+total physical cards remain:
+
+52 for one deck
+104 for two decks
+
+No card identity may exist in two authoritative locations.
+
+Network snapshots may contain copies of card DATA for presentation; those are not authoritative PlayingCard ownership.
+
+---
+
+# 45. Existing test suite
+
+The current baseline after TASK 008 is:
+
+198 EditMode tests passing.
+
+All must continue to pass.
+
+Do NOT weaken old tests.
+
+Add new tests for TASK 009.
+
+---
+
+# 46. Runtime test strategy
+
+TASK 008 real runtime validation may be performed manually by the project owner while this task is being implemented.
+
+Do not falsely report TASK 008 runtime validation as complete if it has not actually been run.
+
+Before calling TASK 009 complete, perform a genuine two-participant network gameplay test using:
+
+- Multiplayer Play Mode
+OR
+- Editor + development build
+
+Do NOT simulate both players inside one authoritative process and call that network validation.
+
+---
+
+# 47. Required online runtime scenario
+
+With two actual independently networked participants:
+
+HOST
++
+CLIENT
+
+configure:
+
+TargetPlayerCount = 4
+DeckCount = 1
+
+Expected final occupancy:
+
+2 human
+2 bot
+
+Validate:
+
+1. Both connect.
+2. Both receive different LocalPlayerIndex values.
+3. Host starts match.
+4. Both clients see identical 3-card deals for every seat.
+5. Host and client each choose their own Shield.
+6. Client cannot select host's Shield for setup.
+7. Bots complete setup on host.
+8. Both enter Playing phase.
+9. Host human can take a turn.
+10. Client human can take a turn.
+11. Bots act only on host.
+12. Attack result is identical on both screens.
+13. ReplaceShield result is identical.
+14. First Charge shows one face-down card on both.
+15. No client can inspect its value through public replicated state.
+16. Charged Attack reveals both cards on both.
+17. Health/Shield/Virtual-marker state stays equal.
+18. Current turn stays equal.
+19. elimination stays equal.
+20. winner stays equal.
+21. no double-submit on host.
+22. no rejected legitimate human actions.
+23. head sync continues working.
+24. exactly one camera per participant.
+25. no project-code Console errors.
+
+---
+
+# 48. Additional runtime scenario
+
+Also validate at least:
+
+3 total players / 1 deck
+with:
+2 humans + 1 bot
+
+and:
+
+8 total players / 2 decks
+with:
+2 humans + 6 bots
+
+You do not need to manually finish both long matches if the core replicated actions/state are already proven.
+
+But validate:
+
+- correct layout
+- bot/human occupancy
+- initial deal
+- Shield selection
+- several turns
+- Charge privacy
+- state agreement
+
+---
+
+# 49. Network consistency diagnostics
+
+During development, add development-only diagnostics if useful:
+
+- authoritative state revision
+- local applied revision
+- current turn
+- phase
+- local seat
+
+Do not log hidden Charge identities on clients.
+
+Avoid noisy permanent logs.
+
+Development diagnostics must be easy to remove/disable later.
+
+---
+
+# 50. Failure behavior
+
+If a client action request fails host validation:
+
+do not corrupt state.
+
+Return/show a useful rejection reason for debugging where safe.
 
 Examples:
 
-- Unity Services initialization failed
-- authentication failed
-- session creation failed
-- invalid join code
-- session full
-- disconnected
-- host ended session
+- Not your turn
+- Invalid target
+- Match not active
 
-Do not silently fail.
-
-Do not expose secrets/tokens in normal UI/logs.
+Do not expose secret state through rejection text.
 
 ---
 
-# 25. Scene/project safety
+# 51. Do not implement yet
 
-Inspect the existing scene before modifying it.
+Do NOT add:
 
-Do not redesign:
-
-- room
-- table
-- card presentation
-- player visuals
-- HUD gameplay presentation
-
-Only add what is needed for connection/session/network test.
-
-Prefer dedicated objects/components such as conceptually:
-
-NetworkBootstrap
-SessionController
-NetworkSeatRegistry
-NetworkHeadPoseBridge
-
-Exact names are your choice.
-
-Keep responsibilities small.
+- voice chat
+- final character models
+- final room art
+- Steam networking
+- Steam invites
+- matchmaking browser
+- host migration
+- reconnect
+- spectators
+- mid-match joining
+- advanced bot AI
+- final lobby UI
+- rematch voting
+- anti-cheat beyond server authority/validation
+- prediction/rollback
 
 ---
 
-# 26. Final report
+# 52. Preserve TASK 008 boundaries
 
-When complete, report:
+Do not rewrite:
 
-1. Packages installed/versions
-2. Whether the Unity project required cloud/service linking
-3. Files created
-4. Files modified
-5. Session/Relay flow
-6. Seat-assignment design
-7. How LocalPlayerIndex is communicated
-8. How head-look synchronization works
-9. How host authority is enforced
-10. Disconnect behavior
-11. Automated test results
-12. Actual two-participant runtime test results
-13. Offline-regression result
-14. Any Unity-service setup I still need to perform manually
-15. Any networking issue/blocker discovered
+- ShieldsSessionController
+- SeatRegistry
+- head sync
+- Relay/session creation
 
-If external service configuration requires my action:
+unless a genuine defect requires it.
 
-STOP and ask me to perform it.
+If TASK 008 manual testing reveals a connection-level bug while this task is running:
 
-Do not guess credentials or project/service configuration.
+fix the lowest layer first.
 
-If a networking API differs from assumptions in this task because the installed/current Unity package uses a newer API:
+Do not work around a broken connection by duplicating networking code.
 
-use the CURRENT supported API and explicitly report the difference.
+---
 
-Stop after TASK 008.
+# 53. Final report
 
-Do not proceed into networked Shields gameplay.
+When complete report:
 
+1. Files created
+2. Files modified
+3. Online match phase architecture
+4. How host creates MatchSetup/ShieldsMatch
+5. How connected humans become seats
+6. How empty seats become bots
+7. Initial deal replication
+8. Human Shield-selection request validation
+9. How client TurnActionRequest reaches host
+10. How sender identity is validated
+11. Public match snapshot design
+12. Public action-result design
+13. Hidden Charge privacy implementation
+14. Host-side bot execution
+15. Presentation reuse between offline/online
+16. Disconnect behavior
+17. Automated test count/results
+18. Real two-participant runtime results
+19. Offline regression result
+20. Any TASK 008 runtime defects discovered/fixed
+21. Any unresolved blocker
 
-NOTE: ## Important — BotController is NOT authoritative identity
+Do not proceed into art, voice, Steam, or final lobby polish.
 
-The existing `BotController` MonoBehaviour is only a Unity-side seat/presentation marker.
+If a gameplay rule ambiguity appears:
 
-It is NOT authoritative proof that a player is a bot.
+STOP and ask.
 
-Do NOT determine human/bot/network ownership using:
+If a networking API assumption differs from the installed packages:
 
-- presence of BotController
-- absence of local input
-- prefab components
-- GameObject names
+use the CURRENT supported API and report the difference.
 
-The authoritative source for bot/human identity remains gameplay/session state, such as:
-
-- MatchPlayerState.IsBot
-- explicit network participant -> seat mapping
-- explicit local/remote ownership information
-
-A PlayerCharacter prefab/component layout must not determine gameplay ownership.
-
-Do not remove BotController merely because of this warning unless it becomes genuinely unnecessary during the task.
+Stop when TASK 009 is complete.

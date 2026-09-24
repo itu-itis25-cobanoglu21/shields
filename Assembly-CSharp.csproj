@@ -64,9 +64,11 @@
     <Compile Include="Assets\Scripts\Match\MatchPresenter.cs" />
     <Compile Include="Assets\Scripts\Match\GameplayCamera.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkPrototypeUI.cs" />
+    <Compile Include="Assets\Scripts\Match\MatchHud.cs" />
     <Compile Include="Assets\Scripts\Match\MatchBootstrap.cs" />
     <Compile Include="Assets\Scripts\Presentation\WorldLabel.cs" />
     <Compile Include="Assets\Scripts\Presentation\LocalShieldSelection.cs" />
+    <Compile Include="Assets\Scripts\Network\OnlineMatchDriver.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
     <Compile Include="Assets\Scripts\Presentation\CardView.cs" />
     <Compile Include="Assets\Scripts\Presentation\DeckView.cs" />
@@ -78,6 +80,7 @@
     <Compile Include="Assets\Scripts\Network\NetworkHeadPoseBridge.cs" />
     <Compile Include="Assets\Scripts\Table\TableLayoutController.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerCharacter.cs" />
+    <Compile Include="Assets\Scripts\Network\NetworkMatchController.cs" />
     <Compile Include="Assets\Scripts\Network\ShieldsNetworkBootstrap.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -1711,6 +1714,7 @@
     <ProjectReference Include="Shields.Bots.csproj" />
     <ProjectReference Include="Shields.Game.csproj" />
     <ProjectReference Include="Shields.Cards.csproj" />
+    <ProjectReference Include="Shields.Online.csproj" />
     <ProjectReference Include="Shields.Session.csproj" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />

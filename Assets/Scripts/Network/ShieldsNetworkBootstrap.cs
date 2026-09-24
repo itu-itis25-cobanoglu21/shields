@@ -26,8 +26,12 @@ namespace Shields.Network
 
         [SerializeField] NetworkHeadPoseBridge headPoseBridge;
 
+        [Tooltip("Authoritative online gameplay. Host owns the match; clients send intent.")]
+        [SerializeField] NetworkMatchController matchController;
+
         [Header("Presentation")]
         [SerializeField] NetworkTestPresenter presenter;
+        [SerializeField] OnlineMatchDriver matchDriver;
         [SerializeField] TableLayoutController tableLayout;
 
         [Tooltip("The existing offline prototype. Stood down whenever an online session starts.")]
@@ -38,6 +42,8 @@ namespace Shields.Network
         public NetworkSeatRegistry SeatRegistry { get { return seatRegistry; } }
 
         public NetworkTestPresenter Presenter { get { return presenter; } }
+
+        public NetworkMatchController MatchController { get { return matchController; } }
 
         /// <summary>True once the seat registry has spawned and replicated.</summary>
         public bool SeatRegistryReady
@@ -55,8 +61,33 @@ namespace Shields.Network
         {
             if (headPoseBridge != null) headPoseBridge.Bind(seatRegistry, tableLayout);
             if (presenter != null) presenter.Bind(seatRegistry, headPoseBridge);
+            if (matchController != null) matchController.Bind(seatRegistry);
 
             if (sessionController != null) sessionController.SessionEnded += OnSessionEnded;
+        }
+
+        /// <summary>
+        /// Host only. Locks the session against late joins, then creates the one
+        /// authoritative match. The lock is attempted first so a match never starts while
+        /// somebody is still mid join.
+        /// </summary>
+        public async Task<bool> StartOnlineMatchAsync(int targetPlayerCount, int deckCount)
+        {
+            if (matchController == null || !matchController.IsSpawned) return false;
+            if (!matchController.CanStartMatch(targetPlayerCount, deckCount)) return false;
+
+            if (sessionController != null) await sessionController.SetJoinableAsync(false);
+
+            return matchController.StartMatch(targetPlayerCount, deckCount);
+        }
+
+        /// <summary>Host only. Ends the match and reopens the session to joins.</summary>
+        public async Task EndOnlineMatchAsync()
+        {
+            if (matchController != null) matchController.EndMatch();
+            if (matchDriver != null) matchDriver.TearDown();
+
+            if (sessionController != null) await sessionController.SetJoinableAsync(true);
         }
 
         void OnDestroy()
@@ -137,7 +168,8 @@ namespace Shields.Network
 
         void OnSessionEnded()
         {
-            // The host went away. Drop the table and go back to the networking menu.
+            // The host went away. Drop the match and the table, then go back to the menu.
+            if (matchDriver != null) matchDriver.TearDown();
             if (presenter != null) presenter.TearDown();
         }
 

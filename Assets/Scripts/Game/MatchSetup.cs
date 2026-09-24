@@ -19,14 +19,39 @@ namespace Shields.Game
 
         readonly PlayerSetupState[] _players;
         readonly Random _botRandom;
+        readonly bool[] _seatIsBot;
 
         /// <summary>
         /// Creates the deck, shuffles it and deals. Players are created with the local
         /// seat taken from the config and every other seat marked as a bot.
         /// </summary>
         public MatchSetup(MatchConfig config)
+            : this(config, null)
+        {
+        }
+
+        /// <summary>
+        /// Creates the deck, shuffles it and deals, with occupancy stated explicitly:
+        /// <paramref name="seatIsBot"/> says, per seat, whether a bot plays it.
+        ///
+        /// An online match has several human seats, so the single local seat in
+        /// <see cref="MatchConfig"/> cannot describe who is a bot. Passing null keeps the
+        /// offline behaviour, where the local seat is the only human.
+        /// </summary>
+        public MatchSetup(MatchConfig config, IReadOnlyList<bool> seatIsBot)
         {
             Config = config ?? throw new ArgumentNullException(nameof(config));
+
+            if (seatIsBot != null && seatIsBot.Count != config.PlayerCount)
+            {
+                throw new ArgumentException(
+                    string.Format("Occupancy must cover all {0} seats, got {1}.", config.PlayerCount, seatIsBot.Count),
+                    nameof(seatIsBot));
+            }
+
+            _seatIsBot = new bool[config.PlayerCount];
+            for (int seat = 0; seat < _seatIsBot.Length; seat++)
+                _seatIsBot[seat] = seatIsBot != null ? seatIsBot[seat] : seat != config.LocalPlayerIndex;
 
             Deck = new CardDeck(config.DeckCount, config.Seed);
             Deck.Shuffle();
@@ -132,7 +157,7 @@ namespace Shields.Game
             }
 
             for (int seat = 0; seat < Config.PlayerCount; seat++)
-                _players[seat] = new PlayerSetupState(seat, seat != Config.LocalPlayerIndex, hands[seat]);
+                _players[seat] = new PlayerSetupState(seat, _seatIsBot[seat], hands[seat]);
         }
     }
 }

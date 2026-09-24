@@ -53,6 +53,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Tests\EditMode\RandomBotPolicyTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\OnlineAuthorityTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\OnlinePrivacyTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\OnlineSetupTests.cs" />
     <Compile Include="Assets\Tests\EditMode\BotTurnGateTests.cs" />
     <Compile Include="Assets\Tests\EditMode\MatchSetupTests.cs" />
     <Compile Include="Assets\Tests\EditMode\SeatRegistryTests.cs" />
@@ -1255,12 +1258,16 @@
       <HintPath>Library\ScriptAssemblies\UnityEditor.TestRunner.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.UI">
-      <HintPath>Library\ScriptAssemblies\UnityEngine.UI.dll</HintPath>
+    <Reference Include="Unity.Netcode.Runtime">
+      <HintPath>Library\ScriptAssemblies\Unity.Netcode.Runtime.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEditor.UI">
       <HintPath>Library\ScriptAssemblies\UnityEditor.UI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>Library\ScriptAssemblies\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
@@ -1269,6 +1276,7 @@
     <ProjectReference Include="Shields.Game.csproj" />
     <ProjectReference Include="Shields.Bots.csproj" />
     <ProjectReference Include="Shields.Session.csproj" />
+    <ProjectReference Include="Shields.Online.csproj" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <ItemGroup>

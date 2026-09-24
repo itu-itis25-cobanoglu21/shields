@@ -85,6 +85,12 @@ namespace Shields.Network
         /// <summary>Host side authority. Null on clients, which only mirror the snapshot.</summary>
         SeatRegistry _authoritative;
 
+        /// <summary>
+        /// The host's authoritative seat map, or null on a client. Gameplay routers use it
+        /// to turn a sender's client id into the seat the host says they own.
+        /// </summary>
+        public SeatRegistry AuthoritativeSeats { get { return _authoritative; } }
+
         /// <summary>Raised on every machine when the seating or the shared config changes.</summary>
         public event Action SeatsChanged;
 

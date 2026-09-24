@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 #endif
 using Shields.Bots;
 using Shields.Game;
+using Shields.Online;
 using Shields.Players;
 using Shields.Presentation;
 using Shields.Table;
@@ -52,18 +53,13 @@ namespace Shields.Match
         // Every accepted action bumps this; it identifies the turn a bot action belongs
         // to, so a delayed bot action can never fire for a later turn.
         int _resolvedCount;
+        uint _snapshotRevision;
         readonly BotTurnGate _botGate = new BotTurnGate();
         float _feedbackUntil;
 
-        // Latest resolved action for the HUD panel. Built only from public result data.
-        string _feedbackHeadline = string.Empty;
-        string _feedbackDetail = string.Empty;
-        float _feedbackShownAt = -100f;
-
-        GUIStyle _bannerStyle;
-        GUIStyle _lineStyle;
-        GUIStyle _feedbackHeadlineStyle;
-        GUIStyle _feedbackDetailStyle;
+        // The HUD and the table are both driven from public state, exactly as online.
+        MatchHud _hud;
+        PublicMatchSnapshot _lastSnapshot;
 
         public ShieldsMatch Match { get { return _match; } }
 
@@ -83,16 +79,19 @@ namespace Shields.Match
             // Its own stream, separate from the shuffle, bot Shield choice and turn order.
             _botPolicy = new RandomBotPolicy(seed.HasValue ? new System.Random(seed.Value ^ 0x2B07) : new System.Random());
             _presenter = new MatchPresenter(table, cardViewPrefab, deckView, localPlayerIndex, feedbackSeconds);
+            _hud = new MatchHud(hudFeedbackSeconds);
 
             _pending = PendingAction.None;
             _resolvedCount = 0;
+            _snapshotRevision = 0;
             _botGate.Cancel();
             _feedbackUntil = 0f;
-            ShowHudFeedback(string.Format("{0} STARTS", PlayerName(match.StartingPlayerIndex, false)),
+            _hud.ShowFeedback(
+                MatchHud.PlayerName(match.StartingPlayerIndex, localPlayerIndex, false) + " STARTS",
                 match.Direction == TurnDirection.Clockwise ? "Turns go clockwise" : "Turns go counter-clockwise");
 
             AddTargetColliders();
-            _presenter.Sync(_match);
+            SyncPresenter();
         }
 
         /// <summary>Stops turn play and removes every match visual this controller made.</summary>
@@ -286,10 +285,14 @@ namespace Shields.Match
             _resolvedCount++;
             ClearPending();
 
-            _presenter.Sync(_match);
-            _presenter.ShowResult(result);
+            // Offline projects its own engine into the same public state the host sends
+            // online, so one presentation path and one HUD serve both modes.
+            PublicActionResult publicResult = PublicStateBuilder.BuildActionResult(result);
+
+            SyncPresenter();
+            _presenter.ShowResult(publicResult);
             _feedbackUntil = Time.time + postActionDelay;
-            ShowResultInHud(result);
+            _hud.ShowResult(publicResult, _localPlayerIndex);
 
             Debug.Log(result.ToString(), this);
             if (result.MatchOver) Debug.Log("Match over. Winner: player " + result.WinnerIndex, this);
@@ -297,70 +300,18 @@ namespace Shields.Match
             return true;
         }
 
-        // ------------------------------------------------------------------ HUD feedback
+        // ------------------------------------------------------------------ presentation
 
-        /// <summary>
-        /// Describes a resolved action for the HUD panel: actor, action, target, then the
-        /// public numbers. A first Charge only says a hidden card was stored.
-        /// </summary>
-        void ShowResultInHud(TurnActionResult result)
+        /// <summary>Projects the local engine into a public snapshot and draws it.</summary>
+        void SyncPresenter()
         {
-            string actor = PlayerName(result.ActorIndex, false);
-            string target = PlayerName(result.TargetIndex, result.TargetIndex == result.ActorIndex);
+            if (_presenter == null || _match == null) return;
 
-            switch (result.ActionType)
-            {
-                case TurnActionType.Attack:
-                    ShowHudFeedback(actor + "  ATTACK →  " + target, MatchPresenter.Detail(result));
-                    break;
+            _snapshotRevision++;
+            _lastSnapshot = PublicStateBuilder.BuildMatchSnapshot(_match, _snapshotRevision,
+                _match.IsMatchOver ? OnlineMatchPhase.MatchOver : OnlineMatchPhase.Playing);
 
-                case TurnActionType.ReplaceShield:
-                    ShowHudFeedback(actor + "  REPLACE SHIELD →  " + target, "Shield " + MatchPresenter.Detail(result));
-                    break;
-
-                default:
-                    if (result.IsChargedAttack)
-                        ShowHudFeedback(actor + "  CHARGED ATTACK →  " + target, MatchPresenter.Detail(result));
-                    else
-                        ShowHudFeedback(actor + "  CHARGE", "One face-down card stored");
-                    break;
-            }
-        }
-
-        void ShowHudFeedback(string headline, string detail)
-        {
-            _feedbackHeadline = headline;
-            _feedbackDetail = detail ?? string.Empty;
-            _feedbackShownAt = Time.unscaledTime;
-        }
-
-        string PlayerName(int playerIndex, bool self)
-        {
-            if (playerIndex == _localPlayerIndex) return self ? "YOURSELF" : "YOU";
-            return "PLAYER " + playerIndex + (self ? " (SELF)" : "");
-        }
-
-        void DrawHudFeedback(float scale)
-        {
-            float age = Time.unscaledTime - _feedbackShownAt;
-            if (age >= hudFeedbackSeconds || string.IsNullOrEmpty(_feedbackHeadline)) return;
-
-            // Fades out over the last half second instead of popping away.
-            float alpha = Mathf.Clamp01((hudFeedbackSeconds - age) / 0.5f);
-
-            float width = Mathf.Min(Screen.width - 40f * scale, 1100f * scale);
-            Rect panel = new Rect((Screen.width - width) * 0.5f, 175f * scale, width, 112f * scale);
-
-            Color previous = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.55f * alpha);
-            GUI.DrawTexture(panel, Texture2D.whiteTexture);
-            GUI.color = previous;
-
-            Rect headline = new Rect(panel.x, panel.y + 10f * scale, panel.width, 50f * scale);
-            Rect detail = new Rect(panel.x, headline.yMax, panel.width, 42f * scale);
-
-            ShadowLabel(headline, _feedbackHeadline, _feedbackHeadlineStyle, new Color(1f, 1f, 1f, alpha));
-            ShadowLabel(detail, _feedbackDetail, _feedbackDetailStyle, new Color(1f, 0.9f, 0.55f, alpha));
+            _presenter.Sync(_lastSnapshot);
         }
 
         // ------------------------------------------------------------------ setup helpers
@@ -434,82 +385,20 @@ namespace Shields.Match
 
         void OnGUI()
         {
-            if (_match == null) return;
+            if (_match == null || _hud == null) return;
 
-            if (_bannerStyle == null)
-            {
-                _bannerStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-                _lineStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
-                _feedbackHeadlineStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold };
-                _feedbackDetailStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
-            }
-
-            float scale = Screen.height / 1080f;
-            _bannerStyle.fontSize = Mathf.RoundToInt((_match.IsMatchOver ? 64f : 30f) * scale);
-            _lineStyle.fontSize = Mathf.RoundToInt(20f * scale);
-            _feedbackHeadlineStyle.fontSize = Mathf.RoundToInt(38f * scale);
-            _feedbackDetailStyle.fontSize = Mathf.RoundToInt(30f * scale);
-
-            float top = _match.IsMatchOver ? Screen.height * 0.35f : 40f * scale;
-            Rect banner = new Rect(0f, top, Screen.width, 80f * scale);
-            Rect line = new Rect(0f, banner.yMax, Screen.width, 30f * scale);
-
-            ShadowLabel(banner, BannerText(), _bannerStyle, BannerColor());
-            ShadowLabel(line, HintText(), _lineStyle, Color.white);
-            DrawHudFeedback(scale);
+            _hud.Draw(_lastSnapshot, _localPlayerIndex, PendingForHud(), _hoveredTarget);
         }
 
-        string BannerText()
+        HudPendingAction PendingForHud()
         {
-            if (_match.IsMatchOver)
-                return _match.WinnerIndex == _localPlayerIndex ? "YOU WIN" : "PLAYER " + _match.WinnerIndex + " WINS";
-
-            if (_match.CurrentPlayerIndex != _localPlayerIndex)
-                return "PLAYER " + _match.CurrentPlayerIndex + "'S TURN";
-
             switch (_pending)
             {
-                case PendingAction.Attack: return "ATTACK — Choose Target";
-                case PendingAction.ReplaceShield: return "REPLACE SHIELD — Choose Target";
-                case PendingAction.ChargedAttack: return "CHARGED ATTACK — Choose Target";
-                default: return "YOUR TURN";
+                case PendingAction.Attack: return HudPendingAction.Attack;
+                case PendingAction.ReplaceShield: return HudPendingAction.ReplaceShield;
+                case PendingAction.ChargedAttack: return HudPendingAction.ChargedAttack;
+                default: return HudPendingAction.None;
             }
-        }
-
-        Color BannerColor()
-        {
-            if (_match.IsMatchOver) return _match.WinnerIndex == _localPlayerIndex ? new Color(0.4f, 1f, 0.5f) : Color.white;
-            return _match.CurrentPlayerIndex == _localPlayerIndex ? new Color(1f, 0.85f, 0.2f) : Color.white;
-        }
-
-        string HintText()
-        {
-            MatchPlayerState local = _match.Players[_localPlayerIndex];
-
-            if (_match.IsMatchOver) return string.Empty;
-            if (!local.IsAlive) return "You are eliminated. Watching the table.";
-            if (_match.CurrentPlayerIndex != _localPlayerIndex) return string.Empty;
-
-            if (_pending == PendingAction.None)
-                return "[1] Attack    [2] Replace Shield    [3] " + (local.HasCharge ? "Charged Attack" : "Charge");
-
-            string target = _hoveredTarget == TurnActionRequest.NoTarget
-                ? (_pending == PendingAction.ReplaceShield ? "Aim at a player or a Shield card (your own for yourself)" : "Aim at another player or their Shield card")
-                : "Click to confirm: " + (_hoveredTarget == _localPlayerIndex ? "YOURSELF" : "PLAYER " + _hoveredTarget);
-
-            return target + "    ([1]/[2]/[3] switch action)";
-        }
-
-        static void ShadowLabel(Rect rect, string text, GUIStyle style, Color color)
-        {
-            if (string.IsNullOrEmpty(text)) return;
-
-            Color previous = GUI.color;
-            GUI.color = new Color(0f, 0f, 0f, 0.8f * color.a);
-            GUI.Label(new Rect(rect.x + 2f, rect.y + 2f, rect.width, rect.height), text, style);
-            GUI.color = color;
-            GUI.Label(rect, text, style);
-            GUI.color = previous;
         }
     }
 }

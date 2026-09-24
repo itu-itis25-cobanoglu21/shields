@@ -7,7 +7,9 @@
         "Shields.Cards",
         "Shields.Game",
         "Shields.Bots",
-        "Shields.Session"
+        "Shields.Session",
+        "Shields.Online",
+        "Unity.Netcode.Runtime"
     ],
     "includePlatforms": [
         "Editor"

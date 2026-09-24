@@ -2,6 +2,7 @@ using UnityEngine;
 using Shields.Cards;
 using Shields.Game;
 using Shields.Match;
+using Shields.Online;
 using Shields.Session;
 
 namespace Shields.Network
@@ -137,7 +138,10 @@ namespace Shields.Network
         {
             bool inSession = Session != null && Session.InSession;
 
-            Rect panel = CenteredPanel(460f, inSession ? 320f : 300f);
+            // Once the table is live the lobby must not sit on top of it.
+            if (inSession && GameplayOnScreen()) { DrawCompactSessionBar(true); return; }
+
+            Rect panel = CenteredPanel(460f, inSession ? 380f : 300f);
             GUI.Box(panel, inSession ? "Hosting" : "Host Online");
             GUILayout.BeginArea(new Rect(panel.x + 16f, panel.y + 32f, panel.width - 32f, panel.height - 46f));
 
@@ -203,14 +207,42 @@ namespace Shields.Network
 
             bool ready = networkBootstrap.SeatRegistryReady;
             bool testStarted = ready && Seats.TestStarted;
+            NetworkMatchController match = networkBootstrap.MatchController;
+            bool matchRunning = match != null && (match.MatchActive || match.Phase == OnlineMatchPhase.MatchOver);
 
-            GUI.enabled = ready && !testStarted;
-            if (GUILayout.Button("START NETWORK TEST", GUILayout.Height(32f)))
-                networkBootstrap.StartNetworkTest();
-            GUI.enabled = true;
+            if (!matchRunning)
+            {
+                string blocker = match != null
+                    ? match.DescribeStartBlocker(_targetPlayerCount, _deckCount)
+                    : "Match controller missing.";
 
-            if (testStarted && GUILayout.Button("Stop network test", GUILayout.Height(24f)))
-                networkBootstrap.StopNetworkTest();
+                GUI.enabled = blocker.Length == 0;
+                if (GUILayout.Button("START MATCH", GUILayout.Height(34f))) StartMatch();
+                GUI.enabled = true;
+
+                if (blocker.Length > 0)
+                {
+                    GUIStyle warn = new GUIStyle(GUI.skin.label) { wordWrap = true };
+                    warn.normal.textColor = new Color(1f, 0.8f, 0.45f);
+                    GUILayout.Label(blocker, warn);
+                }
+
+                GUILayout.Space(4f);
+
+                GUI.enabled = ready && !testStarted;
+                if (GUILayout.Button("Start connection test only", GUILayout.Height(24f)))
+                    networkBootstrap.StartNetworkTest();
+                GUI.enabled = true;
+
+                if (testStarted && GUILayout.Button("Stop connection test", GUILayout.Height(22f)))
+                    networkBootstrap.StopNetworkTest();
+            }
+            else
+            {
+                GUILayout.Label("Match phase: " + match.Phase);
+
+                if (GUILayout.Button("End match", GUILayout.Height(26f))) EndMatch();
+            }
 
             GUILayout.Space(4f);
             if (GUILayout.Button("End session", GUILayout.Height(24f))) LeaveSession();
@@ -233,6 +265,8 @@ namespace Shields.Network
         void DrawJoinPanel()
         {
             bool inSession = Session != null && Session.InSession;
+
+            if (inSession && GameplayOnScreen()) { DrawCompactSessionBar(false); return; }
 
             Rect panel = CenteredPanel(460f, inSession ? 250f : 220f);
             GUI.Box(panel, inSession ? "Joined" : "Join Online");
@@ -273,11 +307,38 @@ namespace Shields.Network
 
             GUILayout.Space(6f);
 
+            NetworkMatchController match = networkBootstrap.MatchController;
             bool testStarted = networkBootstrap.SeatRegistryReady && Seats.TestStarted;
-            GUILayout.Label(testStarted ? "Network test running." : "Waiting for the host to start.");
+
+            if (match != null && match.Phase != OnlineMatchPhase.SessionLobby)
+                GUILayout.Label("Match phase: " + match.Phase);
+            else if (testStarted)
+                GUILayout.Label("Connection test running.");
+            else
+                GUILayout.Label("Waiting for the host to start.");
 
             GUILayout.Space(6f);
             if (GUILayout.Button("Leave session", GUILayout.Height(24f))) LeaveSession();
+        }
+
+        void StartMatch()
+        {
+            RunStartMatch();
+        }
+
+        async void RunStartMatch()
+        {
+            await networkBootstrap.StartOnlineMatchAsync(_targetPlayerCount, _deckCount);
+        }
+
+        void EndMatch()
+        {
+            RunEndMatch();
+        }
+
+        async void RunEndMatch()
+        {
+            await networkBootstrap.EndOnlineMatchAsync();
         }
 
         void JoinSession()
@@ -352,6 +413,37 @@ namespace Shields.Network
             errorStyle.wordWrap = true;
 
             GUILayout.Label(Session.ErrorMessage, errorStyle);
+        }
+
+        /// <summary>True once the match owns the screen, so the lobby steps aside.</summary>
+        bool GameplayOnScreen()
+        {
+            NetworkMatchController match = networkBootstrap != null ? networkBootstrap.MatchController : null;
+            if (match == null) return false;
+
+            return match.Phase == OnlineMatchPhase.WaitingForShieldSelections
+                || match.Phase == OnlineMatchPhase.Playing
+                || match.Phase == OnlineMatchPhase.MatchOver;
+        }
+
+        /// <summary>A small corner bar so the session can still be left during a match.</summary>
+        void DrawCompactSessionBar(bool isHost)
+        {
+            NetworkMatchController match = networkBootstrap.MatchController;
+
+            Rect bar = new Rect(12f, 12f, 320f, isHost ? 104f : 80f);
+            GUI.Box(bar, "Session");
+            GUILayout.BeginArea(new Rect(bar.x + 10f, bar.y + 24f, bar.width - 20f, bar.height - 34f));
+
+            GUILayout.Label("Seat " + networkBootstrap.LocalSeatIndex + "   |   " + match.Phase);
+            if (isHost) GUILayout.Label("Code " + Session.JoinCode + (Session.IsLocked ? "  (locked)" : ""));
+
+            GUILayout.BeginHorizontal();
+            if (isHost && GUILayout.Button("End match", GUILayout.Height(22f))) EndMatch();
+            if (GUILayout.Button("Leave", GUILayout.Height(22f))) LeaveSession();
+            GUILayout.EndHorizontal();
+
+            GUILayout.EndArea();
         }
 
         void LeaveSession()

@@ -21,10 +21,26 @@ namespace Shields.Presentation
 
         CardDeck _deck;
 
+        /// <summary>Remaining count for an online client, which owns no deck at all.</summary>
+        int _reportedCount = -1;
+
         /// <summary>Points the view at the deck it should report on.</summary>
         public void Bind(CardDeck deck)
         {
             _deck = deck;
+            _reportedCount = -1;
+            Refresh();
+        }
+
+        /// <summary>
+        /// Shows a remaining count sent by the host. Online clients never hold a
+        /// <see cref="CardDeck"/>: only the host knows the real draw pile, and only this
+        /// number is ever replicated.
+        /// </summary>
+        public void ShowRemainingCount(int remaining)
+        {
+            _deck = null;
+            _reportedCount = remaining;
             Refresh();
         }
 
@@ -32,20 +48,24 @@ namespace Shields.Presentation
         public void Clear()
         {
             _deck = null;
+            _reportedCount = -1;
             Refresh();
         }
 
         /// <summary>Re-reads the deck. Call after anything that changes the draw pile.</summary>
         public void Refresh()
         {
+            int remaining = _deck != null ? _deck.DrawCount : _reportedCount;
+            bool known = remaining >= 0;
+
             if (remainingLabel != null)
             {
-                bool show = showRemainingCount && _deck != null;
+                bool show = showRemainingCount && known;
                 remainingLabel.gameObject.SetActive(show);
-                if (show) remainingLabel.text = _deck.DrawCount.ToString();
+                if (show) remainingLabel.text = remaining.ToString();
             }
 
-            if (deckProp != null) deckProp.gameObject.SetActive(_deck == null || _deck.DrawCount > 0);
+            if (deckProp != null) deckProp.gameObject.SetActive(!known || remaining > 0);
         }
 
         void OnEnable()

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Shields.Cards;
 using Shields.Game;
+using Shields.Online;
 using Shields.Players;
 using Shields.Presentation;
 using Shields.Table;
@@ -51,16 +52,22 @@ namespace Shields.Match
 
         // ------------------------------------------------------------------ state sync
 
-        /// <summary>Redraws cards, status labels and the deck count from the match.</summary>
-        public void Sync(ShieldsMatch match)
+        /// <summary>
+        /// Redraws cards, status labels and the deck count from public state.
+        ///
+        /// It takes a snapshot rather than the engine so the same presenter serves both
+        /// modes: offline projects its local match into one of these, online receives one
+        /// from the host. Either way the presenter only ever sees public information.
+        /// </summary>
+        public void Sync(PublicMatchSnapshot match)
         {
-            if (match == null || _table == null) return;
+            if (!match.IsValid || _table == null) return;
 
             _highlightedShield = null;
 
             for (int i = 0; i < match.PlayerCount; i++)
             {
-                MatchPlayerState player = match.Players[i];
+                PublicPlayerState player = match.Players[i];
 
                 PlayerTableArea area = _table.GetAreaForPlayer(i);
                 if (area != null) area.ShowMatchState(player, _cardViewPrefab);
@@ -71,7 +78,7 @@ namespace Shields.Match
             if (_deckView != null) _deckView.Refresh();
         }
 
-        void UpdateStatusLabel(ShieldsMatch match, MatchPlayerState player)
+        void UpdateStatusLabel(PublicMatchSnapshot match, PublicPlayerState player)
         {
             // The local player cannot see above their own head; the HUD covers them.
             if (player.PlayerIndex == _localPlayerIndex) return;
@@ -79,7 +86,7 @@ namespace Shields.Match
             WorldLabel label = StatusLabelFor(player.PlayerIndex);
             if (label == null) return;
 
-            string name = "PLAYER " + player.PlayerIndex;
+            string name = "PLAYER " + player.PlayerIndex + (player.IsBot ? " (BOT)" : "");
 
             if (!player.IsAlive)
             {
@@ -115,9 +122,9 @@ namespace Shields.Match
         // ------------------------------------------------------------------ results
 
         /// <summary>Shows a resolved action: white text above the actor and the revealed cards.</summary>
-        public void ShowResult(TurnActionResult result)
+        public void ShowResult(PublicActionResult result)
         {
-            if (result == null || !result.Accepted || _table == null) return;
+            if (!result.Accepted || _table == null) return;
 
             PlayerCharacter actor = _table.GetPlayer(result.ActorIndex);
             if (actor != null)
@@ -133,7 +140,7 @@ namespace Shields.Match
             if (result.ActionType != TurnActionType.ReplaceShield) ShowRevealedCards(result.RevealedCards);
         }
 
-        void ShowRevealedCards(IReadOnlyList<PlayingCard> cards)
+        void ShowRevealedCards(IReadOnlyList<PublicCard> cards)
         {
             ClearRevealedCards();
             if (cards == null || cards.Count == 0 || _cardViewPrefab == null) return;
@@ -152,7 +159,7 @@ namespace Shields.Match
             for (int i = 0; i < cards.Count; i++)
             {
                 CardView card = Object.Instantiate(_cardViewPrefab);
-                card.Bind(cards[i], -1);
+                card.Bind(cards[i].ToPlayingCard(), -1);
                 card.transform.SetPositionAndRotation(
                     center - right * ((i - (cards.Count - 1) * 0.5f) * spacing), facing);
                 card.transform.localScale = Vector3.one * 1.5f;
@@ -174,7 +181,7 @@ namespace Shields.Match
         }
 
         /// <summary>First line of the action text, e.g. "ATTACK → PLAYER 3".</summary>
-        public static string Headline(TurnActionResult result)
+        public static string Headline(PublicActionResult result)
         {
             switch (result.ActionType)
             {
@@ -191,7 +198,7 @@ namespace Shields.Match
         /// Second line with the already resolved numbers, or empty. A first Charge has
         /// none, because its card is hidden.
         /// </summary>
-        public static string Detail(TurnActionResult result)
+        public static string Detail(PublicActionResult result)
         {
             if (result.StoredHiddenCharge) return string.Empty;
 
@@ -199,9 +206,9 @@ namespace Shields.Match
                 return Face(result.OldShieldCard) + " → " + Face(result.NewShieldCard);
 
             string power;
-            if (result.IsChargedAttack && result.RevealedCards.Count == 2)
+            if (result.IsChargedAttack && result.RevealedCardCount == 2)
                 power = Face(result.RevealedCards[0]) + " + " + Face(result.RevealedCards[1]) + " = " + result.AttackPower;
-            else if (result.RevealedCards.Count == 1)
+            else if (result.RevealedCardCount == 1)
                 power = FaceWithValue(result.RevealedCards[0]);
             else
                 power = result.AttackPower.ToString();
@@ -213,12 +220,12 @@ namespace Shields.Match
             return power + " vs Shield " + result.TargetShieldValue + " — " + outcome;
         }
 
-        static string Face(PlayingCard card)
+        static string Face(PublicCard card)
         {
             return card.IsValid ? CardView.RankSymbol(card.Rank) : "?";
         }
 
-        static string FaceWithValue(PlayingCard card)
+        static string FaceWithValue(PublicCard card)
         {
             string face = Face(card);
             return face == card.Value.ToString() ? face : face + " = " + card.Value;

@@ -3,6 +3,7 @@
   <Project Path="Shields.Game.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Shields.Bots.csproj" />
+  <Project Path="Shields.Online.csproj" />
   <Project Path="Shields.Cards.EditModeTests.csproj" />
   <Project Path="Shields.Session.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />

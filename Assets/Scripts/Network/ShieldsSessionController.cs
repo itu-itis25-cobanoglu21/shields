@@ -215,6 +215,42 @@ namespace Shields.Network
             }
         }
 
+        // ------------------------------------------------------------------ locking
+
+        /// <summary>
+        /// Host only. Closes the session to new joins once a match starts.
+        ///
+        /// In Multiplayer Services 2.3.3 this is a property on the host session rather
+        /// than a dedicated lock call: set <c>IsLocked</c> and save. TASK 009 forbids mid
+        /// match joining, and a locked session is how the service enforces it.
+        /// </summary>
+        public async Task<bool> SetJoinableAsync(bool joinable)
+        {
+            if (_session == null || !_session.IsHost) return false;
+
+            try
+            {
+                IHostSession hosted = _session.AsHost();
+                if (hosted == null) return false;
+
+                hosted.IsLocked = !joinable;
+                await hosted.SavePropertiesAsync();
+
+                RaiseStateChanged();
+                return true;
+            }
+            catch (Exception e)
+            {
+                // Not fatal: the match still runs, late joins are simply not blocked
+                // server side. The host is told rather than left guessing.
+                Debug.LogWarning("Could not change the session lock: " + e.Message, this);
+                return false;
+            }
+        }
+
+        /// <summary>True when the service is refusing new joins.</summary>
+        public bool IsLocked { get { return _session != null && _session.IsLocked; } }
+
         // ------------------------------------------------------------------ leaving
 
         /// <summary>

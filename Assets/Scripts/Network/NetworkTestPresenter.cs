@@ -42,6 +42,13 @@ namespace Shields.Network
         int _builtForSeatCount = -1;
         int _builtForLocalSeat = NetworkSeatRegistry.NoSeat;
 
+        /// <summary>
+        /// True when the standing layout belongs to a gameplay match rather than to the
+        /// connection test. A gameplay layout must survive seat changes: the match
+        /// controller owns its lifetime and decides when it ends.
+        /// </summary>
+        bool _ownedByMatch;
+
         /// <summary>True while the network test layout is on screen.</summary>
         public bool TestLayoutActive { get; private set; }
 
@@ -95,11 +102,38 @@ namespace Shields.Network
 
             if (!_seatRegistry.TestStarted)
             {
-                if (TestLayoutActive) TearDown();
+                // A gameplay match owns its own layout; only the connection test's is
+                // torn down here. Otherwise a player joining or leaving would wipe the
+                // table mid match.
+                if (TestLayoutActive && !_ownedByMatch) TearDown();
                 return;
             }
 
             RebuildIfNeeded();
+        }
+
+        /// <summary>
+        /// Builds the seating for a gameplay match if it is not already standing.
+        /// The online match uses the same deterministic layout as the connection test, so
+        /// it reuses this rather than growing a second copy of the seating code.
+        /// </summary>
+        public bool EnsureLayout(int seatCount)
+        {
+            if (_seatRegistry == null) return false;
+
+            int localSeat = _seatRegistry.LocalSeatIndex;
+            if (localSeat == NetworkSeatRegistry.NoSeat) return false;
+
+            if (TestLayoutActive && seatCount == _builtForSeatCount && localSeat == _builtForLocalSeat)
+            {
+                _ownedByMatch = true;
+                ApplySeatRoles(localSeat);
+                return true;
+            }
+
+            Build(seatCount, localSeat);
+            _ownedByMatch = TestLayoutActive;
+            return TestLayoutActive;
         }
 
         void RebuildIfNeeded()
@@ -250,6 +284,7 @@ namespace Shields.Network
 
             _builtForSeatCount = -1;
             _builtForLocalSeat = NetworkSeatRegistry.NoSeat;
+            _ownedByMatch = false;
             TestLayoutActive = false;
         }
     }

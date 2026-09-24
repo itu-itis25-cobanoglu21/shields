@@ -1,0 +1,20 @@
+{
+    "name": "Shields.Online",
+    "rootNamespace": "Shields.Online",
+    "references": [
+        "Shields.Cards",
+        "Shields.Game",
+        "Shields.Bots",
+        "Shields.Session",
+        "Unity.Netcode.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

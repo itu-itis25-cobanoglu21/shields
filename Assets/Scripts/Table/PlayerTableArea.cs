@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Shields.Cards;
 using Shields.Game;
+using Shields.Online;
 using Shields.Presentation;
 
 namespace Shields.Table
@@ -138,11 +139,15 @@ namespace Shields.Table
         /// real card, a Virtual Health Marker or nothing; the Shield; and one face-down
         /// card while a Charge is stored. Nothing here is read back into gameplay.
         /// </summary>
-        public void ShowMatchState(MatchPlayerState state, CardView cardViewPrefab)
+        /// <summary>
+        /// Draws one seat from public state. Offline builds this from the local engine and
+        /// online receives it from the host, so both paths render through the same code.
+        /// </summary>
+        public void ShowMatchState(PublicPlayerState state, CardView cardViewPrefab)
         {
             ClearCards();
 
-            if (state == null || cardViewPrefab == null) return;
+            if (cardViewPrefab == null) return;
 
             ShowHealthSlot(state.LeftHealth, verticalCardSlotLeft, cardViewPrefab);
             ShowHealthSlot(state.RightHealth, verticalCardSlotRight, cardViewPrefab);
@@ -150,16 +155,17 @@ namespace Shields.Table
             if (state.ShieldCard.IsValid)
             {
                 ShieldView = Spawn(cardViewPrefab, horizontalCardSlot, true);
-                ShieldView.Bind(state.ShieldCard, playerIndex);
+                ShieldView.Bind(state.ShieldCard.ToPlayingCard(), playerIndex);
             }
 
-            // Only the fact that a Charge exists is public. The view never gets the card.
+            // Only the fact that a Charge exists is public, and the public state carries
+            // nothing else, so the view could not draw the card even by mistake.
             if (state.HasCharge) Spawn(cardViewPrefab, ChargeSlot, false).ShowFaceDown(playerIndex);
         }
 
-        void ShowHealthSlot(HealthSlot slot, Transform where, CardView cardViewPrefab)
+        void ShowHealthSlot(PublicHealthSlot slot, Transform where, CardView cardViewPrefab)
         {
-            if (slot.IsCard) Spawn(cardViewPrefab, where, false).Bind(slot.Card, playerIndex);
+            if (slot.IsCard) Spawn(cardViewPrefab, where, false).Bind(slot.Card.ToPlayingCard(), playerIndex);
             else if (slot.IsVirtual) Spawn(cardViewPrefab, where, false).ShowVirtualMarker(slot.Value, playerIndex);
         }
 
