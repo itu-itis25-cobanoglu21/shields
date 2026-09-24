@@ -59,6 +59,26 @@ namespace Shields.Players
         /// <summary>Current look offset from the neutral seated direction, in degrees.</summary>
         public Vector2 LookAngles { get { return new Vector2(_yaw, _pitch - restPitch); } }
 
+        /// <summary>
+        /// The yaw and pitch actually written to the pivot, in degrees. Unlike
+        /// <see cref="LookAngles"/> this is not relative to <see cref="restPitch"/>, so it
+        /// can be sent to another machine and applied verbatim: the pivot is a child of an
+        /// already seat oriented transform, making these angles seat independent.
+        /// </summary>
+        public Vector2 PivotAngles { get { return new Vector2(_yaw, _pitch); } }
+
+        /// <summary>
+        /// Points a pivot at a yaw and pitch received from its owning machine. Used for
+        /// remote players only, whose own <see cref="SeatedHeadLook"/> is disabled, so this
+        /// never competes with local input.
+        /// </summary>
+        public static void ApplyPivotAngles(Transform pivot, float yaw, float pitch)
+        {
+            if (pivot == null) return;
+
+            pivot.localRotation = Quaternion.Euler(pitch, yaw, 0f);
+        }
+
         void OnEnable()
         {
             ResetLook();

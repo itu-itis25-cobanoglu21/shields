@@ -6,7 +6,8 @@
         "UnityEditor.TestRunner",
         "Shields.Cards",
         "Shields.Game",
-        "Shields.Bots"
+        "Shields.Bots",
+        "Shields.Session"
     ],
     "includePlatforms": [
         "Editor"
