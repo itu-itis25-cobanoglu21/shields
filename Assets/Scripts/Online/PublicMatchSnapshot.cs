@@ -54,6 +54,12 @@ namespace Shields.Online
         /// <summary>Cards left in the host's draw pile, for the existing deck counter only.</summary>
         public short RemainingDrawCount;
 
+        /// <summary>
+        /// Cards in the host's discard pile. Only the count travels: no discarded card's
+        /// identity is public state, so the pile is drawn face down.
+        /// </summary>
+        public short DiscardCount;
+
         public PublicPlayerState[] Players;
 
         public OnlineMatchPhase Phase { get { return (OnlineMatchPhase)PhaseCode; } }
@@ -103,6 +109,7 @@ namespace Shields.Online
             serializer.SerializeValue(ref MatchOver);
             serializer.SerializeValue(ref WinnerIndex);
             serializer.SerializeValue(ref RemainingDrawCount);
+            serializer.SerializeValue(ref DiscardCount);
 
             // Length first, so the reader can size the array before filling it.
             int count = Players != null ? Players.Length : 0;
@@ -119,6 +126,7 @@ namespace Shields.Online
             sb.Append("rev ").Append(Revision).Append(' ').Append(Phase);
             sb.Append(MatchOver ? ", winner player " + WinnerIndex : ", turn player " + CurrentPlayerIndex);
             sb.Append(", draw ").Append(RemainingDrawCount);
+            sb.Append(", discard ").Append(DiscardCount);
 
             for (int i = 0; i < PlayerCount; i++) sb.Append("\n  ").Append(Players[i]);
 

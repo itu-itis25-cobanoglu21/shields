@@ -31,6 +31,7 @@ namespace Shields.Online
                 MatchOver = false,
                 WinnerIndex = -1,
                 RemainingDrawCount = 0,
+                DiscardCount = 0,
                 Players = new PublicPlayerState[0]
             };
 
@@ -41,6 +42,7 @@ namespace Shields.Online
             snapshot.MatchOver = match.IsMatchOver;
             snapshot.WinnerIndex = (sbyte)match.WinnerIndex;
             snapshot.RemainingDrawCount = (short)match.Deck.DrawCount;
+            snapshot.DiscardCount = (short)match.Deck.DiscardCount;
 
             snapshot.Players = new PublicPlayerState[match.PlayerCount];
             for (int i = 0; i < match.PlayerCount; i++)

@@ -37,6 +37,7 @@ namespace Shields.Network
         [SerializeField] TableLayoutController tableLayout;
         [SerializeField] CardView cardViewPrefab;
         [SerializeField] DeckView deckView;
+        [SerializeField] DiscardPileView discardView;
         [SerializeField] CrosshairInteraction crosshair;
         [SerializeField] LocalShieldSelection shieldSelection;
 
@@ -187,7 +188,7 @@ namespace Shields.Network
         {
             if (_presenter != null) return;
 
-            _presenter = new MatchPresenter(tableLayout, cardViewPrefab, deckView, LocalSeat, feedbackSeconds);
+            _presenter = new MatchPresenter(tableLayout, cardViewPrefab, deckView, discardView, LocalSeat, feedbackSeconds);
             _hud = new MatchHud(hudFeedbackSeconds);
 
             AddTargetColliders();

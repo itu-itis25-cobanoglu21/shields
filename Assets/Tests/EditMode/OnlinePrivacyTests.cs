@@ -298,6 +298,161 @@ namespace Shields.Game.Tests
             Assert.That(CardIdsIn(Snapshot(match, 3)), Has.No.Member(hidden.CardId));
         }
 
+        // ================================================================ discard count
+
+        [Test]
+        public void Snapshot_DiscardCount_StartsAtZero()
+        {
+            CardDeck deck = new CardDeck(1, 41);
+            ShieldsMatch match = Table(deck);
+
+            Assert.That(Snapshot(match).DiscardCount, Is.Zero);
+        }
+
+        [Test]
+        public void Snapshot_DiscardCount_GrowsWithNormalDiscards()
+        {
+            CardDeck deck = new CardDeck(1, 43);
+            ShieldsMatch match = Table(deck);
+
+            // A Two against Shield 4 is blocked: only the attack card is discarded.
+            Stack(deck, CardRank.Two);
+            match.Submit(TurnActionRequest.Attack(0, 1));
+            Assert.That(Snapshot(match).DiscardCount, Is.EqualTo(1));
+
+            // Replacing a Shield discards the old Shield card.
+            Stack(deck, CardRank.Six);
+            match.Submit(TurnActionRequest.ReplaceShield(1, 1));
+
+            PublicMatchSnapshot snapshot = Snapshot(match, 2);
+            Assert.That(snapshot.DiscardCount, Is.EqualTo(2));
+            Assert.That(snapshot.DiscardCount, Is.EqualTo(deck.DiscardCount));
+        }
+
+        [Test]
+        public void Snapshot_DiscardCount_DropsWhenAHealthCardIsTakenFromTheDiscardPile()
+        {
+            CardDeck deck = new CardDeck(1, 47);
+            ShieldsMatch match = Table(deck);
+
+            // A Four against Shield 4 is blocked, leaving that Four in the discard pile.
+            PlayingCard four = Stack(deck, CardRank.Four)[0];
+            match.Submit(TurnActionRequest.Attack(0, 1));
+            Assert.That(Snapshot(match).DiscardCount, Is.EqualTo(1));
+
+            // Seven against Shield 3 deals 4: Health 8 + 7 = 15 becomes 11. The 8 is
+            // discarded, the 7 stays, and the needed 4 comes back out of the discard pile.
+            Stack(deck, CardRank.Seven);
+            match.Submit(TurnActionRequest.Attack(1, 2));
+
+            PublicMatchSnapshot snapshot = Snapshot(match, 2);
+            PublicPlayerState target = snapshot.GetPlayer(2);
+
+            Assert.That(target.Health, Is.EqualTo(11));
+            Assert.That(new[] { target.LeftHealth.Card.CardId, target.RightHealth.Card.CardId },
+                Has.Member(four.CardId), "The Four should have been taken from the discard pile.");
+
+            // In: the Seven and the Eight. Out: the Four.
+            Assert.That(snapshot.DiscardCount, Is.EqualTo(2));
+            Assert.That(snapshot.DiscardCount, Is.EqualTo(deck.DiscardCount));
+        }
+
+        [Test]
+        public void Snapshot_DiscardCount_ReflectsAReshuffleClearingThePile()
+        {
+            CardDeck deck = new CardDeck(1, 53);
+            ShieldsMatch match = Table(deck);
+
+            // Empty the draw pile into the discard pile so the next draw must reshuffle.
+            // Counted, not "while TryDraw": TryDraw itself recycles the discard pile.
+            int remaining = deck.DrawCount;
+            for (int i = 0; i < remaining; i++)
+            {
+                PlayingCard card;
+                Assert.IsTrue(deck.TryDraw(out card));
+                deck.Discard(card);
+            }
+
+            PublicMatchSnapshot before = Snapshot(match);
+            Assert.That(before.RemainingDrawCount, Is.Zero);
+            Assert.That(before.DiscardCount, Is.EqualTo(deck.DiscardCount));
+            Assert.That(before.DiscardCount, Is.GreaterThan(0));
+
+            int pooled = before.DiscardCount;
+
+            // A Shield replacement draws once and discards only the old Shield.
+            match.Submit(TurnActionRequest.ReplaceShield(0, 0));
+
+            PublicMatchSnapshot after = Snapshot(match, 2);
+            Assert.That(deck.ReshuffleCount, Is.EqualTo(1));
+            Assert.That(after.RemainingDrawCount, Is.EqualTo(pooled - 1));
+            Assert.That(after.DiscardCount, Is.EqualTo(1), "The reshuffle should have emptied the discard pile.");
+            Assert.That(after.DiscardCount, Is.EqualTo(deck.DiscardCount));
+        }
+
+        [Test]
+        public void Snapshot_DiscardCount_CountsAnInterruptedChargeWithoutNamingIt()
+        {
+            CardDeck deck = new CardDeck(1, 59);
+            ShieldsMatch match = Table(deck);
+
+            PlayingCard hidden = Stack(deck, CardRank.Nine)[0];
+            match.Submit(TurnActionRequest.Charge(0));
+            Assert.That(Snapshot(match).DiscardCount, Is.Zero, "A stored Charge is not in the discard pile.");
+
+            // King against Shield 5 deals 8 and breaks the Charge.
+            Stack(deck, CardRank.King);
+            match.Submit(TurnActionRequest.Attack(1, 0));
+
+            PublicMatchSnapshot snapshot = Snapshot(match, 2);
+
+            // In: the attacking King, the King Health card and the lost Charge card.
+            Assert.That(snapshot.DiscardCount, Is.EqualTo(3));
+            Assert.That(snapshot.DiscardCount, Is.EqualTo(deck.DiscardCount));
+            Assert.That(CardIdsIn(snapshot), Has.No.Member(hidden.CardId));
+        }
+
+        [Test]
+        public void PublicMatchSnapshot_CarriesNoCardFieldOfItsOwn()
+        {
+            // Discard state travels as a count only. No top discard, no pile contents:
+            // the only cards in a snapshot are the per player Health and Shield cards.
+            FieldInfo[] fields = typeof(PublicMatchSnapshot).GetFields(
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+            foreach (FieldInfo field in fields)
+            {
+                Assert.That(field.FieldType, Is.Not.EqualTo(typeof(PublicCard)), "Field {0} carries a card.", field.Name);
+                Assert.That(field.FieldType, Is.Not.EqualTo(typeof(PublicCard[])), "Field {0} carries cards.", field.Name);
+            }
+
+            Assert.That(typeof(PublicMatchSnapshot).GetField("DiscardCount").FieldType, Is.EqualTo(typeof(short)));
+        }
+
+        [Test]
+        public void EveryPublicDto_DescribesAChargeOnlyWithABool()
+        {
+            // Every public network DTO in Shields.Online, not just the player state.
+            List<System.Type> dtos = typeof(PublicMatchSnapshot).Assembly.GetTypes()
+                .Where(t => t.IsValueType && !t.IsEnum && t.Namespace == "Shields.Online" && t.Name.StartsWith("Public"))
+                .ToList();
+
+            Assert.That(dtos, Has.Member(typeof(PublicMatchSnapshot)));
+            Assert.That(dtos, Has.Member(typeof(PublicActionResult)));
+            Assert.That(dtos, Has.Member(typeof(PublicSetupSnapshot)));
+
+            foreach (System.Type dto in dtos)
+            {
+                foreach (FieldInfo field in dto.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if (!field.Name.ToLowerInvariant().Contains("charge")) continue;
+
+                    Assert.That(field.FieldType, Is.EqualTo(typeof(bool)),
+                        "{0}.{1} mentions a Charge but is {2}.", dto.Name, field.Name, field.FieldType);
+                }
+            }
+        }
+
         // ================================================================ setup
 
         [Test]

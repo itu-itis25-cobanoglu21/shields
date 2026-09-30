@@ -28,6 +28,7 @@ namespace Shields.Match
         [SerializeField] CrosshairInteraction crosshair;
         [SerializeField] LocalShieldSelection shieldSelection;
         [SerializeField] DeckView deckView;
+        [SerializeField] DiscardPileView discardView;
 
         [Tooltip("Runs turn play once setup completes. Found or added on this object when empty.")]
         [SerializeField] MatchTurnController turnController;
@@ -279,7 +280,7 @@ namespace Shields.Match
             Debug.Log(string.Format("Turn play begins: player {0} starts, {1}.",
                 match.StartingPlayerIndex, match.Direction), this);
 
-            turnController.Begin(match, localPlayerIndex, tableLayout, crosshair, cardViewPrefab, deckView,
+            turnController.Begin(match, localPlayerIndex, tableLayout, crosshair, cardViewPrefab, deckView, discardView,
                 useFixedSeed ? fixedSeed : (int?)null);
         }
 

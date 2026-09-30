@@ -181,6 +181,7 @@ namespace Shields.Network
             tableLayout.BuildLayout(seatCount);
 
             ApplySeatRoles(localSeat);
+            InitializeLocalLook(localSeat);
             AttachLocalCamera(localSeat);
 
             if (_headPoseBridge != null) _headPoseBridge.ClearRemotePoses();
@@ -196,6 +197,10 @@ namespace Shields.Network
         /// <summary>
         /// Decides, per seat, what this machine is looking at. Every answer comes from the
         /// replicated registry; nothing is inferred from prefabs or components.
+        ///
+        /// Safe to repeat on every snapshot: it never touches the local look's angles.
+        /// Binding and resting the look happen once, in <see cref="InitializeLocalLook"/>,
+        /// when the layout is built. The local seat cannot change without a rebuild.
         /// </summary>
         void ApplySeatRoles(int localSeat)
         {
@@ -213,17 +218,10 @@ namespace Shields.Network
                 // placeholder body, which is not the same thing as a bot.
                 character.AssignIdentity(seat, isLocal, false);
 
+                // Only the seat this machine owns reads the mouse. Remote humans are
+                // driven by the head pose bridge; empty seats stay still.
                 SeatedHeadLook look = character.GetComponent<SeatedHeadLook>();
-                if (look != null)
-                {
-                    look.Bind(character.HeadPivot);
-
-                    // Only the seat this machine owns reads the mouse. Remote humans are
-                    // driven by the head pose bridge; empty seats stay still.
-                    look.enabled = isLocal;
-
-                    if (isLocal) RestLookOnTable(character, look);
-                }
+                if (look != null) look.enabled = isLocal;
 
                 // Presentation marker only, and there are no bots yet, so it stays off.
                 BotController bot = character.GetComponent<BotController>();
@@ -231,6 +229,22 @@ namespace Shields.Network
 
                 if (!isLocal && !occupant.IsHuman) ResetPivot(character);
             }
+        }
+
+        /// <summary>
+        /// Binds the local look to its pivot and rests it on the table. Only for a freshly
+        /// built layout: doing this again would snap the player's view back to neutral.
+        /// </summary>
+        void InitializeLocalLook(int localSeat)
+        {
+            PlayerCharacter local = tableLayout.GetPlayer(localSeat);
+            if (local == null) return;
+
+            SeatedHeadLook look = local.GetComponent<SeatedHeadLook>();
+            if (look == null) return;
+
+            look.Bind(local.HeadPivot);
+            RestLookOnTable(local, look);
         }
 
         static void ResetPivot(PlayerCharacter character)

@@ -32,6 +32,7 @@ namespace Shields.Match
         readonly TableLayoutController _table;
         readonly CardView _cardViewPrefab;
         readonly DeckView _deckView;
+        readonly DiscardPileView _discardView;
         readonly int _localPlayerIndex;
         readonly float _feedbackSeconds;
 
@@ -41,11 +42,12 @@ namespace Shields.Match
         CardView _highlightedShield;
 
         public MatchPresenter(TableLayoutController table, CardView cardViewPrefab, DeckView deckView,
-            int localPlayerIndex, float feedbackSeconds)
+            DiscardPileView discardView, int localPlayerIndex, float feedbackSeconds)
         {
             _table = table;
             _cardViewPrefab = cardViewPrefab;
             _deckView = deckView;
+            _discardView = discardView;
             _localPlayerIndex = localPlayerIndex;
             _feedbackSeconds = feedbackSeconds;
         }
@@ -53,7 +55,7 @@ namespace Shields.Match
         // ------------------------------------------------------------------ state sync
 
         /// <summary>
-        /// Redraws cards, status labels and the deck count from public state.
+        /// Redraws cards, status labels and the draw and discard counts from public state.
         ///
         /// It takes a snapshot rather than the engine so the same presenter serves both
         /// modes: offline projects its local match into one of these, online receives one
@@ -76,6 +78,9 @@ namespace Shields.Match
             }
 
             if (_deckView != null) _deckView.Refresh();
+
+            // Only the count: the pile is face down and no discarded identity is public.
+            if (_discardView != null) _discardView.ShowCount(match.DiscardCount);
         }
 
         void UpdateStatusLabel(PublicMatchSnapshot match, PublicPlayerState player)
@@ -256,6 +261,8 @@ namespace Shields.Match
         {
             SetTargetHighlight(-1);
             ClearRevealedCards();
+
+            if (_discardView != null) _discardView.Clear();
 
             foreach (WorldLabel label in _statusLabels.Values)
                 if (label != null) Object.Destroy(label.gameObject);
