@@ -86,7 +86,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditor.uss" />
+    <None Include="Assets\Daniel Mistage\Stylized Fantasy Armory\Prefabs\Extra Content\Fantasy Female Character Hetalia - Props\README.txt" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorLight.uss" />
+    <None Include="Assets\Daniel Mistage\Stylized Fantasy Armory\Prefabs\Extra Content\Fantasy Female Character Leona - Props\README.txt" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorDark.uss" />
   </ItemGroup>
   <ItemGroup>
