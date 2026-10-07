@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dbd0e8647d9b4dc4eb61e52e17789bcc
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 402466
+  packageName: Cork Glass Bottles
+  packageVersion: 1.0
+  assetPath: Assets/APOO_GLB_bottle/GLB_Material/GLB_Bottle_Labeled_S_02_Mat.mat
+  uploadId: 1000856
