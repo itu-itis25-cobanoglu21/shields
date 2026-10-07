@@ -62,6 +62,7 @@
     <Compile Include="Assets\Scripts\Network\NetworkSeatRegistry.cs" />
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkTestPresenter.cs" />
+    <Compile Include="Assets\Laterns and candles\scripts\CameraFacing.cs" />
     <Compile Include="Assets\Scripts\Match\MatchPresenter.cs" />
     <Compile Include="Assets\Scripts\Match\GameplayCamera.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkPrototypeUI.cs" />
@@ -77,6 +78,7 @@
     <Compile Include="Assets\Scripts\Player\BotController.cs" />
     <Compile Include="Assets\Scripts\Player\SeatedHeadLook.cs" />
     <Compile Include="Assets\Scripts\Table\PlayerTableArea.cs" />
+    <Compile Include="Assets\Laterns and candles\scripts\ExtendedFlycam.cs" />
     <Compile Include="Assets\Scripts\Match\MatchSetupUI.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkHeadPoseBridge.cs" />
     <Compile Include="Assets\Scripts\Presentation\DiscardPileView.cs" />
@@ -87,6 +89,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditor.uss" />
+    <None Include="Assets\Laterns and candles\Shaders\GlassStainedBumpDistort.shader" />
     <None Include="Assets\Daniel Mistage\Stylized Fantasy Armory\Prefabs\Extra Content\Fantasy Female Character Hetalia - Props\README.txt" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorLight.uss" />
     <None Include="Assets\Daniel Mistage\Stylized Fantasy Armory\Prefabs\Extra Content\Fantasy Female Character Leona - Props\README.txt" />
