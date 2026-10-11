@@ -181,13 +181,13 @@ namespace Shields.Match
 
             switch (key)
             {
-                case 1: _pending = PendingAction.Attack; return true;
-                case 2: _pending = PendingAction.ReplaceShield; return true;
+                case 1: SetPending(PendingAction.Attack); return true;
+                case 2: SetPending(PendingAction.ReplaceShield); return true;
                 case 3:
                     // A first Charge needs no target, so it is committed immediately.
                     if (_match.Players[_localPlayerIndex].HasCharge)
                     {
-                        _pending = PendingAction.ChargedAttack;
+                        SetPending(PendingAction.ChargedAttack);
                         return true;
                     }
 
@@ -249,9 +249,24 @@ namespace Shields.Match
 
         void ClearPending()
         {
-            _pending = PendingAction.None;
+            SetPending(PendingAction.None);
             _hoveredTarget = TurnActionRequest.NoTarget;
             if (_presenter != null) _presenter.SetTargetHighlight(TurnActionRequest.NoTarget);
+        }
+
+        /// <summary>
+        /// Changes the pending action and keeps the weapon in step with it: Attack and
+        /// Charged Attack targeting draw it, anything else puts it away. Presentation only.
+        /// </summary>
+        void SetPending(PendingAction pending)
+        {
+            _pending = pending;
+            if (_presenter == null) return;
+
+            if (pending == PendingAction.Attack || pending == PendingAction.ChargedAttack)
+                _presenter.BeginWeaponAim(_localPlayerIndex);
+            else
+                _presenter.EndWeaponAim(_localPlayerIndex);
         }
 
         // ------------------------------------------------------------------ bots

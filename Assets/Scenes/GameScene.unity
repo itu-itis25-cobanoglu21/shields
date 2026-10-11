@@ -3185,17 +3185,175 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd4a197f48b325048b355b9112ee2445, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Shields.Match.PlayerActionPresenter
+  muzzleFlashPrefab: {fileID: 1561614724250212137, guid: bedfcb42701f57d40857b8f2e7505cf6, type: 3}
+  muzzleFlashForwardOffset: 0.035
+  muzzleFlashGrowthPerDamage: 0.03
+  muzzleFlashMaxGrowth: 1.8
+  muzzleLightColor: {r: 1, g: 0.62, b: 0.3, a: 1}
+  muzzleLightIntensity: 8
+  muzzleLightRange: 3
+  muzzleLightDuration: 0.14
+  recoilByDamage:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 1
+      value: 5
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 5
+      value: 12
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 10
+      value: 25
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 15
+      value: 45
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 20
+      value: 75
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 25
+      value: 100
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  recoilKickPerDegree: 0.0014
+  recoilSnapDuration: 0.035
+  recoilRecoveryDuration: 0.22
+  recoilRecoveryPerDegree: 0.004
+  shooterLeanThreshold: 20
+  shooterLeanPerDegree: 0.12
+  hitBloodPrefab: {fileID: 766092769117596024, guid: 849d3cf28290e6347afbcb138cb2cf78, type: 3}
+  bloodSurfaceOffset: 0.2
+  bloodGrowthPerDamage: 0.025
+  bloodMaxGrowth: 1.4
+  hitTiltByDamage:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 1
+      value: 4
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 5
+      value: 6.5
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 10
+      value: 9
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 20
+      value: 13
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 25
+      value: 15
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  hitSnapDuration: 0.05
+  hitStopDuration: 0.04
+  hitStopPerDamage: 0.004
+  hitStopMax: 0.12
+  wobbleFrequency: 2.6
+  wobbleDamping: 0.3
+  wobbleDuration: 0.9
+  hitSquash: 0.07
+  headLag: 0.05
+  headWhip: 1.25
+  hitFlashColor: {r: 1, g: 0.92, b: 0.88, a: 1}
+  hitFlashStrength: 0.85
+  hitFlashDuration: 0.2
+  drawReachDuration: 0.12
+  drawRaiseDuration: 0.2
+  fireDelay: 0.12
+  afterFireHold: 0.35
+  holsterLowerDuration: 0.2
+  holsterReturnDuration: 0.12
+  unconfirmedLockTimeout: 3
+  aimGripOffset: {x: 0.05, y: 0.04, z: 0.4}
+  muzzleClearance: 0.4
+  minAimReach: 0.15
+  aimSwingLimit: 55
+  aimSharpness: 18
+  lockedAngle: 2
+  targetUpperBody: 0.6
+  freeAimRange: 25
+  freeAimFallbackDistance: 6
   handReachDuration: 0.25
   deckHoldDuration: 0.175
   cardPullDuration: 0.25
   handReturnDuration: 0.25
   flameStartDelay: 0.075
-  palmClearance: 0.03
+  palmClearance: 0.006
+  handFingerAxis: {x: 0.365, y: -0.93, z: -0.039}
+  handBackAxis: {x: 0.491, y: 0.156, z: 0.857}
   cardArcHeight: 0.05
   handTrail: 0.08
-  chargeFlamePrefab: {fileID: 6451369542552504431, guid: e4713e1ea6cf1a94d89f8035913be8ac, type: 3}
-  flameWorldScale: 0.1
-  flameSettledTime: 1
+  chargeFlamePrefab: {fileID: 6131696024570567151, guid: f4dcbe07a9e79d7409096ed759dd1680, type: 3}
   revealGrace: 0.35
   confirmTimeout: 1.5
 --- !u!1001 &522920164
@@ -14225,6 +14383,67 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.1630371, y: 1.1515691, z: 0.19841158}
   m_Center: {x: 0.18665451, y: -0.0009595157, z: -0.00008464605}
+--- !u!1001 &1528670155
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1.4725116
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.599
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.271
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5071038537244617553, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5822899519971928179, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_Name
+      value: Flintlock
+      objectReference: {fileID: 0}
+    - target: {fileID: 5822899519971928179, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c86cf7c3704600e4a8454378594a4751, type: 3}
 --- !u!1001 &1531977158
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -17491,63 +17710,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1937a6a2dbb95e042bb833e1c0cf08ee, type: 3}
   m_PrefabInstance: {fileID: 1657209960}
   m_PrefabAsset: {fileID: 0}
---- !u!1001 &1659906682
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 5627696518775099638, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_Name
-      value: VFX_Stylized_Fire_01_Mystic
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -1.6441915
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -0.000000006125603
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -12.316467
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
 --- !u!1001 &1678048380
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -22685,4 +22847,4 @@ SceneRoots:
   - {fileID: 23963200}
   - {fileID: 716784353}
   - {fileID: 1926753951}
-  - {fileID: 1659906682}
+  - {fileID: 1528670155}

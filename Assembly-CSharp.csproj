@@ -59,15 +59,19 @@
     <Compile Include="Assets\Scripts\Network\ShieldsSessionController.cs" />
     <Compile Include="Assets\Scripts\Presentation\CrosshairInteraction.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.cs" />
+    <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Hit.cs" />
+    <Compile Include="Assets\VFXPACK_IMPACT_WALLCOEUR_FreeVersion\Scripts\VfxController.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkSeatRegistry.cs" />
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkTestPresenter.cs" />
     <Compile Include="Assets\Laterns and candles\scripts\CameraFacing.cs" />
+    <Compile Include="Assets\VFXPACK_IMPACT_WALLCOEUR_FreeVersion\Scripts\DropdownController.cs" />
     <Compile Include="Assets\Scripts\Match\MatchPresenter.cs" />
     <Compile Include="Assets\Scripts\Match\GameplayCamera.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkPrototypeUI.cs" />
     <Compile Include="Assets\Scripts\Match\MatchHud.cs" />
     <Compile Include="Assets\Scripts\Match\MatchBootstrap.cs" />
+    <Compile Include="Assets\Scripts\Presentation\ChargeCardFlame.cs" />
     <Compile Include="Assets\Scripts\Presentation\WorldLabel.cs" />
     <Compile Include="Assets\Scripts\Presentation\LocalShieldSelection.cs" />
     <Compile Include="Assets\Scripts\Network\OnlineMatchDriver.cs" />
@@ -82,6 +86,7 @@
     <Compile Include="Assets\Scripts\Match\MatchSetupUI.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkHeadPoseBridge.cs" />
     <Compile Include="Assets\Scripts\Presentation\DiscardPileView.cs" />
+    <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Weapon.cs" />
     <Compile Include="Assets\Scripts\Table\TableLayoutController.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerCharacter.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkMatchController.cs" />

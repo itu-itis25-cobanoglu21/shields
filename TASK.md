@@ -1,765 +1,665 @@
-# TASK 015 — First Charge Hand / Card Animation + Persistent Purple Flame
+# TASK 018 — Weapon Fire VFX, Blood Hit & Small Body Knockback
 
 Read `CLAUDE.md`, `SHIELDS_RULES.md`, and this entire TASK.md before modifying anything.
 
-This task adds the first real player action animation to SHIELDS.
+The weapon draw / aiming / target-lock presentation from the previous task is already working.
 
-The existing gameplay, networking, hidden-card privacy, seating, cameras, table layout, charge rules, and card presentation are already working.
+The user has now manually placed TWO new VFX objects in the current GameScene:
+
+1. a weapon impact / firing VFX intended to play at the weapon when the shot happens
+2. a blood VFX intended to play on the player who actually takes positive damage
+
+The user has not tuned their scale, orientation, timing, or placement.
+
+Inspect and reuse those exact scene VFX assets.
+
+Do not arbitrarily replace them before inspection.
 
 This task is PRESENTATION ONLY.
 
-Do not change the authoritative Charge rules.
+Do not change combat rules, damage calculation, Charge rules, targeting, seat mapping, networking authority, or hidden-card privacy.
 
 ---
 
-## 1. Scope
+## 1. Goal
 
-Implement the visual animation for the FIRST Charge action only:
+For a successful damaging Attack / Charged Attack:
 
-Player presses Charge
-→ right hand quickly reaches to the center deck
-→ hand pauses briefly above the deck
-→ a face-down card is pulled from the deck toward that player's stored-Charge position
-→ hand returns to its original resting position
-→ shortly after the card settles, a purple flame begins burning from the center of the card
-→ the flame remains continuously active until that stored Charge is cleared by gameplay
+target selected
+→ weapon is already locked onto the target
+→ weapon fires
+→ firing VFX appears at the weapon at the exact firing moment
+→ blood VFX appears on the damaged player's body
+→ damaged player's upper body gives a very small recoil / knockback away from the incoming shot
+→ body smoothly returns to normal seated pose
 
-Do NOT implement the second Charge / charged-attack reveal animation yet.
+The reaction should be quick and readable, but subtle.
 
-Do NOT implement Attack animations yet.
+Do NOT implement ragdoll yet.
+
+Do NOT implement the failed-attack flag gag yet.
 
 ---
 
-# PART A — INSPECT CURRENT SYSTEM FIRST
+# PART A — INSPECT CURRENT STATE FIRST
 
 ## 2. Inspect before modifying
 
-Before changing code or prefabs, inspect:
+Inspect the current:
 
-- current Charge input flow
-- current host-authoritative Charge action flow
-- current public snapshot/result flow
-- current stored-Charge presentation
-- how the face-down Charge card is currently created / shown
-- where the Charge card is positioned for each seat
-- existing card-back visual
-- `PlayerCharacter` hierarchy
-- `RightHandAnchor`
-- current right-hand resting transform
-- current deck visual position
-- current deck presentation anchor / transform
-- the manually placed purple fire VFX currently present in GameScene
+- weapon draw presentation
+- weapon grip / aim setup
+- target-lock implementation
+- weapon asset hierarchy
+- existing muzzle / weapon forward direction
+- any existing `MuzzleAnchor`, `AimPivot`, `WeaponGripAnchor`, or equivalent
+- authoritative Attack result flow
+- authoritative Charged Attack result flow
+- how positive damage versus zero damage is represented in results
+- `PlayerActionPresenter`
+- PlayerCharacter body hierarchy
+- Body / BodyMesh transforms
+- HeadPivot
+- hand anchors
+- current seated/rest body transform
+- current networking presentation flow
 
-Identify the exact purple fire object/prefab the user placed.
+Also inspect the two manually placed VFX objects in GameScene.
 
-Do not guess its package prefab or renderer setup.
+For EACH VFX identify:
 
-Inspect:
-- root
-- child particle systems
-- renderer mode
+- exact scene object name
+- source prefab / asset path
+- particle/VFX system type
+- root scale
+- orientation
+- renderer setup
+- looping behavior
+- duration
 - materials
-- simulation behavior
-- whether it is camera-oriented
-- whether its visible animation fades out / restarts
-- whether it contains lights, colliders, scripts or audio
+- lights
+- colliders
+- rigidbodies
+- scripts
+- audio components
 
-Do not modify anything until this inspection is complete.
-
----
-
-# PART B — ARCHITECTURE
-
-## 3. Presentation must remain separate from gameplay
-
-Do NOT put animation timing into authoritative game rules.
-
-Do NOT make animation determine:
-
-- whether Charge succeeds
-- which card is drawn
-- hidden card identity
-- charge ownership
-- turn advancement
-- charge interruption
-- damage
-- death
-
-The authoritative match state remains the source of truth.
-
-Animation only represents an already-valid gameplay action.
-
-Prefer a presentation component such as:
-
-`PlayerActionPresenter`
-
-or another minimal equivalent if an existing presentation component already serves this purpose.
-
-Do not create unnecessary architecture if an existing clean presentation path can be extended.
+Do not guess what either VFX does based only on its name.
 
 ---
 
-## 4. Hidden-card privacy is mandatory
+# PART B — WEAPON FIRING VFX
 
-The first Charge card remains hidden from EVERYONE, including its owner.
+## 3. Use the user's firing / impact VFX
 
-During the animation:
+Use the manually placed firing/impact VFX as the basis for the weapon firing effect.
 
-- show only the standard face-down CardBack
-- never expose rank
-- never expose suit
-- never expose hidden card ID/data through presentation DTOs
-- never instantiate a face-up version temporarily
-- never log hidden identity to clients
+Create a project-owned prefab/variant if customization is required.
 
-The animation must not weaken the existing hidden-charge privacy guarantees.
+Do NOT destructively modify the third-party package source.
+
+The manually placed scene reference may be removed after a reusable project-owned presentation asset is created, if it was clearly only a reference/testing object.
 
 ---
 
-# PART C — HAND ANIMATION
+## 4. Place it at the weapon
 
-## 5. Use the existing floating right hand
-
-Use the existing:
-
-`RightHandAnchor`
-
-and current floating-hand setup.
-
-Do NOT add:
-- visible arms
-- humanoid rig
-- Animator Controller
-- IK package
-- animation package
-
-This animation should be procedural.
-
-The hand is intentionally unconstrained by arm length.
-
----
-
-## 6. Preserve the resting pose
-
-At the start of the animation, capture or use the existing correct resting local transform of the right hand.
-
-The hand MUST return to exactly the correct idle/rest pose after the Charge animation.
-
-Do not hard-code a random world-space idle position if the project already has a proper resting transform.
-
-The animation must continue working for all seat orientations.
-
----
-
-## 7. Reach timing
-
-When a valid FIRST Charge begins:
-
-the right hand should move rapidly from idle/rest position to the center deck.
-
-Target duration:
-
-**0.20–0.30 seconds**
-
-Preferred starting value:
-
-**0.25 seconds**
-
-Use smooth easing.
-
-The movement should feel fast and deliberate, not robotic constant-speed motion.
-
-Preferred motion character:
-
-- fast initial reach
-- slight ease into the deck position
-
-Do not teleport.
-
----
-
-## 8. Deck hand position
-
-The hand should end slightly above the physical deck, as though it is grabbing the top card.
-
-Do NOT place the hand through the deck.
-
-Create/reuse a clean interaction anchor if useful, for example:
-
-`DeckHandInteractionAnchor`
-
-but only if an appropriate anchor does not already exist.
-
-The target should remain correct if the deck presentation moves slightly later.
-
-Do not change authoritative deck position.
-
----
-
-## 9. Deck pause
-
-Once the hand reaches the deck:
-
-hold it above the deck for:
-
-**0.15–0.20 seconds**
-
-Preferred starting value:
-
-**0.175 seconds**
-
-During this pause:
-- the hand remains stable
-- do not jitter
-- do not begin moving the Charge card early unless needed for visual continuity
-
-This should visually read as:
-
-"grab card"
-
----
-
-# PART D — CARD DRAW ANIMATION
-
-## 10. Animate one face-down card from the deck
-
-After the deck pause, visually pull a face-down card from the deck to the player's existing stored-Charge presentation position.
-
-Use the existing CardBack visual/style.
-
-Do not create a new visible card style.
-
-Do not reveal the card.
-
----
-
-## 11. Card movement timing
-
-Move the card from deck to Charge position quickly.
-
-Target duration:
-
-**0.20–0.30 seconds**
-
-Preferred starting value:
-
-**0.25 seconds**
-
-The motion should feel connected to the hand.
-
-The hand and card should appear to travel together as if the hand is carrying/pulling the card.
-
-It is acceptable for the card to lag the hand by a few milliseconds if that looks better.
-
----
-
-## 12. Final Charge card position
-
-The card must finish at the SAME authoritative/public presentation position currently used for stored Charge.
-
-Do not invent a different permanent Charge location.
-
-The final state after the animation should be compatible with the existing snapshot-driven Charge presentation.
-
-Avoid duplicate permanent cards.
-
-If the current system instantly creates the final stored-Charge card when the snapshot arrives, use a clean presentation strategy such as:
-
-- temporarily animate that visual from deck to final slot
-
-or
-
-- temporarily hide the final visual while an animation copy travels, then hand off seamlessly
-
-Choose the minimal robust solution.
-
-At the end there must be exactly ONE visible stored-Charge card.
-
----
-
-# PART E — HAND RETURN
-
-## 13. Return the hand to idle
-
-Once the card reaches the final Charge position:
-
-move the right hand back to its original resting pose.
-
-Target duration:
-
-**0.20–0.30 seconds**
-
-Preferred starting value:
-
-**0.25 seconds**
-
-Use smooth easing.
-
-The hand should not remain attached to the card.
-
-At the end:
-- exact idle/rest position restored
-- exact idle/rest rotation restored
-- no cumulative transform drift after repeated Charge actions across rounds
-
----
-
-# PART F — PURPLE CHARGE FLAME
-
-## 14. Use the user's purple fire VFX
-
-The user manually placed a purple fire effect in GameScene specifically for this task.
-
-Inspect it and use it as the visual basis for the Charge-card effect if technically suitable.
-
-Do NOT replace it arbitrarily with another effect before inspecting it.
-
-Do NOT destructively modify the package-source prefab/material.
-
-If customization is needed:
-- create a project-owned prefab/material variant
-- place it under an appropriate SHIELDS art/VFX folder
-
----
-
-## 15. Flame start timing
-
-Once the face-down Charge card has reached its final position:
-
-wait approximately:
-
-**0.05–0.10 seconds**
-
-Preferred starting value:
-
-**0.075 seconds**
-
-Then begin the purple flame.
-
-The flame should visibly begin after the card settles, not before.
-
----
-
-## 16. Flame placement
-
-The flame must originate from the CENTER of the face-down Charge card.
-
-It should appear attached to the card.
-
-If the card moves due to presentation/layout updates, the flame must follow it.
+The firing VFX must originate from the weapon itself.
 
 Preferred hierarchy conceptually:
 
-`StoredChargeCard`
-- `CardBack`
-- `ChargeFlameVFX`
+Weapon
+- WeaponGrip / AimPivot
+- MuzzleAnchor
+- FireVFX
 
-Do not make the flame float independently in world space.
+If a proper muzzle anchor does not already exist, create one.
+
+The anchor must be positioned at the actual end of the barrel.
+
+Validate the weapon's real barrel direction before placing the effect.
+
+Do not assume the model's +Z or -Z direction.
 
 ---
 
-## 17. Flame orientation consistency
+## 5. Scale and orientation
+
+The user has not tuned the firing VFX.
+
+Adjust:
+
+- scale
+- orientation
+- local position
+- duration if necessary
+
+so it visually matches the existing weapon and the scale of the PlayerCharacter.
+
+It should look like a small stylized weapon discharge, not a giant explosion.
+
+It must not obscure half the screen in first person.
+
+Tune it from actual gameplay camera views.
+
+---
+
+## 6. Exact timing
+
+The firing VFX must start at the exact presentation frame / moment the weapon is considered to fire.
+
+The desired sequence is:
+
+weapon locked to target
+→ very short hold if already present
+→ FIRE moment
+→ firing VFX starts immediately
+
+Do not start the VFX while the gun is still drawing or before target lock.
+
+---
+
+## 7. Successful attacks only for this task
+
+For this task, use the full fire + blood + knockback presentation when the authoritative result causes:
+
+`positive damage > 0`
+
+This includes applicable normal Attack and Charged Attack results.
+
+If the result is blocked / zero damage:
+
+- do NOT spawn blood
+- do NOT play hit knockback
+- do NOT invent the miss-flag animation yet
+
+Preserve a clean path so the later failed-attack gag can be added separately.
+
+Do not change gameplay outcome.
+
+---
+
+# PART C — BLOOD HIT VFX
+
+## 8. Use the user's blood VFX
+
+Use the manually placed blood VFX from GameScene.
+
+Inspect it first.
+
+Create a project-owned prefab/variant if tuning is needed.
+
+Do not destructively modify package assets.
+
+---
+
+## 9. Blood placement
+
+When a player actually receives positive damage:
+
+spawn/play the blood effect on that player's body.
+
+Use a stable body hit point, for example:
+
+- upper torso / chest
+- an existing body target point if suitable
+- or a new dedicated `HitVfxAnchor`
+
+Do NOT attach it to:
+
+- chair
+- head unless visually necessary
+- table
+- random collider edge
+
+Preferred target is the upper torso area.
+
+---
+
+## 10. Blood direction
+
+If the VFX supports orientation:
+
+orient the blood so it reacts to the incoming shot direction.
+
+Conceptually:
+
+shooter position
+→ target body
+→ blood direction continues slightly away from shooter
+
+Do not make every blood burst face the same world direction.
+
+If the asset is camera-facing and orientation does not matter visually, keep it simple.
+
+---
+
+## 11. Blood scale
+
+Tune the blood VFX to the current stylized bean-like PlayerCharacter.
+
+Desired result:
+
+- clearly readable
+- short
+- stylized
+- not photorealistic
+- not a giant gore explosion
+- does not cover the whole screen/player
+
+The user has not tuned this asset, so choose a visually appropriate scale.
+
+---
+
+## 12. Blood lifetime / cleanup
+
+Blood burst should be temporary.
+
+Do not leave permanent particle objects accumulating around the scene.
+
+Reuse/pool if an existing presentation pattern makes sense, otherwise clean up safely after the VFX finishes.
+
+No collider.
+No Rigidbody.
+No gameplay layer.
+No NetworkObject unless existing architecture genuinely requires one.
+
+---
+
+# PART D — SMALL "HACIYATMAZ" HIT REACTION
+
+## 13. Desired reaction
+
+When positive damage is applied, the damaged player should perform a VERY SMALL physical-looking reaction.
+
+The intended feeling is similar to a weighted roly-poly / hacıyatmaz toy:
+
+- player's base stays fixed in the seat
+- feet/base position does NOT slide
+- the lower body remains anchored
+- only the upper body leans slightly away from the incoming shot
+- then smoothly returns upright
+
+This is NOT a real knockback displacement.
+
+Do not push the entire PlayerCharacter through world space.
+
+---
+
+## 14. Pivot behavior
+
+The reaction should visually pivot from near the bottom/base of the body.
+
+Conceptually:
+
+fixed base
+|
+| body tilts
+|
+upper body → slightly away from shooter
+
+If the current Body mesh pivot is unsuitable, create a presentation pivot such as:
+
+`HitReactionPivot`
+
+without changing authoritative PlayerCharacter/root position.
+
+Do not move seat transforms.
+
+Do not move networking roots.
+
+Do not move camera anchors permanently.
+
+---
+
+## 15. Direction
+
+Determine reaction direction from:
+
+attacker / shot origin
+→ damaged player
+
+The damaged body should lean a small amount in the OPPOSITE direction from where the shot came from.
+
+Example:
+
+shot arrives from player's left
+→ body tilts slightly right
+
+shot arrives from front
+→ body tilts slightly backward
+
+Use the table/seat/world orientation correctly.
+
+Do not use a fixed global rotation for every target.
+
+---
+
+## 16. Strength
+
+Keep the reaction SMALL.
 
 This is important.
 
-Previously some Stylized Fire package effects looked different depending on camera angle.
+Initial visual target:
 
-For the Charge card flame:
+- approximately `4–8 degrees` of body tilt
+- very small positional motion only if absolutely needed
+- no dramatic chair movement
+- no ragdoll
 
-ALL players should perceive the flame as centered on the same card.
+Expose the amount for tuning.
 
-Do not allow it to visibly jump to different sides of the card depending on viewing camera.
+Suggested initial value:
 
-Inspect the purple effect's renderer setup.
-
-If it uses camera-oriented billboards and causes inconsistent perceived placement:
-
-create a project-owned presentation variant that solves the issue.
-
-Possible approaches include:
-
-- world/local-oriented renderer configuration if visually correct
-- multiple crossed flame planes/renderers
-- another stable setup using the existing effect/material
-
-Choose the solution that looks correct from multiple seats.
-
-Do NOT simply assume changing the root Particle System setting fixes child renderers.
-
-Inspect the actual visible particle/rendering child.
+`6 degrees`
 
 ---
 
-## 18. Persistent flame behavior
+## 17. Timing
 
-The Charge flame should NOT behave like:
+Desired initial timing:
 
-fade in
-→ burn
-→ completely disappear
-→ restart
-→ fade in again
+Hit:
+- quick impulse away: approximately `0.08–0.12s`
 
-while the Charge remains stored.
+Recovery:
+- smooth return: approximately `0.20–0.35s`
 
-The desired behavior is:
+Suggested starting values:
 
-start once
-→ reach its normal burning state
-→ continue burning continuously
-→ stop only when the stored Charge ceases to exist
+- hit impulse: `0.10s`
+- recovery: `0.28s`
 
-Natural internal flame motion is good.
+Use easing.
 
-A repeated full extinction/restart cycle is NOT desired.
-
-Inspect the actual visible particle child/material/shader.
-
-The package may control visible flame motion through shader/material parameters rather than root Particle System `Simulation Speed`.
-
-Tune the correct system.
+The reaction should feel snappy but not cartoonishly huge.
 
 ---
 
-## 19. Flame lifetime follows GAME STATE
+## 18. Head and hands
 
-The flame must remain active for the entire lifetime of the stored Charge.
+The whole presentation should remain visually coherent.
 
-It ends when the authoritative stored Charge is cleared, including cases such as:
+It is acceptable for the:
 
-- player performs the second Charge / charged attack
-- stored Charge is interrupted by positive incoming damage
-- player dies
-- match/state reset clears the Charge
-- any other existing authoritative rule that removes stored Charge
+- Body
+- HeadPivot
+- floating hands
 
-Do not use a fixed timer such as "burn for 5 seconds".
-
-Charge state controls lifetime.
-
----
-
-## 20. Flame must not affect gameplay
-
-The flame / glow must have:
-
-- no Collider
-- no Rigidbody
-- no NetworkObject unless absolutely required by existing architecture
-- no targetable gameplay layer
-- no gameplay authority
-- no damage logic
-
-It is visual only.
-
-It must not interfere with:
-- crosshair raycasts
-- card targeting
-- Shield targeting
-- player targeting
-
----
-
-# PART G — MULTIPLAYER PRESENTATION
-
-## 21. Local responsiveness
-
-For the LOCAL player:
-
-when Charge input is valid and the current input/action gate accepts the action, the hand should feel immediate.
-
-Target experience:
-
-press Charge
-→ hand begins reaching almost immediately
-
-Do not deliberately wait for a long network round trip before showing any response if the existing architecture allows safe cosmetic anticipation.
+to receive a small coordinated reaction if needed.
 
 However:
 
-authoritative game state remains controlled by the host.
+- do not break head-look synchronization
+- do not permanently alter camera/head transforms
+- do not detach hands from their normal presentation system
 
-If local anticipation creates architectural ambiguity, prefer correctness over speculative gameplay state.
+For the LOCAL damaged player, avoid violently rotating the actual first-person camera.
+
+Prefer body/world reaction that is visible to others without making the local user uncomfortable.
+
+If a tiny local camera impulse is clearly beneficial, keep it extremely subtle and report it.
 
 ---
 
-## 22. Remote visibility
+# PART E — AUTHORITATIVE TIMING
 
-Other participants must also see the charging player's:
+## 19. Trigger from confirmed result
 
-- hand reach
-- card draw
-- hand return
-- resulting burning face-down Charge card
+Blood and hit reaction must only occur after an authoritative/public result confirms:
 
-Do not broadcast hidden card identity.
+`positive damage > 0`
 
-Use the existing authoritative action/result/snapshot flow to trigger remote presentation cleanly.
+Do not predict blood locally before the host confirms damage.
+
+The weapon firing presentation may be tightly timed with the resolved attack result, but gameplay state remains authoritative.
+
+Do not allow client-side cosmetics to determine whether damage occurred.
+
+---
+
+## 20. Normal Attack
+
+For successful normal Attack:
+
+target lock
+→ fire presentation
+→ firing VFX
+→ blood on target
+→ small hit reaction
+→ cleanup / weapon return according to current presentation flow
+
+---
+
+## 21. Charged Attack
+
+For successful Charged Attack:
+
+use the same firing/hit presentation foundation:
+
+target lock
+→ fire
+→ firing VFX
+→ blood
+→ small reaction
+
+Do not implement second-Charge card reveal animation in this task unless it is already present.
+
+Do not change Charged Attack gameplay rules.
+
+---
+
+# PART F — BOTS / REMOTE HUMANS
+
+## 22. Bots
+
+Bot successful attacks should use the same visible presentation:
+
+- weapon fire VFX
+- blood on damaged player
+- body reaction
+
+Do not instant-skip the presentation for bots.
+
+---
+
+## 23. Remote humans
+
+Remote clients must see the same resolved successful-hit presentation.
+
+Do not send unnecessary hidden information.
+
+Use the existing authoritative/public result flow.
 
 Do not assume `clientId == seat`.
 
-Use the existing explicit participant/client → seat mapping.
+---
+
+# PART G — SAFETY
+
+## 24. No targeting interference
+
+All added VFX must have:
+
+- no active Collider
+- no Rigidbody unless visually necessary and non-interfering
+- no targetable gameplay layer
+- no gameplay authority
+
+Validate:
+
+- body targeting
+- Shield targeting
+- card targeting
+
+after integration.
 
 ---
 
-## 23. Bots
+## 25. No gameplay changes
 
-Bots performing their FIRST Charge should use the SAME presentation:
+Do NOT modify:
 
-- hand reaches deck
-- card travels to their Charge position
-- hand returns
-- purple flame begins
+- damage formulas
+- Attack success condition
+- Charged Attack success condition
+- Shield values
+- Health rules
+- Charge interruption rules
+- death rules
+- deck logic
+- turn logic
+- targeting rules
 
-Do not special-case bots into instant visual state unless required during fallback/error recovery.
-
----
-
-# PART H — INTERRUPTION / SNAPSHOT ROBUSTNESS
-
-## 24. Snapshot updates must not reset the animation
-
-The project previously had problems where repeated snapshots reset camera/presentation state.
-
-Do not introduce a similar problem here.
-
-Routine public snapshots must NOT:
-
-- snap a hand back mid-animation unnecessarily
-- restart the flame repeatedly
-- duplicate the Charge card
-- restart the flame's startup animation every snapshot
-
-Persistent Charge presentation should survive snapshot refreshes cleanly.
+This is presentation only.
 
 ---
 
-## 25. Late state / fallback
+# PART H — OUT OF SCOPE
 
-If a client joins or receives a state where a player is ALREADY charged but did not witness the original animation:
-
-show the final state directly:
-
-- face-down Charge card visible
-- purple flame already in its stable burning state
-
-Do NOT replay the entire historical hand-draw animation just because a snapshot says the player is charged.
-
-Animation is for the action event.
-
-Snapshot is for current state.
-
----
-
-# PART I — TUNING VALUES
-
-## 26. Expose timing values cleanly
-
-Do not bury important animation timings across magic numbers.
-
-Expose/centralize reasonable presentation tuning values for:
-
-- Hand reach duration: initial `0.25s`
-- Deck hold duration: initial `0.175s`
-- Card pull duration: initial `0.25s`
-- Hand return duration: initial `0.25s`
-- Flame start delay: initial `0.075s`
-
-These can be serialized presentation settings or clean constants/configuration appropriate to the current architecture.
-
-Do not put them into authoritative match rules.
-
----
-
-## 27. Easing
-
-Use visually pleasing easing.
-
-Avoid purely linear robotic motion.
-
-Suggested character:
-
-Hand reach:
-- ease-out / fast reach into deck
-
-Card pull:
-- fast but smooth
-
-Hand return:
-- slightly softer ease-in-out
-
-Do not introduce a tweening package.
-
-Use project code / coroutine / existing utilities.
-
----
-
-# PART J — VALIDATION
-
-## 28. Offline validation
-
-Test FIRST Charge with:
-
-### 3 players
-- local human Charge
-- bot Charge
-- card remains hidden
-- correct flame
-- correct hand reset
-
-### 6 players
-- multiple seat orientations
-- hand reaches central deck correctly from different seats
-- Charge card ends at correct seat-relative position
-- flame remains centered
-
-### 8 players
-- same validations at maximum seat count
-- no hand/card animation crosses into obviously incorrect seat geometry
-- multiple simultaneous/paced bot presentations do not corrupt each other
-
----
-
-## 29. Multi-angle flame check
-
-Inspect a burning Charge card from multiple seat cameras / scene viewpoints.
-
-Confirm:
-
-- flame appears centered on the card
-- no camera causes it to jump to a different side
-- no obvious flat-card/billboard orientation bug
-- effect remains visually acceptable around the full table
-
-Report the exact technique used.
-
----
-
-## 30. Charge interruption test
-
-Create a stored Charge.
-
-Confirm the flame/card remain active.
-
-Then apply positive incoming damage that interrupts Charge.
-
-Verify:
-
-- authoritative Charge clears
-- purple flame stops/disappears
-- stored Charge card disappears
-- no orphan VFX remains
-
----
-
-## 31. Death cleanup
-
-If a charged player dies:
-
-confirm:
-- Charge card clears
-- Charge flame clears
-- no particle/VFX object remains detached in the scene
-
----
-
-## 32. Targeting safety
-
-At 3, 6 and 8 players verify:
-
-- flame does not intercept raycasts
-- animated hand does not create new target collider problems
-- card presentation remains non-gameplay-blocking
-- Shield/body targeting still works
-
----
-
-## 33. Tests
-
-Run the full existing EditMode suite.
-
-Expected baseline:
-
-260 passing.
-
-Do not weaken existing tests.
-
-Add focused pure tests only if new pure logic genuinely warrants them.
-
-Do not create tests just for transform interpolation.
-
----
-
-## 34. Console
-
-Final state must have:
-
-- 0 project-code errors
-- 0 relevant runtime warnings
-- 0 missing references
-- no coroutine/presentation exceptions
-- no VFX-related errors
-
----
-
-# PART K — DO NOT IMPLEMENT YET
-
-## 35. Explicitly out of scope
+## 26. Do NOT implement yet
 
 Do NOT implement:
 
-- second Charge / charged-attack reveal animation
-- Attack weapon draw
-- aiming
-- gunfire
-- muzzle flash
-- blood
-- hit reaction
+- failed-attack flag animation
 - ragdoll
-- miss flag
 - death animation
-- waiter
-- door animation
-- general idle animation
-
-This task is FIRST Charge presentation only.
+- persistent blood decals
+- gore
+- bullet projectile simulation
+- bullet physics
+- bullet holes
+- shell casing physics
+- gunshot audio
+- camera shake system beyond an extremely subtle hit reaction if genuinely necessary
+- new gameplay mechanics
 
 ---
 
-# PART L — FINAL REPORT
+# PART I — VALIDATION
 
-## 36. Final report
+## 27. 3-player validation
 
-When complete, report:
+Verify:
 
-1. Existing Charge flow found
-2. Presentation architecture used/added
-3. Exact right-hand object animated
-4. Deck interaction target used
-5. Hand reach duration
-6. Deck pause duration
-7. Card pull duration
-8. Hand return duration
-9. How the existing stored-Charge card presentation was integrated without duplication
-10. Exact purple fire object/prefab used
-11. Any project-owned fire prefab/material variants created
-12. How multi-angle consistency was solved
-13. How continuous burn behavior was achieved
-14. Flame start delay
-15. How flame lifetime follows authoritative Charge state
-16. Charge interruption cleanup
-17. Death cleanup
-18. Bot Charge presentation
-19. Remote-human presentation status
-20. 3-player validation
-21. 6-player validation
-22. 8-player validation
+- local successful Attack
+- bot successful Attack
+- firing VFX sits correctly on weapon
+- blood sits correctly on target body
+- hit reaction moves away from shot direction
+- body returns exactly to rest
+
+---
+
+## 28. 6-player validation
+
+Verify from different seat angles:
+
+- muzzle VFX orientation
+- blood placement
+- directional hit reaction
+- no wrong world/local rotation behavior
+
+---
+
+## 29. 8-player validation
+
+Verify:
+
+- all seat orientations work
+- no body reaction causes seat/player overlaps
+- no reaction creates transform drift
+- no targeting regression
+
+---
+
+## 30. Repeated hit test
+
+Hit the same living player multiple times without killing them.
+
+After every reaction confirm:
+
+- body returns to exact resting transform
+- no cumulative tilt
+- no positional drift
+- head/hands remain correct
+
+---
+
+## 31. Zero-damage result
+
+Verify a blocked / zero-damage Attack.
+
+Confirm:
+
+- no blood
+- no hit knockback
+- no accidental positive-hit feedback
+
+Do not implement miss flag yet.
+
+---
+
+## 32. Tests
+
+Run the full EditMode suite.
+
+Expected baseline:
+
+`260 / 260`
+
+Do not weaken existing tests.
+
+---
+
+## 33. Console
+
+Normal gameplay should finish with:
+
+- 0 project-code errors
+- 0 missing references
+- 0 presentation coroutine exceptions
+- no VFX cleanup warnings
+
+Report unrelated package/editor warnings separately.
+
+---
+
+# PART J — FINAL REPORT
+
+## 34. Report
+
+When finished, report:
+
+1. Exact firing/impact VFX scene object found
+2. Its source asset/prefab
+3. Exact blood VFX scene object found
+4. Its source asset/prefab
+5. Project-owned prefab/material variants created
+6. Muzzle anchor used/created
+7. Firing VFX scale/rotation/offset
+8. Blood anchor used/created
+9. Blood scale/rotation/offset
+10. Hit-reaction pivot implementation
+11. Hit-reaction angle
+12. Hit impulse duration
+13. Recovery duration
+14. How incoming shot direction is calculated
+15. Local-player reaction behavior
+16. Bot result
+17. Remote-human path/status
+18. 3-player validation
+19. 6-player validation
+20. 8-player validation
+21. Repeated-hit drift test
+22. Zero-damage validation
 23. Targeting regression result
-24. EditMode test result
+24. EditMode result
 25. Console result
 26. Exact files created/modified
-27. Any remaining visual/timing issue requiring user tuning
+27. Inspector tuning values available to the user
+28. Anything still requiring visual tuning
 
 Do not commit anything.
 
-Stop when TASK 015 is complete.
+Stop when firing VFX + successful blood hit + small directional hit reaction are complete.

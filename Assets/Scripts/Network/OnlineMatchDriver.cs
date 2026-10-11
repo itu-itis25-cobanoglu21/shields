@@ -266,12 +266,12 @@ namespace Shields.Network
 
             switch (key)
             {
-                case 1: _pending = PendingAction.Attack; return true;
-                case 2: _pending = PendingAction.ReplaceShield; return true;
+                case 1: SetPending(PendingAction.Attack); return true;
+                case 2: SetPending(PendingAction.ReplaceShield); return true;
                 case 3:
                     if (matchController.MatchSnapshot.GetPlayer(LocalSeat).HasCharge)
                     {
-                        _pending = PendingAction.ChargedAttack;
+                        SetPending(PendingAction.ChargedAttack);
                         return true;
                     }
 
@@ -290,6 +290,10 @@ namespace Shields.Network
         public bool ConfirmTarget(int target)
         {
             if (matchController == null || _pending == PendingAction.None || !IsSelectableTarget(target)) return false;
+
+            // Cosmetic and reversible: the weapon locks on the clicked player now; the
+            // host's result confirms it, a refusal puts it away.
+            if (_presenter != null && _pending != PendingAction.ReplaceShield) _presenter.AnticipateWeaponLock(LocalSeat, target);
 
             switch (_pending)
             {
@@ -340,9 +344,25 @@ namespace Shields.Network
 
         void ClearPending()
         {
-            _pending = PendingAction.None;
+            SetPending(PendingAction.None);
             _hoveredTarget = TurnActionRequest.NoTarget;
             if (_presenter != null) _presenter.SetTargetHighlight(TurnActionRequest.NoTarget);
+        }
+
+        /// <summary>
+        /// Changes the pending action and keeps the weapon in step: Attack and Charged
+        /// Attack targeting draw it, anything else puts it away unless the host's result
+        /// has already confirmed a lock. Presentation only.
+        /// </summary>
+        void SetPending(PendingAction pending)
+        {
+            _pending = pending;
+            if (_presenter == null) return;
+
+            if (pending == PendingAction.Attack || pending == PendingAction.ChargedAttack)
+                _presenter.BeginWeaponAim(LocalSeat);
+            else
+                _presenter.EndWeaponAim(LocalSeat);
         }
 
         // ------------------------------------------------------------------ teardown

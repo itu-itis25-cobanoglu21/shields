@@ -143,6 +143,12 @@ namespace Shields.Match
             // The flag is all a first Charge publishes, and all the animation needs.
             if (result.StoredHiddenCharge && _actions != null) _actions.PlayFirstCharge(result.ActorIndex);
 
+            // Attack and Charged Attack: the actor's weapon locks onto the public target and
+            // fires; only a published positive Damage makes it a hit, and its size.
+            bool shot = result.ActionType == TurnActionType.Attack || result.IsChargedAttack;
+            if (shot && result.TargetIndex >= 0 && _actions != null)
+                _actions.PlayAttack(result.ActorIndex, result.TargetIndex, result.Damage, ShotSeed(result));
+
             PlayerCharacter actor = _table.GetPlayer(result.ActorIndex);
             if (actor != null)
             {
@@ -237,6 +243,28 @@ namespace Shields.Match
             return power + " vs Shield " + result.TargetShieldValue + " — " + outcome;
         }
 
+        /// <summary>
+        /// A seed for a shot's random visual details, built only from the public result,
+        /// so every machine that receives the result plays the identical effect.
+        /// </summary>
+        public static int ShotSeed(PublicActionResult result)
+        {
+            unchecked
+            {
+                int seed = 17;
+                seed = seed * 31 + result.ActorIndex;
+                seed = seed * 31 + result.TargetIndex;
+                seed = seed * 31 + result.AttackPower;
+                seed = seed * 31 + result.Damage;
+                seed = seed * 31 + result.TargetHealthBefore;
+
+                for (int i = 0; i < result.RevealedCardCount; i++)
+                    seed = seed * 31 + result.RevealedCards[i].CardId;
+
+                return seed;
+            }
+        }
+
         static string Face(PublicCard card)
         {
             return card.IsValid ? CardView.RankSymbol(card.Rank) : "?";
@@ -246,6 +274,26 @@ namespace Shields.Match
         {
             string face = Face(card);
             return face == card.Value.ToString() ? face : face + " = " + card.Value;
+        }
+
+        // ------------------------------------------------------------------ weapon
+
+        /// <summary>Local Attack or Charged Attack targeting began: draw and aim with the view.</summary>
+        public void BeginWeaponAim(int seat)
+        {
+            if (_actions != null) _actions.BeginWeaponAim(seat, seat == _localPlayerIndex);
+        }
+
+        /// <summary>Targeting ended without a confirmed action: holster.</summary>
+        public void EndWeaponAim(int seat)
+        {
+            if (_actions != null) _actions.EndWeaponAim(seat);
+        }
+
+        /// <summary>The local player clicked a target; the host has not answered yet.</summary>
+        public void AnticipateWeaponLock(int seat, int target)
+        {
+            if (_actions != null) _actions.LockWeapon(seat, target, false);
         }
 
         // ------------------------------------------------------------------ targeting

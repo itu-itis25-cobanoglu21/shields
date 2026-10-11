@@ -34,6 +34,20 @@ namespace Shields.Players
         [Tooltip("The floating right hand. Its prefab pose is the resting pose; action presentation moves it.")]
         [SerializeField] Transform rightHandAnchor;
 
+        [Header("Weapon (presentation only)")]
+        [Tooltip("Where the weapon rests while holstered, at the right hip.")]
+        [SerializeField] Transform weaponHolsterAnchor;
+
+        [Tooltip("Under the right hand: where the weapon's grip sits while it is held.")]
+        [SerializeField] Transform weaponGripAnchor;
+
+        [Tooltip("The one weapon visual of this player. Its root is the grip, its +Z the barrel.")]
+        [SerializeField] Transform weapon;
+
+        [Header("Hit Reaction (presentation only)")]
+        [Tooltip("Fixed base at the bottom of the body that the upper body tilts around when hit. Never moved itself.")]
+        [SerializeField] Transform hitReactionPivot;
+
         [Header("Body Tint")]
         [Tooltip("Renderers that take the per player placeholder colour.")]
         [SerializeField] Renderer[] tintedRenderers;
@@ -54,6 +68,33 @@ namespace Shields.Players
                 if (rightHandAnchor == null) rightHandAnchor = transform.Find("RightShoulderAnchor/RightHandAnchor");
                 return rightHandAnchor;
             }
+        }
+
+        public Transform WeaponHolsterAnchor { get { return weaponHolsterAnchor; } }
+        public Transform WeaponGripAnchor { get { return weaponGripAnchor; } }
+        public Transform Weapon { get { return weapon; } }
+
+        public Transform HitReactionPivot
+        {
+            get
+            {
+                if (hitReactionPivot == null) hitReactionPivot = transform.Find("HitReactionPivot");
+                return hitReactionPivot;
+            }
+        }
+
+        /// <summary>
+        /// A stable upper-body point to aim at: between the body's centre and the head,
+        /// above the tabletop, never the chair. Presentation only.
+        /// </summary>
+        public Vector3 UpperBodyAimPoint(float towardHead)
+        {
+            Transform head = headPivot != null ? headPivot : transform;
+
+            Renderer bodyRenderer = body != null ? body.GetComponentInChildren<Renderer>() : null;
+            Vector3 bodyCenter = bodyRenderer != null ? bodyRenderer.bounds.center : transform.position + Vector3.up * 0.5f;
+
+            return Vector3.Lerp(bodyCenter, head.position, towardHead);
         }
 
         /// <summary>

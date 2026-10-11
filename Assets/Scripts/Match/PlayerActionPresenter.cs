@@ -23,7 +23,7 @@ namespace Shields.Match
     /// lives exactly as long as the authoritative stored Charge.
     /// </summary>
     [DisallowMultipleComponent]
-    public class PlayerActionPresenter : MonoBehaviour
+    public partial class PlayerActionPresenter : MonoBehaviour
     {
         [Header("First Charge Timing (seconds)")]
         [SerializeField] float handReachDuration = 0.25f;
@@ -35,8 +35,14 @@ namespace Shields.Match
         [SerializeField] float flameStartDelay = 0.075f;
 
         [Header("First Charge Motion")]
-        [Tooltip("Gap between the palm and the top of the deck while grabbing.")]
-        [SerializeField] float palmClearance = 0.03f;
+        [Tooltip("Gap between the palm and the top of the deck while grabbing. Small: the hand rests on the deck.")]
+        [SerializeField] float palmClearance = 0.006f;
+
+        [Tooltip("Direction the fingers point in the hand's resting local space. Aimed at the deck, level, while grabbing.")]
+        [SerializeField] Vector3 handFingerAxis = new Vector3(0.365f, -0.930f, -0.039f);
+
+        [Tooltip("Direction the back of the hand faces in its resting local space. Turned straight up while grabbing.")]
+        [SerializeField] Vector3 handBackAxis = new Vector3(0.491f, 0.156f, 0.857f);
 
         [Tooltip("Peak height of the card's arc on its way to the Charge slot.")]
         [SerializeField] float cardArcHeight = 0.05f;
@@ -46,13 +52,8 @@ namespace Shields.Match
         [SerializeField] float handTrail = 0.08f;
 
         [Header("Charge Flame")]
+        [Tooltip("Card-local burning effect, see ChargeCardFlame. Laid on the card face at the card's own scale.")]
         [SerializeField] GameObject chargeFlamePrefab;
-
-        [Tooltip("World scale applied to the flame prefab on the card.")]
-        [SerializeField] float flameWorldScale = 0.1f;
-
-        [Tooltip("Startup skipped when a Charge is shown as already stored rather than animated.")]
-        [SerializeField] float flameSettledTime = 1f;
 
         [Header("Robustness")]
         [Tooltip("How long a newly stored Charge card waits for its action result before it is shown directly.")]
@@ -73,6 +74,7 @@ namespace Shields.Match
             public Transform Palm;
             public Vector3 RestPosition;
             public Quaternion RestRotation;
+            public Quaternion GrabRotation;
             public Coroutine Routine;
             public bool Confirmed;
             public bool Cancelled;
@@ -150,6 +152,8 @@ namespace Shields.Match
         /// <summary>Stops every animation, restores every hand and shows any held card.</summary>
         public void Clear()
         {
+            ReleaseAllWeapons();
+            ClearHitReactions();
             foreach (int seat in new List<int>(_motions.Keys)) StopMotion(seat);
             foreach (int seat in new List<int>(_pendingCards.Keys)) RevealPending(seat, true);
 
@@ -180,6 +184,8 @@ namespace Shields.Match
 
         void StartFirstCharge(int seat, bool confirmed)
         {
+            // One action owns the right hand at a time: a drawn weapon goes straight back.
+            ReleaseWeapon(seat, true);
             StopMotion(seat);
 
             PlayerCharacter player = _table != null ? _table.GetPlayer(seat) : null;
@@ -203,6 +209,7 @@ namespace Shields.Match
                 RestRotation = rest.rotation,
                 Confirmed = confirmed
             };
+            motion.GrabRotation = FlatGrabRotation(motion, player);
 
             _motions[seat] = motion;
             motion.Routine = StartCoroutine(FirstChargeRoutine(motion));
@@ -210,22 +217,28 @@ namespace Shields.Match
 
         IEnumerator FirstChargeRoutine(HandMotion m)
         {
-            // Reach: fast out of rest, easing into the grab point above the deck.
+            // Reach: fast out of rest, easing into the grab point on the deck while the
+            // hand turns flat, palm down and parallel to the tabletop.
             Vector3 from = m.Hand.localPosition;
+            Quaternion fromRotation = m.Hand.localRotation;
             for (float elapsed = 0f; elapsed < handReachDuration; elapsed += Time.deltaTime)
             {
                 if (m.Hand == null) { Finish(m); yield break; }
 
-                m.Hand.localPosition = Vector3.LerpUnclamped(from, GrabLocal(m), EaseOutCubic(elapsed / handReachDuration));
+                float e = EaseOutCubic(elapsed / handReachDuration);
+                m.Hand.localRotation = Quaternion.Slerp(fromRotation, m.GrabRotation, e);
+                m.Hand.localPosition = Vector3.LerpUnclamped(from, GrabLocal(m), e);
                 yield return null;
             }
 
-            // Hold: "grab card". Also waits here for the host when the reach was anticipated.
+            // Hold: "grab card", the flat hand resting on the deck. Also waits here for the
+            // host when the reach was anticipated.
             float held = 0f;
             while (held < deckHoldDuration || (!m.Confirmed && !m.Cancelled && held < deckHoldDuration + confirmTimeout))
             {
                 if (m.Hand == null) { Finish(m); yield break; }
 
+                m.Hand.localRotation = m.GrabRotation;
                 m.Hand.localPosition = GrabLocal(m);
                 held += Time.deltaTime;
                 yield return null;
@@ -267,10 +280,11 @@ namespace Shields.Match
                         Quaternion.Slerp(startRotation, slot.rotation, e));
                 }
 
-                // The hand carries the card, a touch behind it.
+                // The flat hand carries the card, a touch behind it.
                 Vector3 end = slot != null ? slot.position : start;
                 Vector3 carried = CardPath(start, end, Smooth(Mathf.Clamp01(t - handTrail)));
-                m.Hand.localPosition = HandLocalForPalm(m, carried + Vector3.up * palmClearance);
+                m.Hand.localRotation = m.GrabRotation;
+                m.Hand.localPosition = HandLocalForPalm(m, carried + Vector3.up * palmClearance, m.GrabRotation);
 
                 yield return null;
             }
@@ -287,11 +301,14 @@ namespace Shields.Match
             float sinceSettled = 0f;
 
             Vector3 from = m.Hand.localPosition;
+            Quaternion fromRotation = m.Hand.localRotation;
             for (float elapsed = 0f; elapsed < handReturnDuration; elapsed += Time.deltaTime)
             {
                 if (m.Hand == null) yield break;
 
-                m.Hand.localPosition = Vector3.LerpUnclamped(from, m.RestPosition, EaseInOutCubic(elapsed / handReturnDuration));
+                float e = EaseInOutCubic(elapsed / handReturnDuration);
+                m.Hand.localPosition = Vector3.LerpUnclamped(from, m.RestPosition, e);
+                m.Hand.localRotation = Quaternion.Slerp(fromRotation, m.RestRotation, e);
 
                 if (!flameStarted && sinceSettled >= flameStartDelay) flameStarted = StartFlame(m.Card, false);
                 sinceSettled += Time.deltaTime;
@@ -381,46 +398,63 @@ namespace Shields.Match
         }
 
         /// <summary>
-        /// Lights the flame on the card's centre, parented to the card so it follows it and
-        /// is destroyed with it. Settled skips the startup, for a Charge nobody saw stored.
+        /// Lights the card's top face, parented to the card in card-local space so it never
+        /// moves on the card and is destroyed with it. Settled skips the fade-in, for a
+        /// Charge nobody saw stored.
         /// </summary>
         bool StartFlame(CardView card, bool settled)
         {
             if (card == null || chargeFlamePrefab == null) return true;
             if (card.transform.Find(FlameName) != null) return true;
 
-            Transform cardTransform = card.transform;
-            GameObject flame = Instantiate(chargeFlamePrefab, cardTransform, false);
+            GameObject flame = Instantiate(chargeFlamePrefab, card.transform, false);
             flame.name = FlameName;
 
             flame.transform.localPosition = Vector3.up * CardFaceTop;
             flame.transform.localRotation = Quaternion.identity;
-            flame.transform.localScale = Vector3.one * (flameWorldScale / Mathf.Max(0.0001f, cardTransform.lossyScale.y));
+            flame.transform.localScale = Vector3.one;
 
-            ParticleSystem system = flame.GetComponent<ParticleSystem>();
-            if (system != null)
-            {
-                if (settled) system.Simulate(flameSettledTime, true, true);
-                system.Play(true);
-            }
+            ChargeCardFlame burning = flame.GetComponent<ChargeCardFlame>();
+            if (burning != null) burning.Ignite(settled);
 
             return true;
         }
 
         // ------------------------------------------------------------------ geometry
 
-        Vector3 GrabLocal(HandMotion m)
+        /// <summary>
+        /// The hand's local rotation for the grab: back of the hand straight up, so it lies
+        /// flat and parallel to the tabletop, fingers level and pointing from the seat to
+        /// the deck. Built from the hand's own axes, so it holds for every seat.
+        /// </summary>
+        Quaternion FlatGrabRotation(HandMotion m, PlayerCharacter player)
         {
-            return HandLocalForPalm(m, _deck.TopCenter + Vector3.up * palmClearance);
+            Vector3 forward = _deck.TopCenter - player.transform.position;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.0001f) forward = player.transform.forward;
+
+            Quaternion handFrame = Quaternion.LookRotation(handFingerAxis, handBackAxis);
+            Quaternion world = Quaternion.LookRotation(forward.normalized, Vector3.up) * Quaternion.Inverse(handFrame);
+
+            Quaternion parent = m.Hand.parent != null ? m.Hand.parent.rotation : Quaternion.identity;
+            return Quaternion.Inverse(parent) * world;
         }
 
-        /// <summary>The hand's local position that puts its palm on a world point.</summary>
-        static Vector3 HandLocalForPalm(HandMotion m, Vector3 palmWorld)
+        /// <summary>Where the hand goes so its palm rests on the deck in the flat grab pose.</summary>
+        Vector3 GrabLocal(HandMotion m)
         {
-            Vector3 palmOffset = m.Palm != null ? m.Palm.position - m.Hand.position : Vector3.zero;
-            Vector3 handWorld = palmWorld - palmOffset;
+            return HandLocalForPalm(m, _deck.TopCenter + Vector3.up * palmClearance, m.GrabRotation);
+        }
 
-            return m.Hand.parent != null ? m.Hand.parent.InverseTransformPoint(handWorld) : handWorld;
+        /// <summary>The hand's local position that puts its palm on a world point at a given rotation.</summary>
+        static Vector3 HandLocalForPalm(HandMotion m, Vector3 palmWorld, Quaternion handLocalRotation)
+        {
+            Vector3 palmLocal = m.Palm != null ? m.Palm.localPosition : Vector3.zero;
+
+            if (m.Hand.parent == null) return palmWorld - handLocalRotation * palmLocal;
+
+            // Work in the parent's space: the palm sits at handPosition + rotation * palmLocal.
+            return m.Hand.parent.InverseTransformPoint(palmWorld) - handLocalRotation * palmLocal;
         }
 
         Vector3 CardPath(Vector3 from, Vector3 to, float t)
