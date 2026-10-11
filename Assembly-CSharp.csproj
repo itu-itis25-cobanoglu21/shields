@@ -43,16 +43,15 @@
     <UnityVersion>6000.6.4f1</UnityVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Analyzer Include="C:\Users\cagan\.vscode\extensions\visualstudiotoolsforunity.vstuc-1.3.2\Analyzers\Microsoft.Unity.Analyzers.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.SourceGenerators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.Properties.SourceGenerator.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\Tools\BuildPipeline\Unity.SourceGenerators\Unity.UIToolkit.SourceGenerator.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\Tools\BuildPipeline\Unity.Analyzers.Common\Unity.Analyzers.Common.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\Tools\BuildPipeline\Unity.Analyzers.LongLiving\Unity.Analyzers.LongLiving.dll" />
-    <Analyzer Include="C:\unity_projects\shields\Library\PackageCache\com.unity.ai.inference@9a123aee5df7\Runtime\Core\SourceGenerator\SourceGenerators.dll" />
-    <Analyzer Include="C:\unity_projects\shields\Library\PackageCache\com.unity.pipeline@ab05e9cd7f74\Runtime\Analyzers\IlInterpreterAnalyzer.dll" />
-    <Analyzer Include="C:\unity_projects\shields\Library\PackageCache\com.unity.dt.app-ui@9d0f103f520a\Runtime\SourceGenerators\netstandard2.0\EnumToLowerCase.dll" />
-    <Analyzer Include="C:\unity_projects\shields\Library\PackageCache\com.unity.dt.app-ui@9d0f103f520a\Runtime\MVVM\SourceGenerators\netstandard2.0\MVVMSourceGenerators.dll" />
+    <Analyzer Include="C:\Users\cagan\SHIELDS\Library\PackageCache\com.unity.ai.inference@9a123aee5df7\Runtime\Core\SourceGenerator\SourceGenerators.dll" />
+    <Analyzer Include="C:\Users\cagan\SHIELDS\Library\PackageCache\com.unity.pipeline@ab05e9cd7f74\Runtime\Analyzers\IlInterpreterAnalyzer.dll" />
+    <Analyzer Include="C:\Users\cagan\SHIELDS\Library\PackageCache\com.unity.dt.app-ui@9d0f103f520a\Runtime\SourceGenerators\netstandard2.0\EnumToLowerCase.dll" />
+    <Analyzer Include="C:\Users\cagan\SHIELDS\Library\PackageCache\com.unity.dt.app-ui@9d0f103f520a\Runtime\MVVM\SourceGenerators\netstandard2.0\MVVMSourceGenerators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\Microsoft.Extensions.Logging.Generators.dll" />
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\System.Text.Json.SourceGeneration.dll" />
   </ItemGroup>
@@ -89,10 +88,19 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditor.uss" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\Demo\Resources\Shaders\SH_Vefects_URP_VFX_Opaque_Fr_01.shader" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\Demo\Resources\Shaders\SH_Vefects_URP_VFX_Opaque_01.shader" />
     <None Include="Assets\Laterns and candles\Shaders\GlassStainedBumpDistort.shader" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\Demo\Scene\Shaders\SH_Vefects_Grid_01.shader" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\_ Extra\Shaders\SH_Vefects_Extra_Billboard_01.shader" />
     <None Include="Assets\Daniel Mistage\Stylized Fantasy Armory\Prefabs\Extra Content\Fantasy Female Character Hetalia - Props\README.txt" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\_ Extra\Shaders\SH_Vefects_Extra_Billboard_01_Unlit.shader" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorLight.uss" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\Demo\Resources\Shaders\SH_Vefects_URP_VFX_Character_Showoff.shader" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\VFX\Shared\Shaders\SH_Vefects_VFX_Stylized_Fire_01.shader" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\VFX\Shared\Shaders\SH_Vefects_VFX_Stylized_Fire_Radial_01.shader" />
     <None Include="Assets\Daniel Mistage\Stylized Fantasy Armory\Prefabs\Extra Content\Fantasy Female Character Leona - Props\README.txt" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\_ Extra\Shaders\SH_Vefects_Extra_Grid_01.shader" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorDark.uss" />
   </ItemGroup>
   <ItemGroup>

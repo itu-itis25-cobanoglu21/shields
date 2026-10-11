@@ -1,456 +1,538 @@
-# TASK 012 — Tavern Environment Integration
+# TASK 014 — Lantern Practical Lights & Moonlight Leak Cleanup
 
-Read CLAUDE.md and SHIELDS_RULES.md completely before modifying anything.
+Read `CLAUDE.md`, `SHIELDS_RULES.md`, and this entire TASK.md before modifying anything.
 
-The core game is already working and must remain working:
+This task is a focused environment polish pass.
 
-- offline Shields gameplay
-- host-authoritative online multiplayer
-- multiple human clients
-- bots
-- seated first-person camera
-- local head-look
-- remote head-pose synchronization
-- camera persistence across gameplay snapshots
-- custom PlayerCharacter visuals
-- table/card interaction
-- draw/discard presentation
-- current automated test baseline: 260 passing
+The tavern environment, gameplay table/chairs, lighting pass, and fireplace fire VFX are already integrated.
 
-A new custom medieval cellar / tavern environment has now been authored in Blender and re-exported for Unity.
+The user has also manually updated the wall lantern assets:
+- lantern body and glass geometry are now separated
+- transparent glass materials have been created
+- all relevant lantern instances in GameScene have been replaced with the updated lantern version
+- the fireplace fire VFX has been manually positioned and tuned by the user
 
-The latest tavern FBX is under:
+Preserve those manual changes.
 
-Assets/Art/Environment/
-
-The latest export was corrected based on the previous inspection:
-
-- the entire room was scaled by 2.7 in Blender
-- scale was applied
-- the asset should now be authored close to real Unity meter scale
-- FBX Path Mode was set to Copy
-- Embed Textures was enabled
-
-This task is ONLY about verifying and integrating the new tavern environment.
-
-Do NOT proceed into props, final lighting, fire effects, NPCs, doors, animation, or additional environment art.
+Do NOT redo the room, table, chairs, prop layout, fireplace VFX setup, or general lighting pass.
 
 ---
 
-## 1. Verify the latest tavern FBX first
+## 1. Goals
 
-Before modifying the scene, locate the latest tavern FBX under:
+This task has three goals:
 
-Assets/Art/Environment/
+1. Make the updated wall lanterns visibly look like they contain a light source.
+2. Ensure the lantern light appears to originate from inside the lantern glass.
+3. Fix the current moonlight / night-light leaking through solid stone walls.
 
-Verify:
-
-- root position is clean
-- root rotation is clean
-- root scale is 1,1,1
-- no duplicate ×2.7 scaling was introduced
-- Y is up
-- floor is horizontal
-- ceiling underside is approximately 3 meters high
-- room dimensions are approximately the previously expected 9m × 14m interior
-- doorway remains open
-- fireplace wall remains correctly oriented
-- window walls remain correctly oriented
-- floor and ceiling tile placement is intact
-- wooden ceiling beams remain intact
-- materials/textures now import correctly
-- stone and wood textures are visible
-- no missing-texture warnings exist
-- no cameras, lights, armatures or animations were imported unexpectedly
-
-If the scale or texture import is still genuinely broken:
-
-STOP and report the exact asset problem.
-
-Do not hide asset problems using arbitrary Unity transforms.
+The final result should preserve the existing cozy dark tavern atmosphere.
 
 ---
 
-## 2. Preserve gameplay coordinates
+## 2. Inspect first
 
-The existing gameplay space is already working.
+Before modifying anything, inspect the current GameScene and identify:
 
-Do NOT move or redesign:
+- all updated lantern instances
+- each lantern's:
+  - body mesh
+  - glass mesh
+  - glass material
+  - corresponding Point Light
+- current fireplace VFX
+- current fireplace lights
+- current chandelier
+- current `Light_Moon`
+- current skybox / ambient settings
+- all open barred windows
+- any closed window geometry
+- wall geometry around the windows
+- shadow settings / bias / normal bias relevant to moonlight
 
-- Table
-- Match
-- RuntimePlayers
-- RuntimeTableAreas
-- MainCamera
-- NetworkManager
-- NetworkSession
-- Networking
-- TableLayoutController
-- SeatLayout
-- PlayerCharacter prefab
+Do not assume previous hierarchy names are still exact.
 
-The tavern must be positioned around the EXISTING gameplay origin.
-
-The art adapts to the gameplay space, not the other way around.
-
----
-
-## 3. Integrate under Environment
-
-Add exactly one instance of the new tavern room under:
-
-GameScene
-└── Environment
-
-The tavern should be centered around the current table/gameplay origin.
-
-Preferred initial transform:
-
-- Position around world origin, with only the minimal Y offset required to place the walkable floor at y = 0
-- Rotation 0,0,0
-- Scale 1,1,1
-
-Do not use non-uniform scale.
+Report internally what each current light corresponds to before changing it.
 
 ---
 
-## 4. Preserve the old placeholder room temporarily
+# PART A — LANTERN INTERNAL GLOW
 
-Do NOT permanently delete the current grey placeholder room yet.
+## 3. Lantern visual problem
 
-Instead:
+The current lanterns correctly illuminate the room, but visually their interiors still look too empty.
 
-- disable the old Environment/Room visual
-- keep it available temporarily as rollback/reference
-- make the new tavern the active visible room
+A viewer should be able to look at a lantern and clearly understand:
 
-Do not leave both rooms visibly overlapping.
+"the light is coming from inside this lantern."
+
+The physical lantern mesh already has:
+- opaque frame/body
+- separate transparent glass
+
+Do not remodel the lantern again.
 
 ---
 
-## 5. Presentation-only environment
+## 4. Add a visible internal light source
 
-The tavern is presentation only.
+For every relevant wall lantern, create a small visible internal light source inside the glass.
+
+Preferred implementation:
+
+- small flame-like mesh, capsule, sphere, or simple custom primitive
+- dedicated emissive URP material
+- warm yellow/orange color
+- positioned inside the lantern body, behind the glass
+- no collider
+- no gameplay components
+- no networking components
+- Cast Shadows OFF
+- Receive Shadows OFF if appropriate
+
+The visible core should be small enough that the metal lantern frame remains readable.
+
+It must NOT look like a giant white light bulb.
+
+Preferred visual character:
+
+- bright warm center
+- yellow / amber
+- slightly orange edge if possible
+- medieval flame / candle feel
+- no modern LED appearance
+
+---
+
+## 5. Emissive material
+
+Create a project-owned material, for example:
+
+`Assets/Art/Environment/Materials/M_Lantern_Core.mat`
+
+Use an appropriate URP shader.
+
+The material should:
+
+- visibly glow
+- use warm HDR emission
+- remain readable through the transparent lantern glass
+- not blow out into pure white at normal gameplay exposure
+
+Do NOT modify package-source materials directly if avoidable.
+
+Do not make the lantern glass itself fully emissive.
+
+The intended structure is conceptually:
+
+Lantern
+- Body / Frame
+- Glass
+- EmissiveCore
+- Existing practical Point Light
+
+The glass remains glass.
+The internal core is the visible light source.
+The Point Light illuminates the environment.
+
+---
+
+## 6. Optional small flame VFX
+
+The project now contains:
+
+`Stylized Fire VFX URP`
+
+The user is already using a manually tuned fire effect from this package in the fireplace.
+
+You MAY use an existing small flame effect from this package inside a lantern ONLY if it clearly looks better than a static emissive core.
+
+Requirements if using package VFX:
+
+- use a small flame suitable for a lantern/candle
+- do not use the large fireplace flame unchanged
+- do not edit the package source prefab/material destructively
+- create a project-owned variant if customization is required
+- keep the effect subtle
+- ensure it loops continuously
+- ensure it does not visibly clip through the glass/frame
+- no collider
+- no additional light unless needed
+
+Do not add a flame VFX merely because one exists.
+
+If a simple emissive core looks better and cleaner, prefer the emissive core.
+
+---
+
+## 7. Preserve user's fireplace fire
+
+The fireplace flame VFX has already been manually tuned by the user.
+
+Do NOT:
+
+- replace it
+- reset it
+- change its scale
+- change its speed
+- change its material
+- change its prefab variant
+- move it
+
+unless there is an actual blocking technical issue.
+
+Treat the current fireplace flame as approved visual work.
+
+You may only adjust the surrounding LIGHT values slightly later if required for overall balance.
+
+---
+
+## 8. Align practical Point Lights
+
+For each updated lantern, verify that its existing Point Light is physically centered around the visible internal flame/core.
+
+The visible source and actual illumination should feel like the same source.
+
+Adjust only the LIGHT transform if needed.
+
+Do not move the user's lantern props.
+
+Keep the existing warm lighting hierarchy from TASK 013.
+
+Do not significantly increase the number of realtime lights.
+
+---
+
+## 9. Lantern brightness balance
+
+After adding internal glow:
+
+- lantern frame must remain visible
+- glass must remain visibly transparent
+- internal source should look bright but not pure-white
+- nearby wall illumination should still look natural
+- lantern should not become a glowing white box
+
+Inspect from real seated first-person views.
+
+If the existing Point Light becomes visually too strong once the internal source is visible, reduce it slightly rather than making the emissive source excessively bright.
+
+---
+
+# PART B — MOONLIGHT / WALL LIGHT LEAK
+
+## 10. Existing problem
+
+The current cool night / moon light creates attractive blue illumination, but some of the light appears to pass through solid stone wall geometry rather than entering only through valid openings.
+
+This is visually incorrect.
+
+Do not accept obvious blue light appearing through solid wall sections.
+
+---
+
+## 11. Diagnose before changing
+
+Inspect the current `Light_Moon` and determine whether the leak is caused by:
+
+- Directional Light behavior
+- shadow bias
+- normal bias
+- wall seams
+- non-shadow-casting environment meshes
+- thin / overlapping modular wall geometry
+- incorrect light direction
+- another light being mistaken for moonlight
+
+Do not blindly change shadow bias first.
+
+Identify the real cause.
+
+---
+
+## 12. Preferred moonlight strategy
+
+If the current global Directional moonlight cannot produce convincing window-only illumination without leaking:
+
+reduce its role.
+
+Preferred structure:
+
+### Global moon / exterior fill
+
+Use the directional moon only as a VERY SUBTLE cool environmental fill if needed.
+
+It should not create strong blue floor patches through solid geometry.
+
+### Window moonlight
+
+For actual moonlight entering the room, prefer localized lights positioned outside valid window openings.
+
+For example:
+
+`Moonlight_Window_West_01`
+`Moonlight_Window_West_02`
+
+Use Spot Lights or another appropriate local-light setup aimed through the actual barred openings.
+
+Requirements:
+
+- light origin must be outside the room
+- aim inward through the opening
+- cool blue / blue-grey
+- weaker than the warm interior practical lights
+- finite range
+- shadows enabled if required for window bars / wall occlusion
+- no illumination through adjacent solid wall sections
+
+The barred window geometry should naturally shape or occlude the light where possible.
+
+---
+
+## 13. Do not fake light through closed geometry
+
+If a window is physically closed / sealed, do not place a strong moon beam through it.
+
+Only valid open windows should visibly admit moonlight.
+
+Do not make the stone walls translucent.
+
+Do not disable wall shadow casting simply to make the effect easier.
+
+---
+
+## 14. Doorway / exterior
+
+Keep the current night sky.
+
+The doorway currently opens into empty night space.
 
 Do NOT add:
 
-- gameplay authority
-- networking authority
-- NetworkObject
-- player identity logic
-- bot logic
-- Match state
-- card logic
-- seat logic
+- corridor
+- exterior building
+- terrain
+- new sky assets
+- door
+- exterior props
 
-Static room geometry does not need network synchronization.
+in this task.
 
-Every client should load the same deterministic scene environment locally.
+Only make sure the moonlight cleanup does not make the doorway look like bright daytime.
 
 ---
 
-## 6. No environment colliders yet
+## 15. Shadow performance
 
-Keep generated/imported colliders OFF for the tavern.
+TASK 013 previously avoided shadow-atlas warnings by using shadows selectively.
 
-Do not add MeshColliders or automatic colliders in this task.
+Preserve that goal.
 
-Reason:
+Do not enable realtime shadows on every lantern.
 
-the current crosshair targeting uses raycasts and the room geometry must not accidentally intercept:
+Preferred:
 
-- player targeting
+- lantern internal emissive cores: no shadows
+- secondary lantern Point Lights: shadows remain OFF unless absolutely required
+- localized moonlight spots: use shadows selectively where they are necessary for correct wall/window occlusion
+- keep total shadow cost reasonable
+
+If a shadow atlas warning appears, solve it before finishing.
+
+---
+
+# PART C — FINAL LIGHT BALANCE
+
+## 16. Fireplace lighting re-check
+
+Now that the fireplace has a real visible flame VFX, inspect the existing fireplace lighting from gameplay cameras.
+
+The current fireplace wall may be somewhat over-lit.
+
+Do not automatically change it.
+
+Only reduce:
+
+- `Light_Fire_Main`
+- `Light_Fire_Glow`
+- nearby fire torch light contribution
+
+if the real flame now makes the wall appear unnaturally flooded.
+
+Goal:
+
+- fireplace remains a strong warm focal point
+- flame visually explains the light source
+- surrounding stones have warm falloff
+- entire fireplace wall should not look uniformly orange
+
+Do not modify the flame VFX itself.
+
+---
+
+## 17. Preserve overall art direction
+
+Final look:
+
+- cozy
+- dark
+- warm interior
+- cold night outside
+- visible practical light sources
+- believable local light pools
+- readable gameplay
+- darker unused corners
+
+Avoid:
+
+- orange floodlighting everywhere
+- white glowing lantern boxes
+- blue moonlight through stone
+- uniformly lit walls
+- pitch-black gameplay areas
+
+---
+
+# PART D — VALIDATION
+
+## 18. First-person validation
+
+Inspect from actual seated first-person cameras.
+
+Check multiple seat directions toward:
+
+- fireplace
+- left wall lantern
+- right wall lantern
+- doorway lanterns
+- barred windows
+- moonlight floor patches
+- chandelier
+- gameplay table
+
+Confirm that:
+
+- lanterns visually contain a light source
+- glass remains readable
+- glow does not clip through metal
+- moonlight comes through valid openings
+- no obvious blue wall leak remains
+
+---
+
+## 19. 3 / 6 / 8 player validation
+
+Run offline:
+
+### 3 players
+Verify:
+- gameplay readability unchanged
+- lantern/glow looks correct
+- fireplace still reads correctly
+
+### 6 players
+Verify:
+- all player positions remain readable
+- no VFX/light interferes with targeting
+
+### 8 players
+Verify:
+- table/cards/players remain readable
+- no environment light creates visual obstruction
+- no new collider/raycast interference exists
+
+---
+
+## 20. Targeting / collider safety
+
+New lantern visual cores / flame effects must have:
+
+- no collider
+- no Rigidbody
+- no targetable gameplay layer
+- no NetworkObject
+
+They must not interfere with:
+
+- body targeting
 - Shield targeting
-- card interaction
-
-If an environment collider is genuinely required later for NPC/pathing or interaction, that will be handled in a separate task.
-
----
-
-## 7. Lighting
-
-Preserve the existing gameplay lighting for this first integration pass.
-
-Do NOT perform final lighting polish.
-
-Do NOT add:
-
-- final torch lights
-- moonlight
-- volumetrics
-- fireplace light
-- post-processing art pass
-
-Only make a minimal lighting adjustment if the tavern is literally impossible to inspect otherwise.
-
-Any such adjustment must be reported explicitly.
+- card targeting
+- crosshair raycasts
 
 ---
 
-## 8. Doorway
+## 21. Tests
 
-The south arched doorway intentionally has no door.
-
-Preserve it as an open architectural opening.
-
-Do NOT add:
-
-- door mesh
-- door animation
-- interaction
-- waiter/NPC
-- navigation
-
-Known limitation:
-
-the doorway may currently reveal the skybox / empty space because there is no corridor behind it.
-
-Do not solve that in this task unless the opening causes a severe immediate visual blocker.
-
-Report it as a remaining environment issue.
-
----
-
-## 9. Windows
-
-Preserve the existing barred/window wall geometry.
-
-Do not implement moonlight yet.
-
-Do not add exterior scenery yet.
-
-Only verify that the windows:
-
-- remain correctly positioned
-- do not intersect gameplay
-- are visually readable from player seats
-
----
-
-## 10. Fireplace
-
-Preserve the current fireplace wall geometry.
-
-Do NOT add:
-
-- animated fire
-- particle effects
-- emissive effects
-- light flicker
-
-The fireplace is static presentation for this task.
-
----
-
-## 11. Ceiling and beams
-
-Validate that:
-
-- ceiling clears all PlayerCharacter heads
-- normal seated head-look does not clip into ceiling geometry
-- wooden beams do not obstruct camera movement
-- the central hanging lamp remains visually plausible relative to the beams
-- the ceiling does not intersect player targeting rays in a harmful way
-
-Do not redesign ceiling geometry unless a genuine blocker is found.
-
----
-
-## 12. Runtime validation — 3 players
-
-Run OFFLINE mode with 3 players.
-
-Verify:
-
-- table remains centered
-- all seats/chairs remain inside the room
-- characters do not intersect walls
-- local camera is correct
-- head-look works
-- table/cards remain readable
-- player targeting works
-- Shield targeting works
-- no environment geometry blocks gameplay raycasts
-- no obvious floor/ceiling clipping
-- doorway/fireplace/window placement reads correctly
-
----
-
-## 13. Runtime validation — 6 players
-
-Run OFFLINE mode with 6 players.
-
-Verify:
-
-- all players fit comfortably
-- no wall/chair overlap
-- no camera clipping during normal head-look
-- room scale feels plausible
-- table remains the visual focus
-- target selection remains correct
-
----
-
-## 14. Runtime validation — 8 players
-
-Run OFFLINE mode with 8 players.
-
-This is the most important spatial validation.
-
-Verify:
-
-- all seats fit comfortably
-- no player/body/hand/chair intersects room geometry
-- nearest players do not feel pressed against walls
-- camera does not enter walls during normal seated look limits
-- ceiling clearance remains safe
-- cards and Shields remain readable
-- target boxes remain unaffected
-- room does not feel obviously too small
-
-If the room feels excessively large or excessively small from first-person gameplay, report that clearly rather than immediately moving gameplay objects.
-
----
-
-## 15. Gameplay regression
-
-During the environment validation, perform:
-
-- Attack
-- Replace Shield
-- Charge
-- Charged Attack if possible
-- bot turns
-
-Verify that replacing the room visuals does not affect gameplay.
-
-Do not modify gameplay code to address an environment-only issue.
-
----
-
-## 16. Online sanity check
-
-If available, start one Host session and verify:
-
-- online mode loads the same tavern environment
-- table and seats remain in the same positions
-- no networking errors are introduced
-
-Do NOT claim Host + Client validation unless a second real participant instance was actually run.
-
-No environment networking changes are expected.
-
----
-
-## 17. Materials / textures
-
-If the embedded textures now import correctly:
-
-- keep them for this first integration pass
-- do not redesign them yet
-- do not create the final shared Stone/Wood/Iron material system yet
-
-This task only needs the room to visually match the Blender export.
-
-If Unity creates duplicate imported materials, do not perform a large material cleanup yet unless required for the asset to render correctly.
-
-Material unification is a later art task.
-
----
-
-## 18. Performance
-
-The room was previously measured at roughly 291k triangles.
-
-Do NOT perform mesh optimization in this task unless there is a demonstrated runtime problem.
-
-Current target is Windows/PC.
-
-Do not:
-- decimate meshes
-- rebuild floor tiles
-- merge the entire room into one mesh
-- generate LODs
-
-Performance optimization will be handled later if profiling shows it is needed.
-
----
-
-## 19. Tests
-
-Run the complete existing EditMode suite.
+Run the existing full EditMode suite.
 
 Expected baseline:
 
 260 passing.
 
-Do not weaken existing tests.
-
-No new pure tests are required unless integration unexpectedly changes code.
+Do not modify or weaken gameplay tests.
 
 ---
 
-## 20. Console
+## 22. Console
 
-Final state must have:
+Final state:
 
-- 0 project-code compile errors
-- 0 relevant runtime Console errors
+- 0 project-code errors
 - 0 missing-reference errors
+- 0 relevant runtime warnings
+- no new URP/shadow-atlas warnings
 
-Unrelated Unity AI/subscription errors may be reported separately.
+Unrelated Unity AI / licensing / bridge messages may be reported separately.
 
 ---
 
-## 21. Do not implement yet
+## 23. Do NOT implement yet
+
+Do NOT start the animation phase.
 
 Do NOT add:
 
-- environmental props
-- barrels
-- shelves
-- banners
-- shields on walls
-- weapon racks
-- torch props
-- final lighting
-- moonlight
-- fire VFX
-- fireplace animation
-- doors
-- NPCs
-- waiter logic
-- navigation
+- player hand animation
+- card draw animation
+- slap animation
+- waiter/NPC animation
+- door animation
+- environmental prop animation
+- fire flicker scripts
 - audio
-- environment interaction
-- new packages
-- new gameplay rules
+- smoke pass
+- volumetric fog
+- post-processing redesign
 
-Stop after the tavern room is correctly integrated and validated.
+Stop after lantern practical-light polish and moonlight leak cleanup.
 
 ---
 
-## 22. Final report
+## 24. Final report
 
-When complete, report:
+Report:
 
-1. Exact FBX asset used
-2. Import scale/rotation verification
-3. Verified room dimensions
-4. Material/texture status
-5. Environment hierarchy before/after
-6. Tavern transform in GameScene
-7. Placeholder Room status
-8. 3-player validation
-9. 6-player validation
-10. 8-player validation
-11. Camera / ceiling clearance
-12. Targeting regression result
-13. Gameplay regression result
-14. Online Host sanity-check status
-15. Automated test result
-16. Console result
-17. Any remaining environment issue
-18. Whether Blender changes are still required
+1. Which lantern instances were updated
+2. Exact emissive material(s) created
+3. What visible internal source was used
+4. Whether Stylized Fire VFX was used inside lanterns
+5. Any package prefab/material variants created
+6. Point Light alignment changes
+7. Any intensity/range adjustments to lantern lights
+8. Existing fireplace VFX status
+9. Any fireplace lighting changes
+10. Root cause of the moonlight wall leak
+11. Changes made to `Light_Moon`
+12. Local window moonlight lights added
+13. Which moon/window lights cast shadows
+14. Confirmation that light no longer visibly passes through solid walls
+15. 3/6/8 player validation
+16. Targeting regression result
+17. EditMode test result
+18. Console/warning result
+19. Exact files created/modified
+20. Any remaining environment-lighting issue
 
-Stop when TASK 012 is complete.
+Do not commit anything.
+
+Stop when TASK 014 is complete.
