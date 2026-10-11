@@ -33,6 +33,7 @@ namespace Shields.Match
         readonly CardView _cardViewPrefab;
         readonly DeckView _deckView;
         readonly DiscardPileView _discardView;
+        readonly PlayerActionPresenter _actions;
         readonly int _localPlayerIndex;
         readonly float _feedbackSeconds;
 
@@ -41,15 +42,20 @@ namespace Shields.Match
 
         CardView _highlightedShield;
 
+        /// <param name="actions">Animates actions on the table. Optional: without it every
+        /// result simply appears in place.</param>
         public MatchPresenter(TableLayoutController table, CardView cardViewPrefab, DeckView deckView,
-            DiscardPileView discardView, int localPlayerIndex, float feedbackSeconds)
+            DiscardPileView discardView, PlayerActionPresenter actions, int localPlayerIndex, float feedbackSeconds)
         {
             _table = table;
             _cardViewPrefab = cardViewPrefab;
             _deckView = deckView;
             _discardView = discardView;
+            _actions = actions;
             _localPlayerIndex = localPlayerIndex;
             _feedbackSeconds = feedbackSeconds;
+
+            if (_actions != null) _actions.Bind(table, deckView);
         }
 
         // ------------------------------------------------------------------ state sync
@@ -71,8 +77,11 @@ namespace Shields.Match
             {
                 PublicPlayerState player = match.Players[i];
 
+                // A newly stored Charge card is handed to the action presenter, which shows it
+                // when its draw animation lands, or directly if no action explains it.
                 PlayerTableArea area = _table.GetAreaForPlayer(i);
-                if (area != null) area.ShowMatchState(player, _cardViewPrefab);
+                if (area != null && area.ShowMatchState(player, _cardViewPrefab) && _actions != null)
+                    _actions.OnChargeCardCreated(i, area.ChargeView);
 
                 UpdateStatusLabel(match, player);
             }
@@ -130,6 +139,9 @@ namespace Shields.Match
         public void ShowResult(PublicActionResult result)
         {
             if (!result.Accepted || _table == null) return;
+
+            // The flag is all a first Charge publishes, and all the animation needs.
+            if (result.StoredHiddenCharge && _actions != null) _actions.PlayFirstCharge(result.ActorIndex);
 
             PlayerCharacter actor = _table.GetPlayer(result.ActorIndex);
             if (actor != null)
@@ -261,6 +273,8 @@ namespace Shields.Match
         {
             SetTargetHighlight(-1);
             ClearRevealedCards();
+
+            if (_actions != null) _actions.Clear();
 
             if (_discardView != null) _discardView.Clear();
 

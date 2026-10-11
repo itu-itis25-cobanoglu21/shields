@@ -41,6 +41,9 @@ namespace Shields.Network
         [SerializeField] CrosshairInteraction crosshair;
         [SerializeField] LocalShieldSelection shieldSelection;
 
+        [Tooltip("Animates resolved actions on the table. Optional.")]
+        [SerializeField] PlayerActionPresenter actionPresenter;
+
         [Header("Feedback")]
         [Tooltip("How long world-space action text and revealed cards stay visible.")]
         [SerializeField] float feedbackSeconds = 1.8f;
@@ -172,6 +175,8 @@ namespace Shields.Network
             _refusal = reason;
             _refusalShownAt = Time.unscaledTime;
             ClearPending();
+
+            if (actionPresenter != null) actionPresenter.CancelAnticipation(LocalSeat);
         }
 
         // ------------------------------------------------------------------ setup
@@ -188,7 +193,8 @@ namespace Shields.Network
         {
             if (_presenter != null) return;
 
-            _presenter = new MatchPresenter(tableLayout, cardViewPrefab, deckView, discardView, LocalSeat, feedbackSeconds);
+            _presenter = new MatchPresenter(tableLayout, cardViewPrefab, deckView, discardView, actionPresenter,
+                LocalSeat, feedbackSeconds);
             _hud = new MatchHud(hudFeedbackSeconds);
 
             AddTargetColliders();
@@ -270,6 +276,10 @@ namespace Shields.Network
                     }
 
                     matchController.RequestAction(TurnActionType.Charge, TurnActionRequest.NoTarget);
+
+                    // Cosmetic only: the hand starts reaching now and goes no further than
+                    // the deck until the host's result confirms the Charge.
+                    if (actionPresenter != null && _presenter != null) actionPresenter.AnticipateFirstCharge(LocalSeat);
                     return true;
 
                 default:

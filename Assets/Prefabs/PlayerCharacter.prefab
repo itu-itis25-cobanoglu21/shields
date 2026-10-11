@@ -765,6 +765,7 @@ MonoBehaviour:
   headPivot: {fileID: 7714107223119592946}
   headVisual: {fileID: 8717489509487800965}
   cameraAnchor: {fileID: 5171871078126273572}
+  rightHandAnchor: {fileID: 958016278873137070}
   tintedRenderers:
   - {fileID: 8192321046732506404}
 --- !u!114 &997209576048072071

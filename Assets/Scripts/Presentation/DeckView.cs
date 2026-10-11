@@ -24,6 +24,25 @@ namespace Shields.Presentation
         /// <summary>Remaining count for an online client, which owns no deck at all.</summary>
         int _reportedCount = -1;
 
+        /// <summary>
+        /// World point on the middle of the deck's top card, where a hand grabs and a drawn
+        /// card leaves from. Read live, so it follows the deck prop if it is moved.
+        /// </summary>
+        public Vector3 TopCenter
+        {
+            get
+            {
+                if (deckProp == null) return transform.position;
+
+                // A hidden prop (empty pile) reports no bounds, so fall back to its pivot.
+                Renderer prop = deckProp.GetComponent<Renderer>();
+                if (prop == null || !prop.gameObject.activeInHierarchy) return deckProp.position;
+
+                Bounds bounds = prop.bounds;
+                return new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
+            }
+        }
+
         /// <summary>Points the view at the deck it should report on.</summary>
         public void Bind(CardDeck deck)
         {

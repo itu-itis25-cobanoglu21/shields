@@ -68,7 +68,7 @@ namespace Shields.Match
         /// <summary>Takes over a freshly started match and draws the table from it.</summary>
         public void Begin(ShieldsMatch match, int localPlayerIndex, TableLayoutController table,
             CrosshairInteraction crosshair, CardView cardViewPrefab, DeckView deckView,
-            DiscardPileView discardView, int? seed)
+            DiscardPileView discardView, PlayerActionPresenter actionPresenter, int? seed)
         {
             End();
 
@@ -79,7 +79,8 @@ namespace Shields.Match
 
             // Its own stream, separate from the shuffle, bot Shield choice and turn order.
             _botPolicy = new RandomBotPolicy(seed.HasValue ? new System.Random(seed.Value ^ 0x2B07) : new System.Random());
-            _presenter = new MatchPresenter(table, cardViewPrefab, deckView, discardView, localPlayerIndex, feedbackSeconds);
+            _presenter = new MatchPresenter(table, cardViewPrefab, deckView, discardView, actionPresenter,
+                localPlayerIndex, feedbackSeconds);
             _hud = new MatchHud(hudFeedbackSeconds);
 
             _pending = PendingAction.None;

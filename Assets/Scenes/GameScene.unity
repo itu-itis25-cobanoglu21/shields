@@ -3096,6 +3096,7 @@ GameObject:
   - component: {fileID: 521735740}
   - component: {fileID: 521735739}
   - component: {fileID: 521735741}
+  - component: {fileID: 521735742}
   m_Layer: 0
   m_Name: MatchBootstrap
   m_TagString: Untagged
@@ -3152,6 +3153,7 @@ MonoBehaviour:
   discardView: {fileID: 2006754969}
   turnController: {fileID: 0}
   cardViewPrefab: {fileID: 7638927518640464226, guid: f749e1fae5e728243aa2080f37ccdc88, type: 3}
+  actionPresenter: {fileID: 521735742}
   targetPlayerCount: 6
   deckCount: 1
   localPlayerIndex: 0
@@ -3171,6 +3173,31 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a98f29f08bc9df4496f09c1f445d3fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Shields.Presentation.LocalShieldSelection
+--- !u!114 &521735742
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 521735737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd4a197f48b325048b355b9112ee2445, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Match.PlayerActionPresenter
+  handReachDuration: 0.25
+  deckHoldDuration: 0.175
+  cardPullDuration: 0.25
+  handReturnDuration: 0.25
+  flameStartDelay: 0.075
+  palmClearance: 0.03
+  cardArcHeight: 0.05
+  handTrail: 0.08
+  chargeFlamePrefab: {fileID: 6451369542552504431, guid: e4713e1ea6cf1a94d89f8035913be8ac, type: 3}
+  flameWorldScale: 0.1
+  flameSettledTime: 1
+  revealGrace: 0.35
+  confirmTimeout: 1.5
 --- !u!1001 &522920164
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4508,6 +4535,7 @@ MonoBehaviour:
   discardView: {fileID: 2006754969}
   crosshair: {fileID: 878030575}
   shieldSelection: {fileID: 521735741}
+  actionPresenter: {fileID: 521735742}
   feedbackSeconds: 1.8
   hudFeedbackSeconds: 3
   showDiagnostics: 1
@@ -6998,7 +7026,7 @@ ParticleSystem:
           m_PostInfinity: 2
           m_RotationOrder: 4
       cycleCount: 1
-      repeatInterval: 0.0001
+      repeatInterval: 0.01
       probability: 1
   SizeModule:
     enabled: 0
@@ -11927,7 +11955,7 @@ ParticleSystem:
           m_PostInfinity: 2
           m_RotationOrder: 4
       cycleCount: 1
-      repeatInterval: 0.0001
+      repeatInterval: 0.01
       probability: 1
   SizeModule:
     enabled: 0
@@ -15480,7 +15508,7 @@ ParticleSystem:
           m_PostInfinity: 2
           m_RotationOrder: 4
       cycleCount: 1
-      repeatInterval: 0.0001
+      repeatInterval: 0.01
       probability: 1
   SizeModule:
     enabled: 0
@@ -17463,6 +17491,63 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1937a6a2dbb95e042bb833e1c0cf08ee, type: 3}
   m_PrefabInstance: {fileID: 1657209960}
   m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1659906682
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 5627696518775099638, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_Name
+      value: VFX_Stylized_Fire_01_Mystic
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -1.6441915
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.000000006125603
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -12.316467
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8964859838461161948, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9cce15443309a534294bb4f7bdb31981, type: 3}
 --- !u!1001 &1678048380
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -20801,7 +20886,7 @@ ParticleSystem:
           m_PostInfinity: 2
           m_RotationOrder: 4
       cycleCount: 1
-      repeatInterval: 0.0001
+      repeatInterval: 0.01
       probability: 1
   SizeModule:
     enabled: 0
@@ -22600,3 +22685,4 @@ SceneRoots:
   - {fileID: 23963200}
   - {fileID: 716784353}
   - {fileID: 1926753951}
+  - {fileID: 1659906682}

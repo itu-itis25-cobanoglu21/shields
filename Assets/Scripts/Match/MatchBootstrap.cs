@@ -36,6 +36,9 @@ namespace Shields.Match
         [Header("Card Presentation")]
         [SerializeField] CardView cardViewPrefab;
 
+        [Tooltip("Animates resolved actions on the table. Optional.")]
+        [SerializeField] PlayerActionPresenter actionPresenter;
+
         [Header("Match Setup")]
         [Tooltip("Total seats for the match, humans and bots together.")]
         [Range(MatchConfig.MinPlayers, MatchConfig.MaxPlayers)]
@@ -281,7 +284,7 @@ namespace Shields.Match
                 match.StartingPlayerIndex, match.Direction), this);
 
             turnController.Begin(match, localPlayerIndex, tableLayout, crosshair, cardViewPrefab, deckView, discardView,
-                useFixedSeed ? fixedSeed : (int?)null);
+                actionPresenter, useFixedSeed ? fixedSeed : (int?)null);
         }
 
         // ------------------------------------------------------------------ roles

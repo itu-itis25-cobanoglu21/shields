@@ -31,6 +31,9 @@ namespace Shields.Players
         [Tooltip("Where the single gameplay camera is attached for the local player.")]
         [SerializeField] Transform cameraAnchor;
 
+        [Tooltip("The floating right hand. Its prefab pose is the resting pose; action presentation moves it.")]
+        [SerializeField] Transform rightHandAnchor;
+
         [Header("Body Tint")]
         [Tooltip("Renderers that take the per player placeholder colour.")]
         [SerializeField] Renderer[] tintedRenderers;
@@ -43,6 +46,15 @@ namespace Shields.Players
         public Transform HeadPivot { get { return headPivot; } }
         public Transform HeadVisual { get { return headVisual; } }
         public Transform CameraAnchor { get { return cameraAnchor; } }
+
+        public Transform RightHandAnchor
+        {
+            get
+            {
+                if (rightHandAnchor == null) rightHandAnchor = transform.Find("RightShoulderAnchor/RightHandAnchor");
+                return rightHandAnchor;
+            }
+        }
 
         /// <summary>
         /// Assigns the identity this player will keep for the match. Called once by the

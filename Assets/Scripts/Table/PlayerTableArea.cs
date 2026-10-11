@@ -41,6 +41,10 @@ namespace Shields.Table
         readonly List<Transform> _slots = new List<Transform>();
         readonly List<CardView> _cardViews = new List<CardView>();
 
+        // Kept apart from the redrawn cards: it lives exactly as long as the public
+        // HasCharge flag, so a routine snapshot never recreates it (or anything on it).
+        CardView _chargeView;
+
         public int PlayerIndex { get { return playerIndex; } }
 
         public Transform VerticalCardSlotLeft { get { return verticalCardSlotLeft; } }
@@ -65,6 +69,9 @@ namespace Shields.Table
 
         /// <summary>The view drawing this player's Shield card, or null.</summary>
         public CardView ShieldView { get; private set; }
+
+        /// <summary>The face-down stored Charge card while a Charge is stored, or null.</summary>
+        public CardView ChargeView { get { return _chargeView; } }
 
         /// <summary>The card views currently on this area.</summary>
         public IReadOnlyList<CardView> CardViews { get { return _cardViews; } }
@@ -135,19 +142,20 @@ namespace Shields.Table
         }
 
         /// <summary>
-        /// Redraws this area from the authoritative turn state: each Health slot as a
-        /// real card, a Virtual Health Marker or nothing; the Shield; and one face-down
-        /// card while a Charge is stored. Nothing here is read back into gameplay.
-        /// </summary>
-        /// <summary>
         /// Draws one seat from public state. Offline builds this from the local engine and
         /// online receives it from the host, so both paths render through the same code.
+        /// Each Health slot shows a real card, a Virtual Health Marker or nothing, then the
+        /// Shield, then one face-down card while a Charge is stored. Nothing here is read
+        /// back into gameplay.
+        ///
+        /// Returns true when this call created the stored Charge card, i.e. the Charge
+        /// has just appeared in public state.
         /// </summary>
-        public void ShowMatchState(PublicPlayerState state, CardView cardViewPrefab)
+        public bool ShowMatchState(PublicPlayerState state, CardView cardViewPrefab)
         {
-            ClearCards();
+            ClearSlotCards();
 
-            if (cardViewPrefab == null) return;
+            if (cardViewPrefab == null) return false;
 
             ShowHealthSlot(state.LeftHealth, verticalCardSlotLeft, cardViewPrefab);
             ShowHealthSlot(state.RightHealth, verticalCardSlotRight, cardViewPrefab);
@@ -158,9 +166,24 @@ namespace Shields.Table
                 ShieldView.Bind(state.ShieldCard.ToPlayingCard(), playerIndex);
             }
 
+            if (!state.HasCharge)
+            {
+                ClearChargeCard();
+                return false;
+            }
+
+            if (_chargeView != null) return false;
+
             // Only the fact that a Charge exists is public, and the public state carries
             // nothing else, so the view could not draw the card even by mistake.
-            if (state.HasCharge) Spawn(cardViewPrefab, ChargeSlot, false).ShowFaceDown(playerIndex);
+            _chargeView = Instantiate(cardViewPrefab);
+            _chargeView.PlaceAt(ChargeSlot, false);
+            _chargeView.ShowFaceDown(playerIndex);
+
+            // Never a crosshair target, so it cannot block aiming while it is moved.
+            foreach (Collider collider in _chargeView.GetComponentsInChildren<Collider>()) collider.enabled = false;
+
+            return true;
         }
 
         void ShowHealthSlot(PublicHealthSlot slot, Transform where, CardView cardViewPrefab)
@@ -186,20 +209,33 @@ namespace Shields.Table
             return null;
         }
 
-        /// <summary>Removes every card view from this area.</summary>
+        /// <summary>Removes every card view from this area, the stored Charge card included.</summary>
         public void ClearCards()
         {
-            for (int i = 0; i < _cardViews.Count; i++)
-            {
-                if (_cardViews[i] == null) continue;
+            ClearSlotCards();
+            ClearChargeCard();
+        }
 
-                GameObject go = _cardViews[i].gameObject;
-                if (Application.isPlaying) Destroy(go);
-                else DestroyImmediate(go);
-            }
+        void ClearSlotCards()
+        {
+            for (int i = 0; i < _cardViews.Count; i++)
+                if (_cardViews[i] != null) DestroyView(_cardViews[i]);
 
             _cardViews.Clear();
             ShieldView = null;
+        }
+
+        /// <summary>Removes the stored Charge card and everything attached to it.</summary>
+        void ClearChargeCard()
+        {
+            if (_chargeView != null) DestroyView(_chargeView);
+            _chargeView = null;
+        }
+
+        static void DestroyView(CardView view)
+        {
+            if (Application.isPlaying) Destroy(view.gameObject);
+            else DestroyImmediate(view.gameObject);
         }
 
         /// <summary>Editor convenience so the prefab can be wired from code.</summary>

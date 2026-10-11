@@ -58,6 +58,7 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\Network\ShieldsSessionController.cs" />
     <Compile Include="Assets\Scripts\Presentation\CrosshairInteraction.cs" />
+    <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkSeatRegistry.cs" />
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkTestPresenter.cs" />
