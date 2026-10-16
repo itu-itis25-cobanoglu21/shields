@@ -85,6 +85,10 @@ namespace Shields.Match
             public float LockRequestedAt;
             public bool HolsterRequested;
 
+            // Set while this shot's drawn card is still travelling or being read: the weapon
+            // stays locked on target and fires only once the card presentation lets it go.
+            public bool HoldFire;
+
             // From the confirmed public result: the damage this shot dealt, and the seed
             // every machine derives from that result for the shot's random details.
             public int Damage;
@@ -297,7 +301,7 @@ namespace Shields.Match
 
                     if (rig.LockConfirmed && rig.LockedSince >= 0f)
                     {
-                        if (!rig.Fired && Time.time - rig.LockedSince >= fireDelay)
+                        if (!rig.Fired && !rig.HoldFire && Time.time - rig.LockedSince >= fireDelay)
                         {
                             rig.Fired = true;
                             rig.FiredAt = Time.time;

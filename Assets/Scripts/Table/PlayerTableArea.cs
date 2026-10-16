@@ -38,6 +38,12 @@ namespace Shields.Table
         [Tooltip("Local position used when the Charge slot has to be created at runtime.")]
         [SerializeField] Vector3 chargeSlotLocalPosition = new Vector3(0.1f, 0f, 0.085f);
 
+        [Tooltip("Where a drawn action card (Attack, Replace Shield, Charged Attack) lands and is revealed: beyond the Shield, toward the table centre. Presentation only. Created at runtime when missing.")]
+        [SerializeField] Transform actionRevealAnchor;
+
+        [Tooltip("Local position used when the action reveal anchor has to be created at runtime.")]
+        [SerializeField] Vector3 actionRevealLocalPosition = new Vector3(0f, 0f, 0.17f);
+
         readonly List<Transform> _slots = new List<Transform>();
         readonly List<CardView> _cardViews = new List<CardView>();
 
@@ -64,6 +70,26 @@ namespace Shields.Table
                 }
 
                 return chargeSlot;
+            }
+        }
+
+        /// <summary>
+        /// Where a card drawn for an action aimed at this player lands face up, clear of
+        /// the Health, Shield and Charge cards. Created on first use if the prefab has none.
+        /// Only temporary presentation cards ever sit here.
+        /// </summary>
+        public Transform ActionRevealAnchor
+        {
+            get
+            {
+                if (actionRevealAnchor == null)
+                {
+                    actionRevealAnchor = new GameObject("ActionRevealAnchor").transform;
+                    actionRevealAnchor.SetParent(transform, false);
+                    actionRevealAnchor.localPosition = actionRevealLocalPosition;
+                }
+
+                return actionRevealAnchor;
             }
         }
 

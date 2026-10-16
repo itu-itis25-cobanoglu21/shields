@@ -20,6 +20,10 @@ namespace Shields.Match
     /// Presentation only. The reaction never moves the character root, its chair or its
     /// targeting collider, and is always computed from the captured rest poses, so
     /// repeated hits cannot drift.
+    ///
+    /// The same parts also carry the anticipation lean of a targeted action: a small
+    /// tilt toward the table centre around the same fixed base. The lean sits underneath
+    /// any reaction, so a recoil or a hit plays on top of it instead of cancelling it.
     /// </summary>
     [DefaultExecutionOrder(1000)]
     public partial class PlayerActionPresenter
@@ -136,7 +140,10 @@ namespace Shields.Match
             public bool Squashes;
         }
 
-        /// <summary>One player's body reaction: a hit, or a shooter rocked back by recoil.</summary>
+        /// <summary>
+        /// One player's body pose layer: a reaction (a hit, or a shooter rocked back by
+        /// recoil) and/or the anticipation lean underneath it.
+        /// </summary>
         sealed class BodyReaction
         {
             public PlayerCharacter Player;
@@ -157,6 +164,14 @@ namespace Shields.Match
             public float StartTime;
             public Quaternion From = Quaternion.identity;
             public Quaternion Current = Quaternion.identity;
+            public bool Reacting;
+
+            // Anticipation lean: eases from LeanFrom to LeanTo degrees about LeanAxis (root space).
+            public Vector3 LeanAxis = Vector3.right;
+            public float LeanFrom;
+            public float LeanTo;
+            public float LeanStart;
+            public float LeanDuration;
         }
 
         struct LightFlash
@@ -349,12 +364,47 @@ namespace Shields.Match
                 _reactions[player] = reaction;
             }
 
-            reaction.From = reaction.Current;
+            reaction.From = reaction.Reacting ? reaction.Current : Quaternion.identity;
+            reaction.Reacting = true;
             reaction.Axis = player.transform.InverseTransformDirection(Vector3.Cross(Vector3.up, away));
             reaction.Peak = peak;
             reaction.Hold = hold;
             reaction.Squash = squash;
             reaction.StartTime = Time.time;
+        }
+
+        /// <summary>
+        /// Eases this player's anticipation lean to an angle, tipping the top of the body
+        /// toward a flat direction around the fixed base. Zero eases it back upright.
+        /// </summary>
+        void SetLean(PlayerCharacter player, Vector3 toward, float angle, float duration)
+        {
+            if (player == null) return;
+
+            BodyReaction reaction;
+            if (!_reactions.TryGetValue(player, out reaction))
+            {
+                if (angle == 0f) return;
+
+                reaction = CreateBodyReaction(player);
+                if (reaction == null) return;
+                _reactions[player] = reaction;
+            }
+
+            reaction.LeanFrom = LeanAt(reaction);
+            reaction.LeanTo = angle;
+            reaction.LeanStart = Time.time;
+            reaction.LeanDuration = Mathf.Max(0f, duration);
+
+            Vector3 flat = new Vector3(toward.x, 0f, toward.z);
+            if (angle != 0f && flat.sqrMagnitude > 0.000001f)
+                reaction.LeanAxis = player.transform.InverseTransformDirection(Vector3.Cross(Vector3.up, flat.normalized)).normalized;
+        }
+
+        float LeanAt(BodyReaction r)
+        {
+            float t = r.LeanDuration > 0f ? (Time.time - r.LeanStart) / r.LeanDuration : 1f;
+            return Mathf.LerpUnclamped(r.LeanFrom, r.LeanTo, EaseInOutCubic(t));
         }
 
         BodyReaction CreateBodyReaction(PlayerCharacter player)
@@ -447,22 +497,35 @@ namespace Shields.Match
                 if (pair.Key == null) { _finished.Add(pair.Key); continue; }
 
                 float t = Time.time - r.StartTime;
-                if (ReactionFinished(r, t))
+                if (r.Reacting && ReactionFinished(r, t))
+                {
+                    r.Reacting = false;
+                    r.Current = Quaternion.identity;
+                    r.From = Quaternion.identity;
+                }
+
+                float lean = LeanAt(r);
+                if (!r.Reacting && lean == 0f && r.LeanTo == 0f)
                 {
                     RestoreReaction(r);
                     _finished.Add(pair.Key);
                     continue;
                 }
 
-                ApplyReaction(r, TiltAt(r, t), SquashAt(r, t), TiltAt(r, t - headLag));
+                Quaternion leanTilt = Quaternion.AngleAxis(lean, r.LeanAxis);
+                if (r.Reacting) ApplyReaction(r, TiltAt(r, t), SquashAt(r, t), TiltAt(r, t - headLag), leanTilt);
+                else ApplyReaction(r, Quaternion.identity, 0f, Quaternion.identity, leanTilt);
             }
 
             for (int i = 0; i < _finished.Count; i++) _reactions.Remove(_finished[i]);
         }
 
-        void ApplyReaction(BodyReaction r, Quaternion tilt, float squash, Quaternion headTilt)
+        void ApplyReaction(BodyReaction r, Quaternion tilt, float squash, Quaternion headTilt, Quaternion lean)
         {
             r.Current = tilt;
+
+            // The reaction plays on top of the lean, both around the same fixed base.
+            Quaternion body = tilt * lean;
 
             // Squash about the base: shorter and a little wider, in the body's own frame.
             Vector3 squashScale = new Vector3(1f + squash * 0.5f, 1f - squash, 1f + squash * 0.5f);
@@ -472,20 +535,20 @@ namespace Shields.Match
                 TiltPart part = r.Parts[i];
                 if (part.Transform == null) continue;
 
-                part.Transform.localPosition = r.PivotLocal + tilt * Vector3.Scale(squashScale, part.Rest.position - r.PivotLocal);
-                part.Transform.localRotation = tilt * part.Rest.rotation;
+                part.Transform.localPosition = r.PivotLocal + body * Vector3.Scale(squashScale, part.Rest.position - r.PivotLocal);
+                part.Transform.localRotation = body * part.Rest.rotation;
                 if (part.Squashes) part.Transform.localScale = Vector3.Scale(part.RestScale, squashScale);
             }
 
             if (r.Head == null) return;
 
-            r.Head.localPosition = r.PivotLocal + tilt * Vector3.Scale(squashScale, r.HeadRest.position - r.PivotLocal);
+            r.Head.localPosition = r.PivotLocal + body * Vector3.Scale(squashScale, r.HeadRest.position - r.PivotLocal);
 
             // Head look owns the pivot's rotation and may rewrite it any frame; the whip is
             // layered on top of whatever look last wrote, and never fed back into it.
             if (!r.HeadWrote || r.Head.localRotation != r.HeadWritten) r.HeadBase = r.Head.localRotation;
 
-            Quaternion headOffset = Quaternion.SlerpUnclamped(Quaternion.identity, headTilt, headWhip);
+            Quaternion headOffset = Quaternion.SlerpUnclamped(Quaternion.identity, headTilt, headWhip) * lean;
             r.HeadWritten = headOffset * r.HeadBase;
             r.Head.localRotation = r.HeadWritten;
             r.HeadWrote = true;
@@ -496,6 +559,9 @@ namespace Shields.Match
         {
             r.Current = Quaternion.identity;
             r.From = Quaternion.identity;
+            r.Reacting = false;
+            r.LeanFrom = 0f;
+            r.LeanTo = 0f;
 
             for (int i = 0; i < r.Parts.Count; i++)
             {

@@ -8,7 +8,7 @@ using Shields.Table;
 namespace Shields.Match
 {
     /// <summary>
-    /// Procedural action presentation. For now only the first Charge: the right hand
+    /// Procedural action presentation. The first Charge lives here: the right hand
     /// reaches the deck, pulls the face-down card to the Charge slot and returns, then a
     /// purple flame starts burning on the card and keeps burning while the Charge exists.
     ///
@@ -21,6 +21,9 @@ namespace Shields.Match
     ///
     /// The flame is parented to that card, so it lives exactly as long as the card, which
     /// lives exactly as long as the authoritative stored Charge.
+    ///
+    /// The weapon (right hand), the left-hand draw and throw shared by every targeted
+    /// action, and the hit reaction live in the other parts of this class.
     /// </summary>
     [DisallowMultipleComponent]
     public partial class PlayerActionPresenter : MonoBehaviour
@@ -89,16 +92,20 @@ namespace Shields.Match
 
         TableLayoutController _table;
         DeckView _deck;
+        CardView _cardPrefab;
+        DiscardPileView _discard;
 
         readonly Dictionary<int, HandMotion> _motions = new Dictionary<int, HandMotion>();
         readonly Dictionary<int, PendingCard> _pendingCards = new Dictionary<int, PendingCard>();
         readonly Dictionary<Transform, Pose> _restPoses = new Dictionary<Transform, Pose>();
         readonly List<int> _due = new List<int>();
 
-        public void Bind(TableLayoutController table, DeckView deck)
+        public void Bind(TableLayoutController table, DeckView deck, CardView cardPrefab, DiscardPileView discard)
         {
             _table = table;
             _deck = deck;
+            _cardPrefab = cardPrefab;
+            _discard = discard;
         }
 
         // ------------------------------------------------------------------ events
@@ -142,17 +149,33 @@ namespace Shields.Match
             StartFirstCharge(seat, false);
         }
 
-        /// <summary>The host refused the anticipated action: bring the hand back.</summary>
+        /// <summary>The host refused the anticipated action: bring the hands back.</summary>
         public void CancelAnticipation(int seat)
         {
             HandMotion motion;
             if (_motions.TryGetValue(seat, out motion) && !motion.Confirmed) motion.Cancelled = true;
+
+            CancelThrowAnticipation(seat);
+        }
+
+        /// <summary>
+        /// A Charge card is back on the table because the presenter is still showing the
+        /// state from before a Charged Attack or an interrupting hit. It was already seen
+        /// stored, so it shows at once, burning, without its draw animation.
+        /// </summary>
+        public void RestoreChargeCard(int seat, CardView card)
+        {
+            if (card == null) return;
+
+            card.gameObject.SetActive(true);
+            StartFlame(card, true);
         }
 
         /// <summary>Stops every animation, restores every hand and shows any held card.</summary>
         public void Clear()
         {
             ReleaseAllWeapons();
+            ClearThrows();
             ClearHitReactions();
             foreach (int seat in new List<int>(_motions.Keys)) StopMotion(seat);
             foreach (int seat in new List<int>(_pendingCards.Keys)) RevealPending(seat, true);
@@ -184,8 +207,10 @@ namespace Shields.Match
 
         void StartFirstCharge(int seat, bool confirmed)
         {
-            // One action owns the right hand at a time: a drawn weapon goes straight back.
+            // One action owns the right hand at a time: a drawn weapon goes straight back,
+            // and a left hand waiting on the deck for a target is no longer needed.
             ReleaseWeapon(seat, true);
+            CancelThrowAnticipation(seat);
             StopMotion(seat);
 
             PlayerCharacter player = _table != null ? _table.GetPlayer(seat) : null;
@@ -429,15 +454,24 @@ namespace Shields.Match
         /// </summary>
         Quaternion FlatGrabRotation(HandMotion m, PlayerCharacter player)
         {
+            Quaternion world = FlatHandWorldRotation(player, handFingerAxis, handBackAxis);
+
+            Quaternion parent = m.Hand.parent != null ? m.Hand.parent.rotation : Quaternion.identity;
+            return Quaternion.Inverse(parent) * world;
+        }
+
+        /// <summary>
+        /// World rotation that lays a hand flat, back of the hand straight up, fingers level
+        /// and pointing from the seat to the deck, given the hand's own resting axes.
+        /// </summary>
+        Quaternion FlatHandWorldRotation(PlayerCharacter player, Vector3 fingerAxis, Vector3 backAxis)
+        {
             Vector3 forward = _deck.TopCenter - player.transform.position;
             forward.y = 0f;
             if (forward.sqrMagnitude < 0.0001f) forward = player.transform.forward;
 
-            Quaternion handFrame = Quaternion.LookRotation(handFingerAxis, handBackAxis);
-            Quaternion world = Quaternion.LookRotation(forward.normalized, Vector3.up) * Quaternion.Inverse(handFrame);
-
-            Quaternion parent = m.Hand.parent != null ? m.Hand.parent.rotation : Quaternion.identity;
-            return Quaternion.Inverse(parent) * world;
+            Quaternion handFrame = Quaternion.LookRotation(fingerAxis, backAxis);
+            return Quaternion.LookRotation(forward.normalized, Vector3.up) * Quaternion.Inverse(handFrame);
         }
 
         /// <summary>Where the hand goes so its palm rests on the deck in the flat grab pose.</summary>
@@ -449,12 +483,17 @@ namespace Shields.Match
         /// <summary>The hand's local position that puts its palm on a world point at a given rotation.</summary>
         static Vector3 HandLocalForPalm(HandMotion m, Vector3 palmWorld, Quaternion handLocalRotation)
         {
-            Vector3 palmLocal = m.Palm != null ? m.Palm.localPosition : Vector3.zero;
+            return HandLocalForPalm(m.Hand, m.Palm, palmWorld, handLocalRotation);
+        }
 
-            if (m.Hand.parent == null) return palmWorld - handLocalRotation * palmLocal;
+        static Vector3 HandLocalForPalm(Transform hand, Transform palm, Vector3 palmWorld, Quaternion handLocalRotation)
+        {
+            Vector3 palmLocal = palm != null ? palm.localPosition : Vector3.zero;
+
+            if (hand.parent == null) return palmWorld - handLocalRotation * palmLocal;
 
             // Work in the parent's space: the palm sits at handPosition + rotation * palmLocal.
-            return m.Hand.parent.InverseTransformPoint(palmWorld) - handLocalRotation * palmLocal;
+            return hand.parent.InverseTransformPoint(palmWorld) - handLocalRotation * palmLocal;
         }
 
         Vector3 CardPath(Vector3 from, Vector3 to, float t)

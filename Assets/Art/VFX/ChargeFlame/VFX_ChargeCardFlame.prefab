@@ -44,20 +44,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79a53afdeb5cecc4d8b5b6ba40937aff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Shields.Presentation.ChargeCardFlame
-  flameMaterial: {fileID: 2100000, guid: 49f2544259f62474e82f69a53e2ad272, type: 2}
+  flamePrefab: {fileID: 1151153641083471666, guid: 9a47a0bcb35f5cf449703ffc315b2641, type: 3}
   glowMaterial: {fileID: 2100000, guid: 8ea346ccee2d4a44a805e92e7e1892f0, type: 2}
   rimMaterial: {fileID: 2100000, guid: 59f62fef0b16b8447b24f5510f51d596, type: 2}
   faceSize: {x: 0.063, y: 0.088}
-  edgeSpacing: 0.011
-  edgeOverlap: 2.3
-  edgeFlameHeight: 0.034
-  edgeInset: 0.012
-  surfaceColumns: 2
-  surfaceRows: 3
-  surfaceFlameSize: {x: 0.038, y: 0.032}
-  surfaceInset: 0.016
-  sizeJitter: 0.25
-  sink: 0.004
   layoutSeed: 7
   glowOversize: 1.3
   glowLift: 0.0006

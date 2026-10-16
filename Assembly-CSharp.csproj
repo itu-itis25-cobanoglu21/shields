@@ -58,11 +58,15 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\Network\ShieldsSessionController.cs" />
     <Compile Include="Assets\Scripts\Presentation\CrosshairInteraction.cs" />
+    <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Throw.cs" />
+    <Compile Include="Assets\Scripts\Menu\MainMenuController.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Hit.cs" />
     <Compile Include="Assets\VFXPACK_IMPACT_WALLCOEUR_FreeVersion\Scripts\VfxController.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkSeatRegistry.cs" />
+    <Compile Include="Assets\Scripts\Presentation\FireLightFlicker.cs" />
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
+    <Compile Include="Assets\Scripts\Menu\MainMenuLaunchRequest.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkTestPresenter.cs" />
     <Compile Include="Assets\Laterns and candles\scripts\CameraFacing.cs" />
     <Compile Include="Assets\VFXPACK_IMPACT_WALLCOEUR_FreeVersion\Scripts\DropdownController.cs" />
@@ -72,6 +76,7 @@
     <Compile Include="Assets\Scripts\Match\MatchHud.cs" />
     <Compile Include="Assets\Scripts\Match\MatchBootstrap.cs" />
     <Compile Include="Assets\Scripts\Presentation\ChargeCardFlame.cs" />
+    <Compile Include="Assets\Scripts\Menu\MainMenuButtonVisual.cs" />
     <Compile Include="Assets\Scripts\Presentation\WorldLabel.cs" />
     <Compile Include="Assets\Scripts\Presentation\LocalShieldSelection.cs" />
     <Compile Include="Assets\Scripts\Network\OnlineMatchDriver.cs" />
@@ -81,6 +86,7 @@
     <Compile Include="Assets\Scripts\Match\MatchTurnController.cs" />
     <Compile Include="Assets\Scripts\Player\BotController.cs" />
     <Compile Include="Assets\Scripts\Player\SeatedHeadLook.cs" />
+    <Compile Include="Assets\Scripts\Menu\MainMenuCameraBreathing.cs" />
     <Compile Include="Assets\Scripts\Table\PlayerTableArea.cs" />
     <Compile Include="Assets\Laterns and candles\scripts\ExtendedFlycam.cs" />
     <Compile Include="Assets\Scripts\Match\MatchSetupUI.cs" />
@@ -93,21 +99,57 @@
     <Compile Include="Assets\Scripts\Network\ShieldsNetworkBootstrap.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile Overlay.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile-2-Pass.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap.shader" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditor.uss" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\Demo\Resources\Shaders\SH_Vefects_URP_VFX_Opaque_Fr_01.shader" />
+    <None Include="Assets\Vefects\Candle VFX URP\Candles\Wick\Shaders\SH_Vefects_VFX_Wick_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMPro_Mobile.cginc" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SSD.shader" />
+    <None Include="Assets\Vefects\Candle VFX URP\Shared\Shaders\SH_Vefects_Candle_Wax_01.shader" />
+    <None Include="Assets\Vefects\Candle VFX URP\Shared\Shaders\SH_Vefects_Candle_Wax_VC_01.shader" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\Demo\Resources\Shaders\SH_Vefects_URP_VFX_Opaque_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface-Mobile.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SpaceWarp.shader" />
+    <None Include="Assets\Vefects\Stylized Fire VFX URP\_ Extra\Shaders\SH_Vefects_Extra_Grid_01_URP.shader" />
     <None Include="Assets\Laterns and candles\Shaders\GlassStainedBumpDistort.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\SDFFunctions.hlsl" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\Demo\Scene\Shaders\SH_Vefects_Grid_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface.shader" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\_ Extra\Shaders\SH_Vefects_Extra_Billboard_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap-Custom-Atlas.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF.shader" />
+    <None Include="Assets\Vefects\Free Fire VFX URP\Shaders\SH_Vefects_VFX_URP_Heat_Haze_01.shader" />
+    <None Include="Assets\Vefects\Free Fire VFX URP\Shaders\SH_Vefects_VFX_URP_Particles_Erosion_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile SSD.shader" />
+    <None Include="Assets\TextMesh Pro\Resources\LineBreaking Leading Characters.txt" />
     <None Include="Assets\Daniel Mistage\Stylized Fantasy Armory\Prefabs\Extra Content\Fantasy Female Character Hetalia - Props\README.txt" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMPro_Properties.cginc" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\_ Extra\Shaders\SH_Vefects_Extra_Billboard_01_Unlit.shader" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorLight.uss" />
+    <None Include="Assets\Vefects\Candle VFX URP\Flames\Shaders\SH_Vefects_URP_Candle_Flame_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMPro_Surface.cginc" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile SpaceWarp.shader" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\Demo\Resources\Shaders\SH_Vefects_URP_VFX_Character_Showoff.shader" />
+    <None Include="Assets\Vefects\Candle VFX URP\Candles\Arcvhiz Glass Candle\Shaders\SH_Vefects_VFX_Glass_01.shader" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\VFX\Shared\Shaders\SH_Vefects_VFX_Stylized_Fire_01.shader" />
+    <None Include="Assets\TextMesh Pro\Resources\LineBreaking Following Characters.txt" />
+    <None Include="Assets\Vefects\Free Fire VFX URP\Shaders\SH_Vefects_VFX_URP_Fire_Flames_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SSD SpaceWarp.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile Masking.shader" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\VFX\Shared\Shaders\SH_Vefects_VFX_Stylized_Fire_Radial_01.shader" />
     <None Include="Assets\Daniel Mistage\Stylized Fantasy Armory\Prefabs\Extra Content\Fantasy Female Character Leona - Props\README.txt" />
     <None Include="Assets\Vefects\Stylized Fire VFX URP\_ Extra\Shaders\SH_Vefects_Extra_Grid_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF Overlay.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap-Mobile.shader" />
+    <None Include="Assets\TextMesh Pro\Fonts\LiberationSans - OFL.txt" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile.shader" />
     <None Include="Assets\TutorialInfo\StyleSheets\ReadmeEditorDark.uss" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile SSD SpaceWarp.shader" />
+    <None Include="Assets\Vefects\Candle VFX URP\Smoke\Shaders\SH_Vefects_URP_Candle_Smoke_01.shader" />
+    <None Include="Assets\TextMesh Pro\Shaders\TMP_Sprite.shader" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="UnityEngine">

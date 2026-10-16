@@ -2,6 +2,7 @@ using UnityEngine;
 using Shields.Cards;
 using Shields.Game;
 using Shields.Match;
+using Shields.Menu;
 using Shields.Online;
 using Shields.Session;
 
@@ -53,6 +54,28 @@ namespace Shields.Network
         void Awake()
         {
             ApplyOfflineUIVisibility();
+        }
+
+        /// <summary>
+        /// Arriving from the main menu skips the mode chooser: CREATE ROOM opens the host
+        /// setup, JOIN ROOM fills in the code and starts joining straight away.
+        /// </summary>
+        void Start()
+        {
+            MainMenuIntent intent;
+            string joinCode;
+            if (!MainMenuLaunchRequest.TryConsume(out intent, out joinCode)) return;
+
+            if (intent == MainMenuIntent.CreateRoom)
+            {
+                SetScreen(Screen.Host);
+            }
+            else if (intent == MainMenuIntent.JoinRoom)
+            {
+                SetScreen(Screen.Join);
+                _joinCodeInput = joinCode;
+                JoinSession();
+            }
         }
 
         void ApplyOfflineUIVisibility()

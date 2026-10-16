@@ -34,6 +34,9 @@ namespace Shields.Players
         [Tooltip("The floating right hand. Its prefab pose is the resting pose; action presentation moves it.")]
         [SerializeField] Transform rightHandAnchor;
 
+        [Tooltip("The floating left hand. Its prefab pose is the resting pose; targeted actions move it to the Draw Pile.")]
+        [SerializeField] Transform leftHandAnchor;
+
         [Header("Weapon (presentation only)")]
         [Tooltip("Where the weapon rests while holstered, at the right hip.")]
         [SerializeField] Transform weaponHolsterAnchor;
@@ -67,6 +70,15 @@ namespace Shields.Players
             {
                 if (rightHandAnchor == null) rightHandAnchor = transform.Find("RightShoulderAnchor/RightHandAnchor");
                 return rightHandAnchor;
+            }
+        }
+
+        public Transform LeftHandAnchor
+        {
+            get
+            {
+                if (leftHandAnchor == null) leftHandAnchor = transform.Find("LeftShoulderAnchor/LeftHandAnchor");
+                return leftHandAnchor;
             }
         }
 

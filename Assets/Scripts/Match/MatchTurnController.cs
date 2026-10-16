@@ -140,13 +140,16 @@ namespace Shields.Match
 
         // ------------------------------------------------------------------ local human
 
-        /// <summary>True while it is the living local player's turn and input may act.</summary>
+        /// <summary>
+        /// True while it is the living local player's turn and input may act. Input also
+        /// waits while the previous action is still being presented on the table.
+        /// </summary>
         public bool LocalInputAllowed
         {
             get
             {
                 return _match != null && !_match.IsMatchOver && _match.CurrentPlayerIndex == _localPlayerIndex &&
-                    _match.Players[_localPlayerIndex].IsAlive;
+                    _match.Players[_localPlayerIndex].IsAlive && (_presenter == null || !_presenter.IsHoldingResult);
             }
         }
 
@@ -255,8 +258,10 @@ namespace Shields.Match
         }
 
         /// <summary>
-        /// Changes the pending action and keeps the weapon in step with it: Attack and
-        /// Charged Attack targeting draw it, anything else puts it away. Presentation only.
+        /// Changes the pending action and keeps the pose in step with it: every targeted
+        /// action leans in with the left hand on the Draw Pile, and Attack and Charged
+        /// Attack targeting also draw the weapon. Anything else returns to idle.
+        /// Presentation only.
         /// </summary>
         void SetPending(PendingAction pending)
         {
@@ -267,6 +272,9 @@ namespace Shields.Match
                 _presenter.BeginWeaponAim(_localPlayerIndex);
             else
                 _presenter.EndWeaponAim(_localPlayerIndex);
+
+            if (pending != PendingAction.None) _presenter.BeginTargeting(_localPlayerIndex);
+            else _presenter.EndTargeting(_localPlayerIndex);
         }
 
         // ------------------------------------------------------------------ bots
@@ -300,16 +308,22 @@ namespace Shields.Match
             }
 
             _resolvedCount++;
-            ClearPending();
 
             // Offline projects its own engine into the same public state the host sends
             // online, so one presentation path and one HUD serve both modes.
             PublicActionResult publicResult = PublicStateBuilder.BuildActionResult(result);
 
             SyncPresenter();
-            _presenter.ShowResult(publicResult);
+
+            // The HUD line names the drawn card, so it appears when the card lands.
+            MatchHud hud = _hud;
+            int localSeat = _localPlayerIndex;
+            _presenter.ShowResult(publicResult, () => hud.ShowResult(publicResult, localSeat));
             _feedbackUntil = Time.time + postActionDelay;
-            _hud.ShowResult(publicResult, _localPlayerIndex);
+
+            // Only now: the result has confirmed the targeting pose and the weapon lock,
+            // so ending targeting no longer puts either away. Online works the same way.
+            ClearPending();
 
             Debug.Log(result.ToString(), this);
             if (result.MatchOver) Debug.Log("Match over. Winner: player " + result.WinnerIndex, this);
@@ -404,7 +418,12 @@ namespace Shields.Match
         {
             if (_match == null || _hud == null) return;
 
-            _hud.Draw(_lastSnapshot, _localPlayerIndex, PendingForHud(), _hoveredTarget);
+            // The table's state, which waits for an action's card to land like the table does.
+            PublicMatchSnapshot shown = _presenter != null && _presenter.DisplayedSnapshot.IsValid
+                ? _presenter.DisplayedSnapshot
+                : _lastSnapshot;
+
+            _hud.Draw(shown, _localPlayerIndex, PendingForHud(), _hoveredTarget);
         }
 
         HudPendingAction PendingForHud()

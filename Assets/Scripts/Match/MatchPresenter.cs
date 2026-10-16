@@ -17,6 +17,13 @@ namespace Shields.Match
     ///
     /// It never computes a gameplay outcome. Everything it shows was already decided by
     /// the engine, and nothing it creates is read back into gameplay.
+    ///
+    /// A targeted action (Attack, Replace Shield, Charged Attack) is shown in order: its
+    /// drawn card travels face down and is revealed when it lands. Until then the table
+    /// keeps showing the public state from before the action, so neither a new Shield
+    /// face, nor the action text, nor a Health change gives the card away early. The
+    /// state is only held back, never changed: it is shown as received once the result
+    /// plays out, or at once when anything newer arrives.
     /// </summary>
     public sealed class MatchPresenter
     {
@@ -42,6 +49,20 @@ namespace Shields.Match
 
         CardView _highlightedShield;
 
+        // What the table shows, and the snapshot shown before it.
+        PublicMatchSnapshot _displayed;
+        PublicMatchSnapshot _previous;
+
+        // The snapshot a targeted action produced, waiting for its card to be revealed.
+        PublicMatchSnapshot _held;
+        bool _hasHeld;
+        bool _holding;
+        int _holdToken;
+
+        // The host publishes an action's snapshot right before its result, and offline
+        // does the same: a result arriving after a sync belongs to that sync.
+        bool _syncedSinceResult;
+
         /// <param name="actions">Animates actions on the table. Optional: without it every
         /// result simply appears in place.</param>
         public MatchPresenter(TableLayoutController table, CardView cardViewPrefab, DeckView deckView,
@@ -55,8 +76,14 @@ namespace Shields.Match
             _localPlayerIndex = localPlayerIndex;
             _feedbackSeconds = feedbackSeconds;
 
-            if (_actions != null) _actions.Bind(table, deckView);
+            if (_actions != null) _actions.Bind(table, deckView, cardViewPrefab, discardView);
         }
+
+        /// <summary>The public state currently on the table. Lags the latest one while an action is presented.</summary>
+        public PublicMatchSnapshot DisplayedSnapshot { get { return _displayed; } }
+
+        /// <summary>True while a targeted action is still being presented. Local input waits for it.</summary>
+        public bool IsHoldingResult { get { return _holding; } }
 
         // ------------------------------------------------------------------ state sync
 
@@ -71,6 +98,23 @@ namespace Shields.Match
         {
             if (!match.IsValid || _table == null) return;
 
+            // Newer state overtakes an action still being presented: its state shows now.
+            ReleaseHold();
+            Show(match);
+            _syncedSinceResult = true;
+        }
+
+        void Show(PublicMatchSnapshot match)
+        {
+            _previous = _displayed;
+            _displayed = match;
+            Draw(match, false);
+        }
+
+        /// <param name="restoring">Redrawing an earlier state while an action is presented:
+        /// a Charge card that comes back was already seen stored, so it shows at once.</param>
+        void Draw(PublicMatchSnapshot match, bool restoring)
+        {
             _highlightedShield = null;
 
             for (int i = 0; i < match.PlayerCount; i++)
@@ -81,7 +125,10 @@ namespace Shields.Match
                 // when its draw animation lands, or directly if no action explains it.
                 PlayerTableArea area = _table.GetAreaForPlayer(i);
                 if (area != null && area.ShowMatchState(player, _cardViewPrefab) && _actions != null)
-                    _actions.OnChargeCardCreated(i, area.ChargeView);
+                {
+                    if (restoring) _actions.RestoreChargeCard(i, area.ChargeView);
+                    else _actions.OnChargeCardCreated(i, area.ChargeView);
+                }
 
                 UpdateStatusLabel(match, player);
             }
@@ -135,19 +182,64 @@ namespace Shields.Match
 
         // ------------------------------------------------------------------ results
 
-        /// <summary>Shows a resolved action: white text above the actor and the revealed cards.</summary>
-        public void ShowResult(PublicActionResult result)
+        /// <summary>
+        /// Shows a resolved action: white text above the actor and the revealed cards. A
+        /// targeted action first plays its draw and throw, and shows all of that only when
+        /// the card lands. <paramref name="onRevealed"/> runs at that same moment (the
+        /// caller's HUD line), or at once for anything else.
+        /// </summary>
+        public void ShowResult(PublicActionResult result, System.Action onRevealed = null)
         {
             if (!result.Accepted || _table == null) return;
 
-            // The flag is all a first Charge publishes, and all the animation needs.
-            if (result.StoredHiddenCharge && _actions != null) _actions.PlayFirstCharge(result.ActorIndex);
+            bool synced = _syncedSinceResult;
+            _syncedSinceResult = false;
+            ReleaseHold();
 
             // Attack and Charged Attack: the actor's weapon locks onto the public target and
             // fires; only a published positive Damage makes it a hit, and its size.
             bool shot = result.ActionType == TurnActionType.Attack || result.IsChargedAttack;
+            bool targeted = result.TargetIndex >= 0 && !result.StoredHiddenCharge &&
+                (shot || result.ActionType == TurnActionType.ReplaceShield);
+
+            if (targeted && _actions != null)
+            {
+                // Keep the table on the state from before this action until its card lands.
+                _holding = true;
+                int token = ++_holdToken;
+                if (synced && _previous.IsValid)
+                {
+                    _held = _displayed;
+                    _hasHeld = true;
+                    _displayed = _previous;
+                    Draw(_displayed, true);
+                }
+
+                _actions.PlayTargetedAction(result.ActorIndex, result.TargetIndex, DrawnCard(result),
+                    result.ActionType == TurnActionType.ReplaceShield, shot, result.Damage, ShotSeed(result),
+                    () =>
+                    {
+                        RevealResult(result);
+                        if (onRevealed != null) onRevealed();
+                    },
+                    () => ReleaseHold(token));
+                return;
+            }
+
+            // The flag is all a first Charge publishes, and all the animation needs.
+            if (result.StoredHiddenCharge && _actions != null) _actions.PlayFirstCharge(result.ActorIndex);
+
             if (shot && result.TargetIndex >= 0 && _actions != null)
                 _actions.PlayAttack(result.ActorIndex, result.TargetIndex, result.Damage, ShotSeed(result));
+
+            RevealResult(result);
+            if (onRevealed != null) onRevealed();
+        }
+
+        /// <summary>The public reveal of a result: the action text, and the cards it turned face up.</summary>
+        void RevealResult(PublicActionResult result)
+        {
+            if (_table == null) return;
 
             PlayerCharacter actor = _table.GetPlayer(result.ActorIndex);
             if (actor != null)
@@ -161,6 +253,41 @@ namespace Shields.Match
             // Attack cards and completed Charge cards are public once revealed. A new
             // Shield is already visible on the table, and a first Charge reveals nothing.
             if (result.ActionType != TurnActionType.ReplaceShield) ShowRevealedCards(result.RevealedCards);
+
+            // Both Charge cards are revealed together: the stored one turns face up in its
+            // slot as the second lands. It leaves with the Charge when the state catches up.
+            if (result.IsChargedAttack && result.RevealedCardCount == 2)
+            {
+                PlayerTableArea area = _table.GetAreaForPlayer(result.ActorIndex);
+                if (area != null && area.ChargeView != null)
+                    area.ChargeView.Bind(result.RevealedCards[0].ToPlayingCard(), result.ActorIndex);
+            }
+        }
+
+        /// <summary>The card this action drew now: the Attack card, the new Shield, or the second Charge card.</summary>
+        static PlayingCard DrawnCard(PublicActionResult result)
+        {
+            if (result.ActionType == TurnActionType.ReplaceShield) return result.NewShieldCard.ToPlayingCard();
+            if (result.RevealedCardCount == 0) return PlayingCard.Nothing;
+
+            return result.RevealedCards[result.RevealedCardCount - 1].ToPlayingCard();
+        }
+
+        /// <summary>The presented action has played out (or was overtaken): show its state.</summary>
+        void ReleaseHold(int token)
+        {
+            if (token == _holdToken) ReleaseHold();
+        }
+
+        void ReleaseHold()
+        {
+            if (!_holding) return;
+
+            _holding = false;
+            if (!_hasHeld) return;
+
+            _hasHeld = false;
+            Show(_held);
         }
 
         void ShowRevealedCards(IReadOnlyList<PublicCard> cards)
@@ -296,6 +423,26 @@ namespace Shields.Match
             if (_actions != null) _actions.LockWeapon(seat, target, false);
         }
 
+        // ------------------------------------------------------------------ targeting pose
+
+        /// <summary>Targeted action selected: lean in and rest the left hand on the Draw Pile.</summary>
+        public void BeginTargeting(int seat)
+        {
+            if (_actions != null) _actions.BeginTargeting(seat);
+        }
+
+        /// <summary>Targeting ended without a chosen target: back to idle.</summary>
+        public void EndTargeting(int seat)
+        {
+            if (_actions != null) _actions.EndTargeting(seat);
+        }
+
+        /// <summary>The local player clicked a target; the hand waits on the deck for the host.</summary>
+        public void AnticipateTarget(int seat)
+        {
+            if (_actions != null) _actions.ChooseThrowTarget(seat);
+        }
+
         // ------------------------------------------------------------------ targeting
 
         /// <summary>Highlights the target's Shield card, or clears it with a negative index.</summary>
@@ -319,6 +466,10 @@ namespace Shields.Match
 
         public void Clear()
         {
+            _holding = false;
+            _hasHeld = false;
+            _holdToken++;
+
             SetTargetHighlight(-1);
             ClearRevealedCards();
 

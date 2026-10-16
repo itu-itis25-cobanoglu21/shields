@@ -6,22 +6,25 @@ namespace Shields.Presentation
     /// <summary>
     /// A stored Charge card burning across its top face.
     ///
-    /// Everything is built in card-local space and nothing turns toward the camera, so
-    /// every seat sees the fire in the same place on the card. Four layers:
-    /// a soft glow lying on the face, a bright glowing rim along the card border, low
-    /// flame walls standing on the four edges plus a few short flames on the face (the
-    /// Vefects fire shader, its per-particle data written into the mesh UVs instead), and
-    /// small embers rising from random points of the face.
+    /// Everything is anchored in card-local space, so every seat sees the fire in the same
+    /// place on the card. Four layers: a soft glow lying on the face, a bright glowing rim
+    /// along the card border, one big flame standing on the card centre, and small embers
+    /// rising from random points of the face.
+    ///
+    /// The flame is a single Vefects fire particle drawn as a vertical billboard: its
+    /// root stays on the card centre and it only turns about the card's up axis, so each
+    /// seat sees the same whole flame, never edge-on and never shifted.
     ///
     /// Presentation only: no collider, no gameplay data, and it is destroyed with its card.
     /// </summary>
     [DisallowMultipleComponent]
     public class ChargeCardFlame : MonoBehaviour
     {
-        [Header("Materials")]
-        [Tooltip("Vefects fire shader material for the edge and surface flames.")]
-        [SerializeField] Material flameMaterial;
+        [Header("Flame")]
+        [Tooltip("The one flame on the card centre: a Vefects fire particle prefab whose pivot is the flame's base. Its own scale sets the flame size.")]
+        [SerializeField] GameObject flamePrefab;
 
+        [Header("Materials")]
         [Tooltip("Additive soft glow laid on the card face. Also used for the embers.")]
         [SerializeField] Material glowMaterial;
 
@@ -31,34 +34,7 @@ namespace Shields.Presentation
         [Header("Card Face (card-local units)")]
         [SerializeField] Vector2 faceSize = new Vector2(0.063f, 0.088f);
 
-        [Header("Edge Flames")]
-        [Tooltip("Distance between flames along an edge.")]
-        [SerializeField] float edgeSpacing = 0.014f;
-
-        [Tooltip("How far each flame overlaps its neighbours, as a multiple of the spacing.")]
-        [SerializeField] float edgeOverlap = 1.9f;
-
-        [SerializeField] float edgeFlameHeight = 0.026f;
-
-        [Tooltip("How far the edge flames stand in from the card border.")]
-        [SerializeField] float edgeInset = 0.002f;
-
-        [Header("Surface Flames")]
-        [SerializeField] int surfaceColumns = 2;
-        [SerializeField] int surfaceRows = 3;
-        [SerializeField] Vector2 surfaceFlameSize = new Vector2(0.03f, 0.022f);
-
-        [Tooltip("Free margin along the card edges before the first surface flame.")]
-        [SerializeField] float surfaceInset = 0.016f;
-
-        [Header("Shared Flame Shape")]
-        [Range(0f, 0.5f)]
-        [SerializeField] float sizeJitter = 0.3f;
-
-        [Tooltip("How far flames start below the face, so their base melts into the card.")]
-        [SerializeField] float sink = 0.003f;
-
-        [Tooltip("Same layout on every machine and every card.")]
+        [Tooltip("Base for the glow's breathing, so the same card breathes alike on every machine.")]
         [SerializeField] int layoutSeed = 7;
 
         [Header("Glow")]
@@ -85,16 +61,10 @@ namespace Shields.Presentation
         [Tooltip("Erosion while unlit. Anything above the material's own erosion plus one is fully gone.")]
         [SerializeField] float unlitErosion = 1.6f;
 
-        // Per-vertex data the fire shader normally receives from particle custom data.
-        const float Distortion = 0.6f;
-        const float Emissive = 1f;
-        const float ErosionSmoothness = 0.85f;
-        const float MaxRandomOffset = 69f;
-
         static readonly int ErosionId = Shader.PropertyToID("_Erosion");
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
-        MeshRenderer _flames;
+        Renderer[] _flames;
         MeshRenderer _glow;
         MeshRenderer _rim;
         ParticleSystem _embers;
@@ -153,7 +123,8 @@ namespace Shields.Presentation
             {
                 _block.Clear();
                 _block.SetFloat(ErosionId, Mathf.Lerp(unlitErosion, _litErosion, _lit));
-                _flames.SetPropertyBlock(_block);
+                for (int i = 0; i < _flames.Length; i++)
+                    if (_flames[i] != null) _flames[i].SetPropertyBlock(_block);
             }
 
             // A slow, uneven breathing of the glow; the flames already move by themselves.
@@ -190,13 +161,29 @@ namespace Shields.Presentation
                 _rim = AddRenderer("RimGlow", BuildRim(), rimMaterial);
             }
 
-            if (flameMaterial != null)
-            {
-                _litErosion = flameMaterial.HasProperty(ErosionId) ? flameMaterial.GetFloat(ErosionId) : 0f;
-                _flames = AddRenderer("Flames", BuildFlames(), flameMaterial);
-            }
+            if (flamePrefab != null) BuildFlame();
 
             if (glowMaterial != null) _embers = BuildEmbers();
+        }
+
+        /// <summary>
+        /// The one flame, standing on the card centre with its base on the face. Its
+        /// renderers are kept so the fade-in can erode them through a property block.
+        /// </summary>
+        void BuildFlame()
+        {
+            GameObject flame = Instantiate(flamePrefab, transform, false);
+            flame.name = "Flame";
+            flame.transform.localPosition = Vector3.zero;
+            flame.transform.localRotation = Quaternion.identity;
+
+            foreach (Transform part in flame.GetComponentsInChildren<Transform>(true))
+                part.gameObject.layer = gameObject.layer;
+
+            _flames = flame.GetComponentsInChildren<ParticleSystemRenderer>(true);
+
+            Material material = _flames.Length > 0 ? _flames[0].sharedMaterial : null;
+            _litErosion = material != null && material.HasProperty(ErosionId) ? material.GetFloat(ErosionId) : 0f;
         }
 
         MeshRenderer AddRenderer(string childName, Mesh mesh, Material material)
@@ -216,70 +203,6 @@ namespace Shields.Presentation
             renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
             renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             return renderer;
-        }
-
-        /// <summary>
-        /// Low flame walls standing on the four card edges, each in the plane of its edge,
-        /// plus a few short crossed flames over the face. All fixed in card space.
-        /// </summary>
-        Mesh BuildFlames()
-        {
-            System.Random random = new System.Random(layoutSeed);
-            SheetBuilder sheets = new SheetBuilder();
-
-            float hx = faceSize.x * 0.5f - edgeInset;
-            float hz = faceSize.y * 0.5f - edgeInset;
-
-            // Edges, corner to corner, so the whole border burns.
-            AddEdge(sheets, random, new Vector3(-hx, 0f, -hz), new Vector3(hx, 0f, -hz));
-            AddEdge(sheets, random, new Vector3(hx, 0f, -hz), new Vector3(hx, 0f, hz));
-            AddEdge(sheets, random, new Vector3(hx, 0f, hz), new Vector3(-hx, 0f, hz));
-            AddEdge(sheets, random, new Vector3(-hx, 0f, hz), new Vector3(-hx, 0f, -hz));
-
-            // Short flames over the face, each a crossed pair so it has body from any side.
-            float sx = Mathf.Max(0f, faceSize.x * 0.5f - surfaceInset);
-            float sz = Mathf.Max(0f, faceSize.y * 0.5f - surfaceInset);
-
-            for (int row = 0; row < surfaceRows; row++)
-            {
-                for (int column = 0; column < surfaceColumns; column++)
-                {
-                    float x = surfaceColumns > 1 ? Mathf.Lerp(-sx, sx, column / (float)(surfaceColumns - 1)) : 0f;
-                    float z = surfaceRows > 1 ? Mathf.Lerp(-sz, sz, row / (float)(surfaceRows - 1)) : 0f;
-
-                    Vector2 size = surfaceFlameSize * Jitter(random);
-                    float yaw = (float)random.NextDouble() * 90f;
-                    float offset = (float)random.NextDouble() * MaxRandomOffset;
-
-                    for (int pair = 0; pair < 2; pair++)
-                        sheets.Add(new Vector3(x, 0f, z), Quaternion.Euler(0f, yaw + pair * 90f, 0f) * Vector3.right,
-                            size, sink, offset);
-                }
-            }
-
-            return sheets.ToMesh("ChargeCardFlames");
-        }
-
-        void AddEdge(SheetBuilder sheets, System.Random random, Vector3 from, Vector3 to)
-        {
-            Vector3 along = to - from;
-            float length = along.magnitude;
-            int count = Mathf.Max(1, Mathf.RoundToInt(length / Mathf.Max(0.001f, edgeSpacing)));
-            along /= length;
-
-            for (int i = 0; i < count; i++)
-            {
-                Vector3 center = Vector3.Lerp(from, to, (i + 0.5f) / count);
-                float jitter = Jitter(random);
-                Vector2 size = new Vector2(length / count * edgeOverlap, edgeFlameHeight * jitter);
-
-                sheets.Add(center, along, size, sink, (float)random.NextDouble() * MaxRandomOffset);
-            }
-        }
-
-        float Jitter(System.Random random)
-        {
-            return 1f + ((float)random.NextDouble() * 2f - 1f) * sizeJitter;
         }
 
         /// <summary>One soft quad flat on the card face, slightly larger than the card.</summary>
@@ -423,68 +346,6 @@ namespace Shields.Presentation
             renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
 
             return system;
-        }
-
-        // ------------------------------------------------------------------ sheets
-
-        /// <summary>Two-sided vertical flame quads carrying the fire shader's per-particle data.</summary>
-        sealed class SheetBuilder
-        {
-            readonly List<Vector3> _positions = new List<Vector3>();
-            readonly List<Vector3> _normals = new List<Vector3>();
-            readonly List<Color> _colors = new List<Color>();
-            readonly List<Vector4> _uv0 = new List<Vector4>();
-            readonly List<Vector4> _uv1 = new List<Vector4>();
-            readonly List<int> _triangles = new List<int>();
-
-            static readonly Vector2[] Corners = { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
-
-            public void Add(Vector3 center, Vector3 across, Vector2 size, float sink, float randomOffset)
-            {
-                Vector3 half = across.normalized * (size.x * 0.5f);
-                Vector3 bottom = center + Vector3.down * sink;
-                Vector3 top = bottom + Vector3.up * size.y;
-
-                // Facing the same way as the front triangles below.
-                Vector3 normal = Vector3.Cross(Vector3.up, across).normalized;
-
-                Vector3[] corners = { bottom - half, bottom + half, top + half, top - half };
-
-                // Front and back as separate faces with their own normals, so both sides
-                // fade the same way when the sheet is seen edge-on (the shader's fresnel).
-                for (int side = 0; side < 2; side++)
-                {
-                    int first = _positions.Count;
-
-                    for (int i = 0; i < 4; i++)
-                    {
-                        _positions.Add(corners[i]);
-                        _normals.Add(side == 0 ? normal : -normal);
-                        _colors.Add(Color.white);
-
-                        // TEXCOORD0: uv, erosion, distortion. TEXCOORD1: emissive, random
-                        // offset, erosion smoothness, random rotation.
-                        _uv0.Add(new Vector4(Corners[i].x, Corners[i].y, 0f, Distortion));
-                        _uv1.Add(new Vector4(Emissive, randomOffset, ErosionSmoothness, 0f));
-                    }
-
-                    if (side == 0) _triangles.AddRange(new[] { first, first + 2, first + 1, first, first + 3, first + 2 });
-                    else _triangles.AddRange(new[] { first, first + 1, first + 2, first, first + 2, first + 3 });
-                }
-            }
-
-            public Mesh ToMesh(string name)
-            {
-                Mesh mesh = new Mesh { name = name };
-                mesh.SetVertices(_positions);
-                mesh.SetNormals(_normals);
-                mesh.SetColors(_colors);
-                mesh.SetUVs(0, _uv0);
-                mesh.SetUVs(1, _uv1);
-                mesh.SetTriangles(_triangles, 0);
-                mesh.RecalculateBounds();
-                return mesh;
-            }
         }
     }
 }

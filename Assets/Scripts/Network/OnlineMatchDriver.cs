@@ -165,8 +165,10 @@ namespace Shields.Network
         {
             if (_presenter == null || !result.Accepted) return;
 
-            _presenter.ShowResult(result);
-            _hud.ShowResult(result, LocalSeat);
+            // The HUD line names the drawn card, so it appears when the card lands.
+            MatchHud hud = _hud;
+            int localSeat = LocalSeat;
+            _presenter.ShowResult(result, () => hud.ShowResult(result, localSeat));
             ClearPending();
         }
 
@@ -237,7 +239,7 @@ namespace Shields.Network
         void Update()
         {
             if (matchController == null || !_layoutReady) return;
-            if (!matchController.LocalInputAllowed)
+            if (!LocalInputAllowed)
             {
                 if (_pending != PendingAction.None) ClearPending();
                 return;
@@ -262,7 +264,7 @@ namespace Shields.Network
         /// </summary>
         public bool PressActionKey(int key)
         {
-            if (matchController == null || !matchController.LocalInputAllowed) return false;
+            if (!LocalInputAllowed) return false;
 
             switch (key)
             {
@@ -291,9 +293,11 @@ namespace Shields.Network
         {
             if (matchController == null || _pending == PendingAction.None || !IsSelectableTarget(target)) return false;
 
-            // Cosmetic and reversible: the weapon locks on the clicked player now; the
-            // host's result confirms it, a refusal puts it away.
+            // Cosmetic and reversible: the weapon locks on the clicked player now and the
+            // left hand keeps waiting on the deck; the host's result confirms both, a
+            // refusal puts them away.
             if (_presenter != null && _pending != PendingAction.ReplaceShield) _presenter.AnticipateWeaponLock(LocalSeat, target);
+            if (_presenter != null) _presenter.AnticipateTarget(LocalSeat);
 
             switch (_pending)
             {
@@ -311,6 +315,19 @@ namespace Shields.Network
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// The host says it is this seat's turn, and the table has finished presenting the
+        /// previous action. UX only: the host still validates every request.
+        /// </summary>
+        bool LocalInputAllowed
+        {
+            get
+            {
+                return matchController != null && matchController.LocalInputAllowed &&
+                    (_presenter == null || !_presenter.IsHoldingResult);
+            }
         }
 
         int TargetUnderCrosshair()
@@ -350,9 +367,10 @@ namespace Shields.Network
         }
 
         /// <summary>
-        /// Changes the pending action and keeps the weapon in step: Attack and Charged
-        /// Attack targeting draw it, anything else puts it away unless the host's result
-        /// has already confirmed a lock. Presentation only.
+        /// Changes the pending action and keeps the pose in step: every targeted action
+        /// leans in with the left hand on the Draw Pile, and Attack and Charged Attack
+        /// targeting also draw the weapon. Anything else returns to idle, unless a target
+        /// was already clicked or confirmed by the host. Presentation only.
         /// </summary>
         void SetPending(PendingAction pending)
         {
@@ -363,6 +381,9 @@ namespace Shields.Network
                 _presenter.BeginWeaponAim(LocalSeat);
             else
                 _presenter.EndWeaponAim(LocalSeat);
+
+            if (pending != PendingAction.None) _presenter.BeginTargeting(LocalSeat);
+            else _presenter.EndTargeting(LocalSeat);
         }
 
         // ------------------------------------------------------------------ teardown
@@ -389,7 +410,14 @@ namespace Shields.Network
             OnlineMatchPhase phase = matchController.Phase;
 
             if (_hud != null && (phase == OnlineMatchPhase.Playing || phase == OnlineMatchPhase.MatchOver))
-                _hud.Draw(matchController.MatchSnapshot, LocalSeat, PendingForHud(), _hoveredTarget);
+            {
+                // The table's state, which waits for an action's card to land like the table does.
+                PublicMatchSnapshot shown = _presenter != null && _presenter.DisplayedSnapshot.IsValid
+                    ? _presenter.DisplayedSnapshot
+                    : matchController.MatchSnapshot;
+
+                _hud.Draw(shown, LocalSeat, PendingForHud(), _hoveredTarget);
+            }
             else if (phase == OnlineMatchPhase.WaitingForShieldSelections)
                 DrawSetupHint();
 
