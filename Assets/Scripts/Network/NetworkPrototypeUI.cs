@@ -57,8 +57,9 @@ namespace Shields.Network
         }
 
         /// <summary>
-        /// Arriving from the main menu skips the mode chooser: CREATE ROOM opens the host
-        /// setup, JOIN ROOM fills in the code and starts joining straight away.
+        /// Arriving from the main menu skips the mode chooser: OFFLINE MODE opens the
+        /// offline setup panel exactly as the chooser's OFFLINE button does, CREATE ROOM
+        /// opens the host setup, JOIN ROOM fills in the code and starts joining straight away.
         /// </summary>
         void Start()
         {
@@ -66,7 +67,11 @@ namespace Shields.Network
             string joinCode;
             if (!MainMenuLaunchRequest.TryConsume(out intent, out joinCode)) return;
 
-            if (intent == MainMenuIntent.CreateRoom)
+            if (intent == MainMenuIntent.Offline)
+            {
+                SetScreen(Screen.Offline);
+            }
+            else if (intent == MainMenuIntent.CreateRoom)
             {
                 SetScreen(Screen.Host);
             }

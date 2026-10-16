@@ -1,705 +1,130 @@
-# TASK 021 — Main Menu UI & Core Navigation
+# TASK 023 — Main menu logo sharpness polish + charged card flame containment
 
-Read `CLAUDE.md`, `SHIELDS_RULES.md`, and this entire TASK.md before modifying anything.
+## Goal
 
-TASK 020 already created the visual `MainMenuScene` diorama.
+There are two goals in this task:
 
-The existing MainMenuScene visual background is already approved enough to continue.
+1. **Sharpen the SHIELDS! logo in the main menu**
+2. **Rework the charged-card flame effect so it sits cleanly on the card and does not drift or spill differently from different camera angles**
 
-This task adds the actual main-menu UI on top of that live Unity scene.
-
-IMPORTANT:
-
-Preserve the existing MainMenuScene visual work unless a very small adjustment is genuinely required for UI readability.
-
-Do NOT redesign:
-- existing menu camera
-- camera breathing
-- environment composition
-- hero props
-- lighting
-- light flicker
-- night/window setup
-
-Do NOT modify gameplay systems unnecessarily.
+Do both in one pass if possible.
 
 ---
 
-# 1. Font
+## Part A — Main menu logo sharpness
 
-The user has already added the font:
+### Problem
+The main menu is in a good place overall, but the **SHIELDS!** logo still looks a little soft / blurry / less crisp than the button labels.
 
-`Bowlby One SC`
+The button text is acceptable.  
+The logo is the part that needs polish.
 
-to the Unity project.
+### What to do
+Investigate the likely causes and try the most reasonable fixes, then keep **the sharpest-looking result**.
 
-Locate the actual `.ttf` / `.otf` file already present in the project.
+Most likely suspects to check:
 
-Do NOT download another copy from the internet.
+- TMP / SDF material settings on the logo
+- outline thickness
+- outline color / contrast
+- softness / dilate / underlay / glow-like settings
+- RectTransform scaling that may be making the text look soft
+- anything else that plausibly affects crispness
 
-Use Bowlby One SC for ALL main-menu UI text in this task:
+### Constraints
+- Keep the same overall look:
+  - full uppercase
+  - dark red / burgundy logo
+  - same font
+- Do **not** redesign the logo
+- Do **not** add an underline
+- The goal is simply: **make it look sharper and cleaner**
 
-- `SHIELDS!` logo
-- JOIN ROOM
-- CREATE ROOM
-- CUSTOMIZE
-- SETTINGS
-- EXIT
-- any minimal Join Room sub-panel labels/buttons/input placeholder if required
-
-Create a proper project-owned TextMeshPro Font Asset from the supplied Bowlby One SC font.
-
-Prefer a clean SDF TMP Font Asset suitable for PC rendering.
-
-Do not modify or move the original font file unnecessarily.
-
----
-
-# 2. Main-menu UI hierarchy
-
-Create a clean hierarchy in `MainMenuScene`.
-
-Conceptually:
-
-`MainMenuCanvas`
-- `Logo`
-- `MainButtons`
-  - `JoinRoomButton`
-  - `CreateRoomButton`
-  - `CustomizeButton`
-  - `SettingsButton`
-  - `ExitButton`
-- `JoinRoomPanel` if actually required by the existing join flow
-- `EventSystem`
-
-Exact hierarchy may follow existing project conventions.
-
-Use standard Unity UI + TextMeshPro.
-
-Do not introduce unnecessary UI frameworks.
+### Acceptance target
+At native 1920×1080 Game View, the logo should look visibly crisper and closer in sharpness to the menu buttons.
 
 ---
 
-# 3. Canvas setup
+## Part B — Charged card flame effect containment
 
-Use screen-space UI over the existing live 3D MainMenuScene.
+### Current problem
+The charged-card flame effect still does not read correctly.  
+The current effect looks too detached / too tall / too free-floating, and depending on perspective it can feel like it shifts or spills to the sides.
 
-Preferred setup:
+The desired visual is:
 
-- Canvas: Screen Space - Overlay
-- Canvas Scaler:
-  - UI Scale Mode: Scale With Screen Size
-  - Reference Resolution: `1920 x 1080`
-  - choose a sensible width/height match value for PC layouts
+- a **single flame effect per charged card**
+- the effect should feel **attached to the card**
+- it should read as the card itself / the card surface burning
+- it should not look like multiple separate flames
+- it should not visibly slide sideways relative to the card when viewed from different seats
+- it should not extend far outside the card footprint
 
-The UI must remain stable while the 3D background camera continues its breathing motion.
+### Target look
+The flame should occupy roughly the **card’s face area** as its base and rise upward from that footprint.
 
-Do not attach UI to the moving MainMenuCamera.
+Think of it as:
 
----
+- the **base / visible footprint of the fire = the card’s top face area**
+- the fire can rise upward visually
+- but it should feel visually “contained” to the card instead of being a loose billboard beside it
 
-# 4. Logo
+### Suggested implementation approach
+Please try the cleanest technically appropriate solution.
 
-Create the game title as real TextMeshPro text:
+**Preferred direction:**
+Use some form of **containment / masking / clipping** so the effect is only visible within the card footprint area.
 
-`SHIELDS!`
+Examples of acceptable solutions:
+- card-sized mask / clipping volume / box-based containment if the current shader supports it cleanly
+- stencil/depth/custom mask solution
+- a card-sized quad / plane with a flame material
+- a custom material or mesh-based fire sheet anchored to the card
+- another approach, if it produces the same visible result
 
-Requirements:
+### Important note
+Do **not** force a box-clipping solution if the current particle system/shader does not support it well.  
+If box clipping is messy or brittle, switch to the most robust alternative that achieves the desired visual result.
 
-- ALL CAPS
-- use Bowlby One SC
-- large
-- positioned in the upper-left negative-space area
-- visually aligned with the menu items below
-- strong dark/crimson red tone
+The real goal is the result:
+- one clean fire effect
+- locked to the card
+- consistent from all player seat views
+- no obvious sideways drift or spill beyond the card footprint
 
-Suggested starting color:
+### Constraints
+- Keep the existing charge gameplay behavior unchanged
+- Keep the existing charge animation system intact unless a small integration change is needed
+- Do **not** break the already-working hand/card timing unless absolutely necessary
+- Prefer modifying only the flame presentation layer
 
-`#9E2528`
+### Validation
+Please test the charged-card fire from:
+- local seat
+- at least 2–3 other player seat angles
+- 3, 6, and 8 player setups if practical
 
-or another nearby deep crimson that looks better in the actual scene.
-
-The logo should feel:
-- bold
-- aggressive
-- medieval/poster-like
-- strong
-- not modern/minimal corporate
-
-A subtle dark outline or shadow may be used if necessary for readability.
-
-Do NOT make the logo neon or heavily glowing.
-
----
-
-# 5. Main buttons
-
-Create these buttons in this exact order:
-
-1. JOIN ROOM
-2. CREATE ROOM
-3. CUSTOMIZE
-4. SETTINGS
-5. EXIT
-
-Use Bowlby One SC for every button label.
-
-Position them vertically under the logo on the left side.
-
-Keep generous vertical spacing.
-
-Do NOT fill the entire left side.
-
-The composition should continue to breathe.
-
-The text itself should be the main visual element.
-
-Avoid large modern rounded button panels.
+The flame should:
+- remain visually attached to the charged card
+- not visibly drift left/right off the card between angles
+- feel like a single coherent burning-card effect
+- not interfere with targeting
 
 ---
 
-# 6. Button normal state
-
-Normal button text should be:
-
-- light grey / off-white
-- clearly readable
-- slightly less bright than hover state
-
-Suggested starting color:
-
-`#C7C4BC`
-
-or nearby warm grey.
-
-Do not make active buttons look disabled.
+## Non-goals
+- Do not redesign the whole menu
+- Do not redesign charge gameplay rules
+- Do not revisit unrelated attack / gun / blood / impact systems in this task
 
 ---
 
-# 7. Hover state
-
-When the mouse pointer enters an ACTIVE button:
-
-- text becomes brighter / near-white
-- text gains a subtle glow/highlight if appropriate
-- button scales up very slightly
-- transition is smooth
-
-Suggested starting values:
-
-Normal scale:
-`1.00`
-
-Hover scale:
-`1.04`
-
-Hover color:
-`#FFFDF6`
-
-Transition duration:
-`0.12 seconds`
-
-The hover effect must be subtle.
-
-Desired feel:
-
-responsive
-premium
-slightly aggressive
-clean
-
-Not:
-
-arcade
-cartoon bounce
-huge zoom
-
----
-
-# 8. Hover implementation
-
-Create a lightweight reusable UI presentation component such as:
-
-`MainMenuButtonVisual`
-
-or use an equivalent existing project pattern if already available.
-
-It should support:
-
-- pointer enter
-- pointer exit
-- pointer down
-- pointer up
-- text color interpolation
-- scale interpolation
-- optional subtle glow/shadow change
-
-Do not use a third-party tweening package.
-
-Do not accumulate scale drift.
-
----
-
-# 9. Click feedback
-
-Functional buttons should have minimal click feedback.
-
-Suggested:
-
-Hover:
-`1.04`
-
-Pointer down:
-approximately `0.99`
-
-Release:
-return to correct hover/normal state
-
-Do not add sound in this task unless an existing appropriate UI click sound is already trivially reusable.
-
-No new audio assets.
-
----
-
-# 10. Functional scope
-
-The following must work:
-
-- JOIN ROOM
-- CREATE ROOM
-- EXIT
-
-The following should remain visible but intentionally unavailable:
-
-- CUSTOMIZE
-- SETTINGS
-
-Do NOT implement fake screens for Customize or Settings.
-
----
-
-# 11. Inspect the existing multiplayer flow first
-
-Before wiring JOIN ROOM / CREATE ROOM:
-
-inspect the project thoroughly.
-
-Find and understand the existing:
-
-- Unity Multiplayer Services Sessions flow
-- Relay flow
-- NGO flow
-- NetworkSession
-- NetworkManager
-- session creation entry point
-- session join entry point
-- join/session code handling
-- existing lobby/session state
-- existing GameScene transition logic
-- any current SessionLobby UI/controller
-
-Reuse existing networking logic.
-
-Do NOT:
-- create a second NetworkManager
-- duplicate Relay code
-- duplicate Sessions logic
-- rewrite multiplayer architecture
-- assume `clientId == seat`
-
----
-
-# 12. CREATE ROOM
-
-`CREATE ROOM` should start the project's existing host/create-session flow.
-
-Use existing architecture.
-
-Desired flow:
-
-MainMenuScene
-→ click CREATE ROOM
-→ current supported create/host flow starts
-→ existing lobby/setup/game flow continues
-
-Do not bypass existing required lobby/session setup.
-
-If create-session fails:
-
-- remain in a usable state
-- show a minimal readable error if a suitable UI pattern exists
-- log useful technical information to Console
-
-Do not redesign networking.
-
----
-
-# 13. JOIN ROOM
-
-Inspect how the current project expects a user to join an online session.
-
-If it requires a room/session/join code:
-
-create a minimal `JoinRoomPanel`.
-
-Desired flow:
-
-click JOIN ROOM
-→ main menu remains visible or is subtly dimmed
-→ small join panel appears
-→ TMP_InputField for room/session code
-→ JOIN button
-→ BACK button
-
-Use Bowlby One SC throughout.
-
-Do not build a large separate lobby browser.
-
-If an existing join UI already exists and can be reused cleanly, reuse it instead of duplicating functionality.
-
----
-
-# 14. Join panel styling
-
-If a new JoinRoomPanel is required:
-
-keep it consistent with the main menu.
-
-Suggested:
-
-- dark translucent backing panel if needed
-- warm off-white text
-- dark red accent
-- compact size
-- positioned in the left-side UI area
-
-Do not cover the hero diorama unnecessarily.
-
-Input field may use a simpler TMP text presentation if Bowlby One SC hurts code readability, but prefer Bowlby One SC unless it clearly causes usability issues.
-
-If a fallback font is needed for the room code input itself, report it rather than silently changing the design.
-
----
-
-# 15. EXIT
-
-EXIT must work.
-
-In a standalone/player build:
-- quit application correctly
-
-In Unity Editor:
-- stop Play Mode safely if practical
-- do NOT close the Unity Editor process
-
-No errors.
-
----
-
-# 16. CUSTOMIZE
-
-CUSTOMIZE remains visible.
-
-Do NOT implement customization yet.
-
-Preferred:
-- non-interactable
-- visually slightly dimmer than active buttons
-- no misleading hover animation
-
-Do not add a fake customization screen.
-
----
-
-# 17. SETTINGS
-
-SETTINGS remains visible.
-
-Do NOT implement Settings yet.
-
-Preferred:
-- non-interactable
-- visually slightly dimmer than active buttons
-- no misleading hover animation
-
-Do not add fake settings controls.
-
----
-
-# 18. Disabled-state appearance
-
-CUSTOMIZE and SETTINGS should still look intentionally part of the menu.
-
-They may be dimmer, for example:
-
-active normal:
-`#C7C4BC`
-
-disabled:
-approximately `#77746E`
-
-Tune visually.
-
-They must not disappear completely.
-
----
-
-# 19. Main-menu visual preservation
-
-The UI must not interfere with existing MainMenuScene animation.
-
-Preserve:
-
-- camera breathing
-- lantern flame
-- light flicker
-- moonlight
-- hero props
-- scene composition
-
-UI stays screen-space stable.
-
----
-
-# 20. Layout target
-
-Keep approximately the left 30–40% of the screen as the UI area.
-
-Preferred overall structure:
-
-upper-left:
-`SHIELDS!`
-
-below:
-`JOIN ROOM`
-`CREATE ROOM`
-`CUSTOMIZE`
-`SETTINGS`
-`EXIT`
-
-Keep enough spacing between logo and first button.
-
-Keep enough spacing between buttons.
-
-Do not extend button text into the hero shields/weapon area.
-
----
-
-# 21. Resolution handling
-
-Validate at minimum:
-
-- 1920x1080
-- 2560x1440 or another common 16:9 resolution
-- one wider aspect ratio if practical
-
-Confirm:
-
-- logo remains properly anchored
-- menu remains on left
-- text does not clip
-- spacing remains visually acceptable
-- hero area remains unobstructed
-- JoinRoomPanel remains usable
-
----
-
-# 22. Scene loading / startup
-
-Inspect current project startup and scene-loading architecture.
-
-The final project should be capable of entering MainMenuScene as the intended front-end scene.
-
-However, do not blindly reorder scenes or break development workflows.
-
-If Build Settings / startup configuration needs a minimal update, make it carefully and report it.
-
-Do not redesign bootstrap architecture.
-
----
-
-# 23. No automatic multiplayer session
-
-While idle on MainMenuScene:
-
-do NOT automatically:
-
-- host
-- join
-- start Relay
-- enter a match
-- spawn gameplay players
-
-Networking starts only after the user intentionally uses:
-
-CREATE ROOM
-
-or
-
-JOIN ROOM
-
-unless an existing lightweight service initialization is mandatory.
-
----
-
-# 24. Validation — idle menu
-
-Run MainMenuScene.
-
-Confirm:
-
-- logo is visible
-- all five menu items are visible
-- correct Bowlby One SC TMP font is used
-- background scene continues animating
-- no networking match starts automatically
-- no missing references
-- no console errors
-
----
-
-# 25. Validation — hover
-
-For active buttons:
-
-confirm:
-
-- pointer enter brightens text
-- scale smoothly reaches approximately 1.04
-- pointer exit restores exactly 1.00
-- repeated hover does not create scale drift
-- click feedback behaves correctly
-
-For Customize / Settings:
-
-confirm:
-- disabled state is visually intentional
-- they do not falsely behave like functioning buttons
-
----
-
-# 26. Validation — CREATE ROOM
-
-Test the existing Create Room flow through the new UI.
-
-Confirm:
-
-- button invokes the correct existing host/session code
-- there is no duplicate NetworkManager/session object
-- existing navigation still works
-
-Report how far the flow was actually tested.
-
----
-
-# 27. Validation — JOIN ROOM
-
-Test:
-
-- Join Room button
-- join panel if created
-- invalid/empty code
-- back/cancel
-- existing join path
-
-If a real second participant is available, validate the real join path.
-
-If not, explicitly state that second-client validation was not performed.
-
-Do not claim it if it was not tested.
-
----
-
-# 28. Validation — EXIT
-
-Confirm correct editor-safe behavior.
-
-If build testing is available, confirm player-build quit behavior.
-
-Otherwise report build-side behavior as implemented but not manually verified.
-
----
-
-# 29. Tests
-
-Run existing relevant EditMode tests if MainMenu changes do not require a full suite.
-
-If practical, run the full existing suite.
-
-Do not weaken or modify gameplay tests just to make menu changes pass.
-
----
-
-# 30. Console
-
-Final MainMenuScene idle session should have:
-
-- 0 project-code errors
-- 0 missing-reference errors
-- 0 UI exceptions
-- 0 scene-navigation exceptions
-
-Report unrelated third-party/editor warnings separately.
-
----
-
-# 31. Out of scope
-
-Do NOT implement:
-
-- Customize screen
-- Settings screen
-- character customization
-- audio settings
-- graphics settings
-- keybinds
-- menu music
-- UI sound pack
-- Steam integration
-- public server browser
-- matchmaking
-- friends system
-- card-fire polish
-- gameplay-animation changes
-- MainMenuScene visual redesign
-
----
-
-# 32. Final report
-
-Report:
-
-1. Exact Bowlby One SC font file found
-2. TMP Font Asset created and exact path
-3. MainMenuCanvas hierarchy
-4. Logo position / font size / color
-5. Button font size
-6. Button vertical spacing
-7. Normal button color
-8. Hover button color
-9. Hover scale
-10. Hover transition duration
-11. Click feedback
-12. Disabled-state styling
-13. Create Room binding
-14. Join Room binding
-15. JoinRoomPanel implementation
-16. Exit implementation
-17. Existing networking classes/methods reused
-18. Any scene-loading changes
-19. 1080p validation
-20. higher-resolution validation
-21. wide-aspect validation if performed
-22. Create Room test result
-23. Join Room test result
-24. actual second-client test status
-25. Exit test result
-26. test-suite result
-27. Console result
-28. exact files created/modified
-29. Inspector tuning values
-30. any remaining visual/manual tuning issue
-
-Do not commit anything.
-
-Stop when TASK 021 is complete.
+## Deliverable report
+Please report:
+
+1. What caused the logo softness and what you changed
+2. What implementation you chose for the flame containment
+3. Whether the box-mask idea worked or whether you used a fallback solution
+4. What assets / materials / prefabs / scripts were created or modified
+5. Validation results
+6. Any remaining limitations

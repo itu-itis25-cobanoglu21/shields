@@ -7,7 +7,9 @@ namespace Shields.Menu
     {
         None = 0,
         CreateRoom,
-        JoinRoom
+        JoinRoom,
+        /// <summary>The existing local prototype: one human plus bots, no services.</summary>
+        Offline
     }
 
     /// <summary>

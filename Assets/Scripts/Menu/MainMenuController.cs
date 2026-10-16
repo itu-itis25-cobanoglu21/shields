@@ -6,15 +6,16 @@ using UnityEngine.UI;
 namespace Shields.Menu
 {
     /// <summary>
-    /// The main menu buttons. It starts no networking itself: CREATE ROOM and JOIN ROOM
-    /// record a <see cref="MainMenuLaunchRequest"/> and load GameScene, whose existing
-    /// lobby runs the actual Sessions + Relay host or join. EXIT quits the player, or stops
-    /// Play Mode in the editor.
+    /// The main menu buttons. It starts no networking itself: OFFLINE MODE, CREATE ROOM
+    /// and JOIN ROOM record a <see cref="MainMenuLaunchRequest"/> and load GameScene, whose
+    /// existing lobby opens the offline setup panel or runs the actual Sessions + Relay host
+    /// or join. EXIT quits the player, or stops Play Mode in the editor.
     /// </summary>
     [DisallowMultipleComponent]
     public class MainMenuController : MonoBehaviour
     {
         [Header("Main Buttons")]
+        [SerializeField] Button offlineModeButton;
         [SerializeField] Button joinRoomButton;
         [SerializeField] Button createRoomButton;
         [SerializeField] Button customizeButton;
@@ -45,6 +46,7 @@ namespace Shields.Menu
             if (customizeButton != null) customizeButton.interactable = false;
             if (settingsButton != null) settingsButton.interactable = false;
 
+            if (offlineModeButton != null) offlineModeButton.onClick.AddListener(PlayOffline);
             if (joinRoomButton != null) joinRoomButton.onClick.AddListener(OpenJoinPanel);
             if (createRoomButton != null) createRoomButton.onClick.AddListener(CreateRoom);
             if (exitButton != null) exitButton.onClick.AddListener(Exit);
@@ -59,6 +61,16 @@ namespace Shields.Menu
             }
 
             SetJoinPanelOpen(false);
+        }
+
+        // ------------------------------------------------------------------ offline
+
+        void PlayOffline()
+        {
+            if (_loading) return;
+
+            MainMenuLaunchRequest.Request(MainMenuIntent.Offline, string.Empty);
+            LoadGameScene();
         }
 
         // ------------------------------------------------------------------ create
@@ -159,7 +171,7 @@ namespace Shields.Menu
 
         void SetInteractable(bool interactable)
         {
-            foreach (Button button in new[] { joinRoomButton, createRoomButton, exitButton, joinConfirmButton, joinBackButton })
+            foreach (Button button in new[] { offlineModeButton, joinRoomButton, createRoomButton, exitButton, joinConfirmButton, joinBackButton })
                 if (button != null) button.interactable = interactable;
 
             if (joinCodeInput != null) joinCodeInput.interactable = interactable;

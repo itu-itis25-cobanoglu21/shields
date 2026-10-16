@@ -6,82 +6,46 @@ namespace Shields.Presentation
     /// <summary>
     /// A stored Charge card burning across its top face.
     ///
-    /// Everything is anchored in card-local space, so every seat sees the fire in the same
-    /// place on the card. Four layers: a soft glow lying on the face, a bright glowing rim
-    /// along the card border, one big flame standing on the card centre, and small embers
-    /// rising from random points of the face.
-    ///
-    /// The flame is a single Vefects fire particle drawn as a vertical billboard: its
-    /// root stays on the card centre and it only turns about the card's up axis, so each
-    /// seat sees the same whole flame, never edge-on and never shifted.
+    /// One fire, drawn by the "Shields/Charge Card Flame Volume" shader inside a box that
+    /// stands on the card face: the box's footprint is the card face and its height is the
+    /// flame height. The fire is raymarched in card-local space, so it is a real volume,
+    /// not a billboard: every seat sees the same flame in the same place on the card, and
+    /// nothing is drawn outside the card's footprint.
     ///
     /// Presentation only: no collider, no gameplay data, and it is destroyed with its card.
     /// </summary>
     [DisallowMultipleComponent]
     public class ChargeCardFlame : MonoBehaviour
     {
-        [Header("Flame")]
-        [Tooltip("The one flame on the card centre: a Vefects fire particle prefab whose pivot is the flame's base. Its own scale sets the flame size.")]
-        [SerializeField] GameObject flamePrefab;
-
-        [Header("Materials")]
-        [Tooltip("Additive soft glow laid on the card face. Also used for the embers.")]
-        [SerializeField] Material glowMaterial;
-
-        [Tooltip("Additive untextured material for the glowing rim. Its colour is the rim colour.")]
-        [SerializeField] Material rimMaterial;
+        [Tooltip("Material using the Shields/Charge Card Flame Volume shader. Colours and motion live there.")]
+        [SerializeField] Material flameMaterial;
 
         [Header("Card Face (card-local units)")]
         [SerializeField] Vector2 faceSize = new Vector2(0.063f, 0.088f);
 
-        [Tooltip("Base for the glow's breathing, so the same card breathes alike on every machine.")]
-        [SerializeField] int layoutSeed = 7;
-
-        [Header("Glow")]
-        [SerializeField] float glowOversize = 1.25f;
-        [SerializeField] float glowLift = 0.0006f;
-
-        [Tooltip("Rim band width inside the card border and outside it.")]
-        [SerializeField] Vector2 rimWidth = new Vector2(0.012f, 0.006f);
-
-        [Range(0f, 0.5f)]
-        [SerializeField] float flicker = 0.18f;
-        [SerializeField] float flickerSpeed = 3.5f;
-
-        [Header("Embers")]
-        [SerializeField] float emberRate = 14f;
-        [SerializeField] Vector2 emberLifetime = new Vector2(0.7f, 1.4f);
-        [SerializeField] Vector2 emberSize = new Vector2(0.003f, 0.007f);
-        [SerializeField] Vector2 emberRiseSpeed = new Vector2(0.025f, 0.06f);
-        [SerializeField] Color emberColor = new Color(0.85f, 0.6f, 1f, 1f);
+        [Tooltip("How high the fire rises above the card face.")]
+        [SerializeField] float flameHeight = 0.07f;
 
         [Header("Startup")]
+        [Tooltip("Seconds for the fire to grow from the face to full height.")]
         [SerializeField] float fadeInSeconds = 0.35f;
 
-        [Tooltip("Erosion while unlit. Anything above the material's own erosion plus one is fully gone.")]
-        [SerializeField] float unlitErosion = 1.6f;
+        static readonly int SizeId = Shader.PropertyToID("_Size");
+        static readonly int IgniteId = Shader.PropertyToID("_Ignite");
+        static readonly int SeedId = Shader.PropertyToID("_Seed");
 
-        static readonly int ErosionId = Shader.PropertyToID("_Erosion");
-        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-
-        Renderer[] _flames;
-        MeshRenderer _glow;
-        MeshRenderer _rim;
-        ParticleSystem _embers;
-        readonly List<Mesh> _meshes = new List<Mesh>();
+        MeshRenderer _renderer;
+        Mesh _mesh;
         MaterialPropertyBlock _block;
 
-        float _litErosion;
-        Color _glowColor;
-        Color _rimColor;
-        float _flickerSeed;
+        float _seed;
         float _lit;
         float _litAt = -1f;
 
         void Awake()
         {
-            // Cards burning side by side should not breathe in step.
-            _flickerSeed = layoutSeed * 13.37f + Random.value * 100f;
+            // Cards burning side by side should not flicker in step.
+            _seed = Random.value * 100f;
             Build();
             Apply();
         }
@@ -91,19 +55,12 @@ namespace Shields.Presentation
         {
             _litAt = settled ? Time.time - fadeInSeconds : Time.time;
             _lit = settled ? 1f : 0f;
-
-            if (_embers != null)
-            {
-                if (settled) _embers.Simulate(emberLifetime.y, true, true);
-                _embers.Play(true);
-            }
-
             Apply();
         }
 
         void Update()
         {
-            if (_litAt < 0f) return;
+            if (_litAt < 0f || _lit >= 1f) return;
 
             _lit = fadeInSeconds > 0f ? Mathf.Clamp01((Time.time - _litAt) / fadeInSeconds) : 1f;
             Apply();
@@ -111,241 +68,82 @@ namespace Shields.Presentation
 
         void OnDestroy()
         {
-            for (int i = 0; i < _meshes.Count; i++)
-                if (_meshes[i] != null) Destroy(_meshes[i]);
+            if (_mesh != null) Destroy(_mesh);
         }
 
         void Apply()
         {
+            if (_renderer == null) return;
             if (_block == null) _block = new MaterialPropertyBlock();
 
-            if (_flames != null)
-            {
-                _block.Clear();
-                _block.SetFloat(ErosionId, Mathf.Lerp(unlitErosion, _litErosion, _lit));
-                for (int i = 0; i < _flames.Length; i++)
-                    if (_flames[i] != null) _flames[i].SetPropertyBlock(_block);
-            }
-
-            // A slow, uneven breathing of the glow; the flames already move by themselves.
-            float t = Time.time * flickerSpeed;
-            float breathe = 1f - flicker + flicker * 2f * Mathf.PerlinNoise(_flickerSeed, t);
-
-            SetColor(_glow, _glowColor, _lit * breathe);
-            SetColor(_rim, _rimColor, _lit * Mathf.Lerp(breathe, 1f, 0.5f));
-        }
-
-        void SetColor(Renderer target, Color color, float alpha)
-        {
-            if (target == null) return;
-
-            color.a *= alpha;
             _block.Clear();
-            _block.SetColor(BaseColorId, color);
-            target.SetPropertyBlock(_block);
+            _block.SetVector(SizeId, new Vector4(faceSize.x, flameHeight, faceSize.y, 0f));
+            _block.SetFloat(IgniteId, Mathf.SmoothStep(0f, 1f, _lit));
+            _block.SetFloat(SeedId, _seed);
+            _renderer.SetPropertyBlock(_block);
         }
 
         // ------------------------------------------------------------------ building
 
         void Build()
         {
-            if (glowMaterial != null)
-            {
-                _glowColor = glowMaterial.HasProperty(BaseColorId) ? glowMaterial.GetColor(BaseColorId) : Color.white;
-                _glow = AddRenderer("SurfaceGlow", BuildGlow(), glowMaterial);
-            }
+            if (flameMaterial == null) return;
 
-            if (rimMaterial != null)
-            {
-                _rimColor = rimMaterial.HasProperty(BaseColorId) ? rimMaterial.GetColor(BaseColorId) : Color.white;
-                _rim = AddRenderer("RimGlow", BuildRim(), rimMaterial);
-            }
+            _mesh = BuildBox(faceSize.x * 0.5f, flameHeight, faceSize.y * 0.5f);
 
-            if (flamePrefab != null) BuildFlame();
-
-            if (glowMaterial != null) _embers = BuildEmbers();
-        }
-
-        /// <summary>
-        /// The one flame, standing on the card centre with its base on the face. Its
-        /// renderers are kept so the fade-in can erode them through a property block.
-        /// </summary>
-        void BuildFlame()
-        {
-            GameObject flame = Instantiate(flamePrefab, transform, false);
-            flame.name = "Flame";
-            flame.transform.localPosition = Vector3.zero;
-            flame.transform.localRotation = Quaternion.identity;
-
-            foreach (Transform part in flame.GetComponentsInChildren<Transform>(true))
-                part.gameObject.layer = gameObject.layer;
-
-            _flames = flame.GetComponentsInChildren<ParticleSystemRenderer>(true);
-
-            Material material = _flames.Length > 0 ? _flames[0].sharedMaterial : null;
-            _litErosion = material != null && material.HasProperty(ErosionId) ? material.GetFloat(ErosionId) : 0f;
-        }
-
-        MeshRenderer AddRenderer(string childName, Mesh mesh, Material material)
-        {
-            _meshes.Add(mesh);
-
-            GameObject child = new GameObject(childName);
+            GameObject child = new GameObject("FlameVolume");
             child.layer = gameObject.layer;
             child.transform.SetParent(transform, false);
 
-            child.AddComponent<MeshFilter>().sharedMesh = mesh;
+            child.AddComponent<MeshFilter>().sharedMesh = _mesh;
 
-            MeshRenderer renderer = child.AddComponent<MeshRenderer>();
-            renderer.sharedMaterial = material;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-            return renderer;
-        }
-
-        /// <summary>One soft quad flat on the card face, slightly larger than the card.</summary>
-        Mesh BuildGlow()
-        {
-            float hx = faceSize.x * 0.5f * glowOversize;
-            float hz = faceSize.y * 0.5f * glowOversize;
-
-            Mesh mesh = new Mesh { name = "ChargeCardGlow" };
-            mesh.SetVertices(new List<Vector3>
-            {
-                new Vector3(-hx, glowLift, -hz), new Vector3(hx, glowLift, -hz),
-                new Vector3(hx, glowLift, hz), new Vector3(-hx, glowLift, hz)
-            });
-            mesh.SetNormals(new List<Vector3> { Vector3.up, Vector3.up, Vector3.up, Vector3.up });
-            mesh.SetColors(new List<Color> { Color.white, Color.white, Color.white, Color.white });
-            mesh.SetUVs(0, new List<Vector2> { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) });
-            mesh.SetTriangles(new[] { 0, 2, 1, 0, 3, 2 }, 0);
-            mesh.RecalculateBounds();
-            return mesh;
+            _renderer = child.AddComponent<MeshRenderer>();
+            _renderer.sharedMaterial = flameMaterial;
+            _renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _renderer.receiveShadows = false;
+            _renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            _renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
         }
 
         /// <summary>
-        /// A band along the card border, brightest right on the edge and fading to nothing
-        /// inward and outward through vertex alpha: the card's edges glow as they burn.
+        /// The box the fire lives in: the card face as its floor, the flame height as its
+        /// height. Outward-facing, so only the faces toward the camera are drawn.
         /// </summary>
-        Mesh BuildRim()
+        static Mesh BuildBox(float hx, float height, float hz)
         {
-            float hx = faceSize.x * 0.5f;
-            float hz = faceSize.y * 0.5f;
-            float lift = glowLift * 2f;
-
-            // Three rectangles: inner (clear), on the edge (full), outer (clear).
-            float[] grow = { -rimWidth.x, 0f, rimWidth.y };
-            float[] alpha = { 0f, 1f, 0f };
-
-            List<Vector3> positions = new List<Vector3>();
-            List<Color> colors = new List<Color>();
-            List<Vector3> normals = new List<Vector3>();
-            List<Vector2> uvs = new List<Vector2>();
-
-            for (int ring = 0; ring < 3; ring++)
+            Vector3[] corners =
             {
-                float x = hx + grow[ring];
-                float z = hz + grow[ring];
-                Vector3[] corners = { new Vector3(-x, lift, -z), new Vector3(x, lift, -z), new Vector3(x, lift, z), new Vector3(-x, lift, z) };
+                new Vector3(-hx, 0f, -hz), new Vector3(hx, 0f, -hz), new Vector3(hx, 0f, hz), new Vector3(-hx, 0f, hz),
+                new Vector3(-hx, height, -hz), new Vector3(hx, height, -hz), new Vector3(hx, height, hz), new Vector3(-hx, height, hz)
+            };
 
-                foreach (Vector3 corner in corners)
-                {
-                    positions.Add(corner);
-                    colors.Add(new Color(1f, 1f, 1f, alpha[ring]));
-                    normals.Add(Vector3.up);
-                    uvs.Add(new Vector2(0.5f, 0.5f));
-                }
-            }
+            // Clockwise seen from outside, which is Unity's front face.
+            int[][] faces =
+            {
+                new[] { 4, 7, 6, 5 }, // top
+                new[] { 0, 1, 2, 3 }, // bottom
+                new[] { 0, 4, 5, 1 }, // -z
+                new[] { 2, 6, 7, 3 }, // +z
+                new[] { 3, 7, 4, 0 }, // -x
+                new[] { 1, 5, 6, 2 }  // +x
+            };
 
+            List<Vector3> vertices = new List<Vector3>();
             List<int> triangles = new List<int>();
-            for (int ring = 0; ring < 2; ring++)
-            {
-                int inner = ring * 4;
-                int outer = inner + 4;
 
-                for (int side = 0; side < 4; side++)
-                {
-                    int next = (side + 1) % 4;
-                    triangles.AddRange(new[] { inner + side, outer + next, outer + side });
-                    triangles.AddRange(new[] { inner + side, inner + next, outer + next });
-                }
+            foreach (int[] face in faces)
+            {
+                int start = vertices.Count;
+                foreach (int corner in face) vertices.Add(corners[corner]);
+
+                triangles.AddRange(new[] { start, start + 1, start + 2, start, start + 2, start + 3 });
             }
 
-            Mesh mesh = new Mesh { name = "ChargeCardRim" };
-            mesh.SetVertices(positions);
-            mesh.SetColors(colors);
-            mesh.SetNormals(normals);
-            mesh.SetUVs(0, uvs);
+            Mesh mesh = new Mesh { name = "ChargeCardFlameVolume" };
+            mesh.SetVertices(vertices);
             mesh.SetTriangles(triangles, 0);
             mesh.RecalculateBounds();
             return mesh;
-        }
-
-        /// <summary>
-        /// Small embers rising from random points of the card face. They are born and
-        /// simulated in card space, so the stream belongs to the card from every seat.
-        /// </summary>
-        ParticleSystem BuildEmbers()
-        {
-            GameObject child = new GameObject("Embers");
-            child.layer = gameObject.layer;
-            child.transform.SetParent(transform, false);
-
-            ParticleSystem system = child.AddComponent<ParticleSystem>();
-            system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-            ParticleSystem.MainModule main = system.main;
-            main.playOnAwake = false;
-            main.loop = true;
-            main.duration = 1f;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(emberLifetime.x, emberLifetime.y);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(emberRiseSpeed.x, emberRiseSpeed.y);
-            main.startSize = new ParticleSystem.MinMaxCurve(emberSize.x, emberSize.y);
-            main.startColor = emberColor;
-            main.maxParticles = 48;
-            main.simulationSpace = ParticleSystemSimulationSpace.Local;
-            main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-
-            ParticleSystem.EmissionModule emission = system.emission;
-            emission.rateOverTime = emberRate;
-
-            ParticleSystem.ShapeModule shape = system.shape;
-            shape.enabled = true;
-            shape.shapeType = ParticleSystemShapeType.Box;
-            // The box emits along its own +Z, turned here to point up out of the card; so
-            // its thin axis is Z, and X and Y span the face.
-            shape.rotation = new Vector3(-90f, 0f, 0f);
-            shape.scale = new Vector3(faceSize.x, faceSize.y, 0.0005f);
-
-            ParticleSystem.NoiseModule noise = system.noise;
-            noise.enabled = true;
-            noise.strength = 0.015f;
-            noise.frequency = 2f;
-
-            Gradient fade = new Gradient();
-            fade.SetKeys(
-                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.15f), new GradientAlphaKey(0f, 1f) });
-
-            ParticleSystem.ColorOverLifetimeModule color = system.colorOverLifetime;
-            color.enabled = true;
-            color.color = fade;
-
-            ParticleSystem.SizeOverLifetimeModule size = system.sizeOverLifetime;
-            size.enabled = true;
-            size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.3f));
-
-            ParticleSystemRenderer renderer = child.GetComponent<ParticleSystemRenderer>();
-            renderer.sharedMaterial = glowMaterial;
-            renderer.renderMode = ParticleSystemRenderMode.Billboard;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-
-            return system;
         }
     }
 }
