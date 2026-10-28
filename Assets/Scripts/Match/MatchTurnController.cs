@@ -156,6 +156,12 @@ namespace Shields.Match
         /// <summary>The valid target currently under the crosshair, or NoTarget.</summary>
         public int HoveredTarget { get { return _hoveredTarget; } }
 
+        /// <summary>
+        /// True while the local player is choosing an Attack, Replace Shield or Charged
+        /// Attack target with the crosshair. Social menus read it to stay off the mouse.
+        /// </summary>
+        public bool LocalTargetingActive { get { return _match != null && _pending != PendingAction.None; } }
+
         void UpdateLocalTurn()
         {
             if (!LocalInputAllowed) return;

@@ -105,6 +105,60 @@ namespace Shields.Session
             return seat;
         }
 
+        /// <summary>
+        /// Seats a whole match at once: the shuffled seating the host generated for it,
+        /// bots included. Every human currently holding a seat must appear exactly once
+        /// and nobody else may, so a reseat can never drop, duplicate or invent a
+        /// participant. Returns false, changing nothing, when that does not hold.
+        /// </summary>
+        public bool ApplyMatchSeating(IReadOnlyList<MatchParticipant> seating)
+        {
+            if (seating == null || seating.Count != _seats.Length) return false;
+
+            IReadOnlyList<ulong> current = Participants();
+            HashSet<ulong> placed = new HashSet<ulong>();
+
+            for (int i = 0; i < seating.Count; i++)
+            {
+                if (!seating[i].IsHuman) continue;
+
+                ulong participant = seating[i].ParticipantId;
+                if (!placed.Add(participant)) return false;
+                if (!ContainsParticipant(current, participant)) return false;
+            }
+
+            if (placed.Count != current.Count) return false;
+
+            for (int i = 0; i < seating.Count; i++) _seats[i] = seating[i].ToOccupant();
+            return true;
+        }
+
+        /// <summary>
+        /// Back to lobby seating: bot seats become empty so a joining participant can take
+        /// one. Humans keep the seats they had. Returns how many bot seats were cleared.
+        /// </summary>
+        public int ClearBots()
+        {
+            int cleared = 0;
+            for (int i = 0; i < _seats.Length; i++)
+            {
+                if (!_seats[i].IsBot) continue;
+
+                _seats[i] = SeatOccupant.Empty;
+                cleared++;
+            }
+
+            return cleared;
+        }
+
+        static bool ContainsParticipant(IReadOnlyList<ulong> participants, ulong participant)
+        {
+            for (int i = 0; i < participants.Count; i++)
+                if (participants[i] == participant) return true;
+
+            return false;
+        }
+
         /// <summary>The seat a participant holds, or <see cref="NoSeat"/>.</summary>
         public int SeatOf(ulong participantId)
         {

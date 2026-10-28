@@ -82,6 +82,11 @@ namespace Shields.Network
         readonly NetworkVariable<bool> _networkTestStarted = new NetworkVariable<bool>(
             false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
+        // The match generation the current seating belongs to. Written together with the
+        // seats, so a client knows its seat table is the new match's before it shows it.
+        readonly NetworkVariable<int> _seatingGeneration = new NetworkVariable<int>(
+            0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
         /// <summary>Host side authority. Null on clients, which only mirror the snapshot.</summary>
         SeatRegistry _authoritative;
 
@@ -102,6 +107,9 @@ namespace Shields.Network
         public int DeckCount { get { return _deckCount.Value; } }
 
         public bool TestStarted { get { return _networkTestStarted.Value; } }
+
+        /// <summary>The match generation whose seating this table currently shows.</summary>
+        public int SeatingGeneration { get { return _seatingGeneration.Value; } }
 
         public int SeatCount { get { return _seats.Count; } }
 
@@ -220,6 +228,54 @@ namespace Shields.Network
 
             _targetPlayerCount.Value = clamped;
             PublishSnapshot();
+        }
+
+        /// <summary>
+        /// Host only. Seats a new match: the shuffled seating, bots included, tagged with
+        /// the match's generation. Returns false, changing nothing, when the seating does
+        /// not hold exactly the humans currently seated.
+        /// </summary>
+        public bool ApplyMatchSeating(IReadOnlyList<MatchParticipant> seating, int generation)
+        {
+            if (!IsServer || _authoritative == null) return false;
+            if (!_authoritative.ApplyMatchSeating(seating)) return false;
+
+            PublishSnapshot();
+            _seatingGeneration.Value = generation;
+            return true;
+        }
+
+        /// <summary>
+        /// Host only. Back to the lobby: bot seats are freed, humans keep theirs, and any
+        /// connected participant who has no seat (joined while the table was full of a
+        /// match's bots) takes a free one.
+        /// </summary>
+        public void ReturnToLobbySeating(ulong leaving = SeatOccupant.NoParticipant)
+        {
+            if (!IsServer || _authoritative == null) return;
+
+            _authoritative.ClearBots();
+
+            // A participant who is disconnecting right now may still be listed as
+            // connected inside the disconnect callback; never seat them again.
+            if (leaving != SeatOccupant.NoParticipant) _authoritative.ReleaseParticipant(leaving);
+
+            foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
+                if (clientId != leaving && _authoritative.SeatOf(clientId) == SeatRegistry.NoSeat) AssignSeat(clientId);
+
+            PublishSnapshot();
+        }
+
+        /// <summary>Host only. A connected participant has no seat yet although one is free.</summary>
+        public bool HasUnseatedParticipantAndFreeSeat()
+        {
+            if (!IsServer || _authoritative == null || NetworkManager == null) return false;
+            if (_authoritative.OccupiedSeatCount >= _authoritative.SeatCount) return false;
+
+            foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
+                if (_authoritative.SeatOf(clientId) == SeatRegistry.NoSeat) return true;
+
+            return false;
         }
 
         /// <summary>Host only. Deck count is shared now and used once gameplay is networked.</summary>

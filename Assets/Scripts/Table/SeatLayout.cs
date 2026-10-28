@@ -81,10 +81,14 @@ namespace Shields.Table
             };
         }
 
-        /// <summary>Yaw of a seat around the table, in degrees. This is the 360 / N step.</summary>
+        /// <summary>
+        /// Yaw of a seat around the table, in degrees: the 360 / N step. Shared with the
+        /// pure <see cref="Shields.Game.TableGeometry"/>, which the clockwise turn rule is
+        /// tested against, so the turn order and the visible seats cannot disagree.
+        /// </summary>
         public static float SeatYaw(int playerIndex, in TableLayoutMetrics metrics)
         {
-            return playerIndex * metrics.SeatAngleStep;
+            return (float)Shields.Game.TableGeometry.SeatYawDegrees(playerIndex, Mathf.Max(1, metrics.PlayerCount));
         }
 
         /// <summary>Rotation whose forward axis points at the table center.</summary>
@@ -96,7 +100,9 @@ namespace Shields.Table
         /// <summary>Seat position relative to the table center, on the floor plane.</summary>
         public static Vector3 SeatOffset(int playerIndex, in TableLayoutMetrics metrics)
         {
-            return SeatRotation(playerIndex, metrics) * (Vector3.back * metrics.SeatRadius);
+            double x, z;
+            Shields.Game.TableGeometry.SeatFloorPosition(playerIndex, Mathf.Max(1, metrics.PlayerCount), metrics.SeatRadius, out x, out z);
+            return new Vector3((float)x, 0f, (float)z);
         }
 
         /// <summary>Card area origin relative to the table center, on the table plane.</summary>

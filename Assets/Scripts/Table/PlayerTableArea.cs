@@ -44,6 +44,9 @@ namespace Shields.Table
         [Tooltip("Local position used when the action reveal anchor has to be created at runtime.")]
         [SerializeField] Vector3 actionRevealLocalPosition = new Vector3(0f, 0f, 0.17f);
 
+        [Tooltip("Where delivered beer mugs rest on the table. Social presentation only; card redraws never touch it. Created at runtime when missing.")]
+        [SerializeField] Transform drinkArea;
+
         readonly List<Transform> _slots = new List<Transform>();
         readonly List<CardView> _cardViews = new List<CardView>();
 
@@ -90,6 +93,30 @@ namespace Shields.Table
                 }
 
                 return actionRevealAnchor;
+            }
+        }
+
+        /// <summary>
+        /// Holds this seat's delivered beer mugs. Sits at the area origin with the area's
+        /// rotation but undoes the area's scale, so its local units are plain meters and
+        /// a mug keeps its real size. Lives and dies with the area, so mugs go with a
+        /// layout teardown and never leak into the next match.
+        /// </summary>
+        public Transform DrinkArea
+        {
+            get
+            {
+                if (drinkArea == null)
+                {
+                    drinkArea = new GameObject("DrinkArea").transform;
+                    drinkArea.SetParent(transform, false);
+                }
+
+                Vector3 scale = transform.lossyScale;
+                drinkArea.localScale = new Vector3(1f / Mathf.Max(0.0001f, scale.x), 1f / Mathf.Max(0.0001f, scale.y),
+                    1f / Mathf.Max(0.0001f, scale.z));
+
+                return drinkArea;
             }
         }
 

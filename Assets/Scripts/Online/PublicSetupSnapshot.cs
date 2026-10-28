@@ -64,6 +64,8 @@ namespace Shields.Online
     /// </summary>
     public struct PublicSetupSnapshot : INetworkSerializable
     {
+        /// <summary>Which match this belongs to; revisions restart for every generation.</summary>
+        public int Generation;
         public uint Revision;
         public bool AllSelectionsComplete;
         public PublicSetupPlayer[] Players;
@@ -81,6 +83,7 @@ namespace Shields.Online
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
+            serializer.SerializeValue(ref Generation);
             serializer.SerializeValue(ref Revision);
             serializer.SerializeValue(ref AllSelectionsComplete);
 
@@ -95,7 +98,7 @@ namespace Shields.Online
         public override string ToString()
         {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.Append("setup rev ").Append(Revision).Append(AllSelectionsComplete ? " (complete)" : " (choosing)");
+            sb.Append("setup gen ").Append(Generation).Append(" rev ").Append(Revision).Append(AllSelectionsComplete ? " (complete)" : " (choosing)");
 
             for (int i = 0; i < PlayerCount; i++) sb.Append("\n  ").Append(Players[i]);
 

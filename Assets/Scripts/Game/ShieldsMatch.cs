@@ -35,8 +35,9 @@ namespace Shields.Game
         readonly List<WaitingSlot>[] _waiting;
 
         /// <summary>
-        /// Starts turn play from a completed setup. The starting player and direction are
-        /// random; under a config seed they are reproducible, for debugging and tests only.
+        /// Starts turn play from a completed setup. The starting player is random; under a
+        /// config seed it is reproducible, for debugging and tests only. Turns always go
+        /// clockwise.
         /// </summary>
         public ShieldsMatch(MatchSetup setup)
             : this(setup, CreateRandom(setup))
@@ -51,26 +52,15 @@ namespace Shields.Game
 
         /// <summary>
         /// Starts turn play from explicit players and an explicit deck, picking a random
-        /// living starting player and a random direction.
+        /// living starting player. Turns always go clockwise.
         /// </summary>
         public ShieldsMatch(CardDeck deck, IReadOnlyList<PlayerSetupState> players, Random random)
+            : this(deck, players, PickStartingPlayer(players, random))
         {
-            if (random == null) throw new ArgumentNullException(nameof(random));
-
-            _deck = deck ?? throw new ArgumentNullException(nameof(deck));
-            _players = CreatePlayers(players);
-            _waiting = CreateWaitingQueues();
-
-            // Every player is alive at the start, so any seat is a living starting player.
-            StartingPlayerIndex = random.Next(_players.Length);
-            Direction = random.Next(2) == 0 ? TurnDirection.Clockwise : TurnDirection.CounterClockwise;
-            CurrentPlayerIndex = StartingPlayerIndex;
-            WinnerIndex = NoPlayer;
         }
 
-        /// <summary>Starts turn play with a fixed starting player and direction.</summary>
-        public ShieldsMatch(CardDeck deck, IReadOnlyList<PlayerSetupState> players,
-            int startingPlayerIndex, TurnDirection direction)
+        /// <summary>Starts turn play with a fixed starting player. Turns always go clockwise.</summary>
+        public ShieldsMatch(CardDeck deck, IReadOnlyList<PlayerSetupState> players, int startingPlayerIndex)
         {
             _deck = deck ?? throw new ArgumentNullException(nameof(deck));
             _players = CreatePlayers(players);
@@ -80,7 +70,6 @@ namespace Shields.Game
                 throw new ArgumentOutOfRangeException(nameof(startingPlayerIndex));
 
             StartingPlayerIndex = startingPlayerIndex;
-            Direction = direction;
             CurrentPlayerIndex = startingPlayerIndex;
             WinnerIndex = NoPlayer;
         }
@@ -94,7 +83,8 @@ namespace Shields.Game
 
         public int StartingPlayerIndex { get; }
 
-        public TurnDirection Direction { get; }
+        /// <summary>Always <see cref="TurnDirection.Clockwise"/>: the rule, not a per match choice.</summary>
+        public TurnDirection Direction { get { return TurnDirection.Clockwise; } }
 
         /// <summary>Whose turn it is, or <see cref="NoPlayer"/> once the match is over.</summary>
         public int CurrentPlayerIndex { get; private set; }
@@ -469,15 +459,15 @@ namespace Shields.Game
 
         // ------------------------------------------------------------------ turn order
 
+        /// <summary>The next living seat clockwise, skipping eliminated players.</summary>
         int NextLivingPlayer(int fromIndex)
         {
-            int step = Direction == TurnDirection.Clockwise ? 1 : -1;
             int count = _players.Length;
             int index = fromIndex;
 
             for (int i = 0; i < count; i++)
             {
-                index = ((index + step) % count + count) % count;
+                index = TableGeometry.NextClockwise(index, count);
                 if (_players[index].IsAlive) return index;
             }
 
@@ -501,6 +491,15 @@ namespace Shields.Game
                 throw new InvalidOperationException("Every player must choose their Shield before turn play starts.");
 
             return setup;
+        }
+
+        /// <summary>Every player is alive at the start, so any seat is a living starting player.</summary>
+        static int PickStartingPlayer(IReadOnlyList<PlayerSetupState> players, Random random)
+        {
+            if (random == null) throw new ArgumentNullException(nameof(random));
+            if (players == null || players.Count == 0) throw new ArgumentException("A match needs players.", nameof(players));
+
+            return random.Next(players.Count);
         }
 
         static Random CreateRandom(MatchSetup setup)

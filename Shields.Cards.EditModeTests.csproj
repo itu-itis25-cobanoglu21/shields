@@ -52,12 +52,18 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\System.Text.Json.SourceGeneration.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Tests\EditMode\BeerOrderQueueTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\MatchGenerationGateTests.cs" />
     <Compile Include="Assets\Tests\EditMode\RandomBotPolicyTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\ClockwiseTurnTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\WaiterDeliverySchedulerTests.cs" />
     <Compile Include="Assets\Tests\EditMode\OnlineAuthorityTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\SeatShufflerTests.cs" />
     <Compile Include="Assets\Tests\EditMode\OnlinePrivacyTests.cs" />
     <Compile Include="Assets\Tests\EditMode\OnlineSetupTests.cs" />
     <Compile Include="Assets\Tests\EditMode\BotTurnGateTests.cs" />
     <Compile Include="Assets\Tests\EditMode\MatchSetupTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\RematchVoteTests.cs" />
     <Compile Include="Assets\Tests\EditMode\SeatRegistryTests.cs" />
     <Compile Include="Assets\Tests\EditMode\CardDeckTests.cs" />
     <Compile Include="Assets\Tests\EditMode\ShieldsMatchTests.cs" />
@@ -1273,6 +1279,7 @@
     <ProjectReference Include="Shields.Bots.csproj" />
     <ProjectReference Include="Shields.Session.csproj" />
     <ProjectReference Include="Shields.Online.csproj" />
+    <ProjectReference Include="Shields.Social.csproj" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <ItemGroup>

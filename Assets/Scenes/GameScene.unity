@@ -132,6 +132,7 @@ GameObject:
   - component: {fileID: 23963202}
   - component: {fileID: 23963201}
   - component: {fileID: 23963203}
+  - component: {fileID: 23963204}
   m_Layer: 0
   m_Name: NetworkSession
   m_TagString: Untagged
@@ -228,6 +229,23 @@ MonoBehaviour:
   seatRegistry: {fileID: 23963202}
   postActionDelay: 2.5
   botThinkDelay: 2.5
+--- !u!114 &23963204
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 23963198}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d78fa7fa5bd670d428b5d1e17cfbddb5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Network.NetworkBeerOrderService
+  ShowTopMostFoldoutHeaderGroup: 1
+  seatRegistry: {fileID: 23963202}
+  matchController: {fileID: 23963203}
+  orderCooldownSeconds: 20
+  maxQueuedOrders: 5
 --- !u!1001 &32624105
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3593,6 +3611,7 @@ GameObject:
   - component: {fileID: 521735739}
   - component: {fileID: 521735741}
   - component: {fileID: 521735742}
+  - component: {fileID: 521735743}
   m_Layer: 0
   m_Name: MatchBootstrap
   m_TagString: Untagged
@@ -3652,7 +3671,6 @@ MonoBehaviour:
   actionPresenter: {fileID: 521735742}
   targetPlayerCount: 6
   deckCount: 1
-  localPlayerIndex: 0
   autoStartOnPlay: 0
   useFixedSeed: 0
   fixedSeed: 12345
@@ -3866,6 +3884,20 @@ MonoBehaviour:
   chargeFlamePrefab: {fileID: 6131696024570567151, guid: f4dcbe07a9e79d7409096ed759dd1680, type: 3}
   revealGrace: 0.35
   confirmTimeout: 1.5
+--- !u!114 &521735743
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 521735737}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3838661a494090546bc688be36d1d3c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Match.RematchUI
+  offlineBootstrap: {fileID: 521735740}
+  onlineMatch: {fileID: 23963203}
 --- !u!1001 &522920164
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5217,6 +5249,37 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 572143553266096528, guid: 3d901a49148b5bc4c915644c7692ac2c, type: 3}
   m_PrefabInstance: {fileID: 694799417}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &716117379
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 716117380}
+  m_Layer: 0
+  m_Name: DoorOutside
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &716117380
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 716117379}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -9}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1574094757}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &716784348
 GameObject:
   m_ObjectHideFlags: 0
@@ -9790,6 +9853,129 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 6eed050a6a863f74cb718613b3a14cad, type: 3}
   m_PrefabInstance: {fileID: 987370694}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1011184220
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1011184221}
+  - component: {fileID: 1011184222}
+  - component: {fileID: 1011184223}
+  - component: {fileID: 1011184225}
+  - component: {fileID: 1011184224}
+  m_Layer: 0
+  m_Name: BeerOrder
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1011184221
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1011184220}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1011184222
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1011184220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f06dddfd9c384be458a24afc7462b232, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Tavern.BeerOrderCoordinator
+  offlineBootstrap: {fileID: 521735740}
+  offlineCooldownSeconds: 20
+  offlineMaxQueuedOrders: 5
+  onlineMatch: {fileID: 23963203}
+  onlineSeats: {fileID: 23963202}
+  onlineDriver: {fileID: 716784354}
+  onlineOrders: {fileID: 23963204}
+  tableLayout: {fileID: 1343093440}
+--- !u!114 &1011184223
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1011184220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: daf66850b9de878479b5b32366496c69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Tavern.BeerOrderUI
+  coordinator: {fileID: 1011184222}
+  feedbackSeconds: 3
+  replyTimeoutSeconds: 5
+--- !u!114 &1011184224
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1011184220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baf9b8e5c3d152f4e999d828fca349c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Tavern.WaiterDeliveryCoordinator
+  beerOrders: {fileID: 1011184222}
+  presenter: {fileID: 1011184225}
+  deliveryDelayMin: 5
+  deliveryDelayMax: 10
+  presenterWatchdogSeconds: 3
+--- !u!114 &1011184225
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1011184220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8138efd3337ddeb4586ae4f66b6989a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Tavern.WaiterPresenter
+  waiterPrefab: {fileID: 778417468435132671, guid: 4b9a8d8da98ca694ca803f06efe2ad44, type: 3}
+  beerMugPrefab: {fileID: 3638777680668016086, guid: 8bb6d4771c370094abac7548827f9616, type: 3}
+  tableLayout: {fileID: 1343093440}
+  waiterSpawn: {fileID: 1628117142}
+  doorOutside: {fileID: 716117380}
+  doorInside: {fileID: 1474320125}
+  waiterExit: {fileID: 1486024726}
+  ringClearance: 1
+  stopClearance: 0.62
+  stopAngle: 22
+  walkSpeed: 1.1
+  turnSpeed: 320
+  easeDistance: 0.35
+  stopSettle: 0.15
+  reachTray: 0.17
+  grabLift: 0.1
+  extendToPlayer: 0.35
+  placePause: 0.12
+  returnHand: 0.25
+  skipPause: 0.35
+  decisionTimeout: 6
+  gripAboveRim: 0.035
+  liftHeight: 0.07
+  carryArc: 0.1
 --- !u!1001 &1028394207
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -14820,6 +15006,37 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: fc839bce522b81d429cc90f72190ce6c, type: 3}
   m_PrefabInstance: {fileID: 1469624397}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1474320124
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1474320125}
+  m_Layer: 0
+  m_Name: DoorInside
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1474320125
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1474320124}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -6.3}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1574094757}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1480485903
 GameObject:
   m_ObjectHideFlags: 0
@@ -14935,6 +15152,37 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: d575060c58f226141a9526900e350a6d, type: 3}
   m_PrefabInstance: {fileID: 1483826464}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1486024725
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1486024726}
+  m_Layer: 0
+  m_Name: WaiterExit
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1486024726
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1486024725}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -2.2, y: 0, z: -9.4}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1574094757}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1498078598
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -15659,6 +15907,41 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &1574094756
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1574094757}
+  m_Layer: 0
+  m_Name: WaiterRoute
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1574094757
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1574094756}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1628117142}
+  - {fileID: 716117380}
+  - {fileID: 1474320125}
+  - {fileID: 1486024726}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1577669367
 GameObject:
   m_ObjectHideFlags: 0
@@ -16073,6 +16356,37 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4701367723718039046, guid: 0c11187003e561e4abb90d3c05393e21, type: 3}
   m_PrefabInstance: {fileID: 1616064462}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1628117141
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1628117142}
+  m_Layer: 0
+  m_Name: WaiterSpawn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1628117142
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1628117141}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 2.2, y: 0, z: -9.4}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1574094757}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1632151027
 GameObject:
   m_ObjectHideFlags: 0
@@ -23964,3 +24278,5 @@ SceneRoots:
   - {fileID: 1528670155}
   - {fileID: 3755714401052017993}
   - {fileID: 37073081}
+  - {fileID: 1011184221}
+  - {fileID: 1574094757}

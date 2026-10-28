@@ -44,6 +44,12 @@ namespace Shields.Online
         /// <summary>The revision of a snapshot that has never been published.</summary>
         public const uint NoRevision = 0;
 
+        /// <summary>
+        /// Which match this belongs to. The host starts revisions again at 1 for every new
+        /// match, so a revision is only ordered within its generation
+        /// (<see cref="MatchGenerationGate"/>).
+        /// </summary>
+        public int Generation;
         public uint Revision;
         public byte PhaseCode;
         public sbyte CurrentPlayerIndex;
@@ -102,6 +108,7 @@ namespace Shields.Online
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
+            serializer.SerializeValue(ref Generation);
             serializer.SerializeValue(ref Revision);
             serializer.SerializeValue(ref PhaseCode);
             serializer.SerializeValue(ref CurrentPlayerIndex);
@@ -123,7 +130,7 @@ namespace Shields.Online
         public override string ToString()
         {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.Append("rev ").Append(Revision).Append(' ').Append(Phase);
+            sb.Append("gen ").Append(Generation).Append(" rev ").Append(Revision).Append(' ').Append(Phase);
             sb.Append(MatchOver ? ", winner player " + WinnerIndex : ", turn player " + CurrentPlayerIndex);
             sb.Append(", draw ").Append(RemainingDrawCount);
             sb.Append(", discard ").Append(DiscardCount);

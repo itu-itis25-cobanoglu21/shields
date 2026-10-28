@@ -67,7 +67,8 @@ namespace Shields.Table
             get { return centerDeckAnchor != null ? centerDeckAnchor.position : TableCenter; }
         }
 
-        Vector3 TableCenter { get { return tableRoot != null ? tableRoot.position : transform.position; } }
+        /// <summary>Centre of the table on the floor plane; seats are placed around it.</summary>
+        public Vector3 TableCenter { get { return tableRoot != null ? tableRoot.position : transform.position; } }
 
         float CardAreaHeight
         {

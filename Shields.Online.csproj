@@ -56,6 +56,7 @@
     <Compile Include="Assets\Scripts\Online\PublicCard.cs" />
     <Compile Include="Assets\Scripts\Online\PublicActionResult.cs" />
     <Compile Include="Assets\Scripts\Online\OnlineTurnRouter.cs" />
+    <Compile Include="Assets\Scripts\Online\MatchGenerationGate.cs" />
     <Compile Include="Assets\Scripts\Online\OnlineSetupRouter.cs" />
     <Compile Include="Assets\Scripts\Online\PublicPlayerState.cs" />
     <Compile Include="Assets\Scripts\Online\PublicStateBuilder.cs" />

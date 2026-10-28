@@ -1,13 +1,14 @@
 namespace Shields.Game
 {
     /// <summary>
-    /// Which way turns travel around the table. Seat indices increase clockwise when the
-    /// table is viewed from above, so Clockwise is index + 1.
+    /// Which way turns travel around the table. By rule every match is played clockwise
+    /// (SHIELDS_RULES.md section 7). Seat indices increase clockwise when the table is
+    /// viewed from above (see <see cref="TableGeometry"/>), so clockwise is index + 1.
+    /// Kept as a type because public snapshots and the HUD name the direction.
     /// </summary>
     public enum TurnDirection
     {
-        Clockwise = 0,
-        CounterClockwise = 1
+        Clockwise = 0
     }
 
     /// <summary>The only three things a player can do on their turn.</summary>

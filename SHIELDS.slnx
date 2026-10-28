@@ -5,6 +5,7 @@
   <Project Path="Shields.Bots.csproj" />
   <Project Path="Shields.Online.csproj" />
   <Project Path="Shields.Cards.EditModeTests.csproj" />
+  <Project Path="Shields.Social.csproj" />
   <Project Path="Shields.Session.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
 </Solution>

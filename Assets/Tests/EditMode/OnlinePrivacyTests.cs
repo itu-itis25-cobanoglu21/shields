@@ -59,7 +59,7 @@ namespace Shields.Game.Tests
                 Seat(deck, 0, false, CardRank.King, CardRank.Jack, CardRank.Five),
                 Seat(deck, 1, true, CardRank.Ten, CardRank.Nine, CardRank.Four),
                 Seat(deck, 2, true, CardRank.Eight, CardRank.Seven, CardRank.Three)
-            }, 0, TurnDirection.Clockwise);
+            }, 0);
         }
 
         static PublicMatchSnapshot Snapshot(ShieldsMatch match, uint revision = 1)

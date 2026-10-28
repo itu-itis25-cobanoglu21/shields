@@ -27,8 +27,6 @@ namespace Shields.Game.Tests
         const CardRank Q = CardRank.Queen;
         const CardRank K = CardRank.King;
 
-        const TurnDirection CW = TurnDirection.Clockwise;
-        const TurnDirection CCW = TurnDirection.CounterClockwise;
 
         const int NoTarget = TurnActionRequest.NoTarget;
 
@@ -67,9 +65,9 @@ namespace Shields.Game.Tests
             return stacked;
         }
 
-        static ShieldsMatch Start(CardDeck deck, int startingPlayer, TurnDirection direction, params PlayerSetupState[] seats)
+        static ShieldsMatch Start(CardDeck deck, int startingPlayer, params PlayerSetupState[] seats)
         {
-            return new ShieldsMatch(deck, seats, startingPlayer, direction);
+            return new ShieldsMatch(deck, seats, startingPlayer);
         }
 
         static TurnActionResult Act(ShieldsMatch match, TurnActionRequest request)
@@ -158,7 +156,7 @@ namespace Shields.Game.Tests
         /// </summary>
         static ShieldsMatch StandardTable(CardDeck deck)
         {
-            return Start(deck, 0, CW,
+            return Start(deck, 0,
                 Seat(deck, 0, C2, C3, C4),
                 Seat(deck, 1, K, J, C5),
                 Seat(deck, 2, C6, C7, C8));
@@ -167,7 +165,7 @@ namespace Shields.Game.Tests
         /// <summary>Kills player 2 (2 + Ace, Shield Ace) on player 1's turn. Player 0 is then current.</summary>
         static ShieldsMatch TableWithPlayerTwoDead(CardDeck deck)
         {
-            ShieldsMatch match = Start(deck, 1, CW,
+            ShieldsMatch match = Start(deck, 1,
                 Seat(deck, 0, C2, C3, C4),
                 Seat(deck, 1, K, J, C5),
                 Seat(deck, 2, C2, A, A));
@@ -183,7 +181,7 @@ namespace Shields.Game.Tests
         // ================================================================ start
 
         [Test]
-        public void Start_FromSetup_StartingPlayerIsLivingAndDirectionIsValid(
+        public void Start_FromSetup_StartingPlayerIsLivingAndDirectionIsClockwise(
             [Values(3, 5, 8)] int players, [Values(1, 2, 3, 4)] int seed)
         {
             ShieldsMatch match = new ShieldsMatch(CompletedSetup(players, 1, seed));
@@ -191,7 +189,7 @@ namespace Shields.Game.Tests
             Assert.That(match.StartingPlayerIndex, Is.InRange(0, players - 1));
             Assert.IsTrue(match.Players[match.StartingPlayerIndex].IsAlive);
             Assert.AreEqual(match.StartingPlayerIndex, match.CurrentPlayerIndex);
-            Assert.That(match.Direction, Is.EqualTo(CW).Or.EqualTo(CCW));
+            Assert.AreEqual(TurnDirection.Clockwise, match.Direction, "Rule: every match is played clockwise.");
             Assert.IsFalse(match.IsMatchOver);
             Assert.AreEqual(ShieldsMatch.NoPlayer, match.WinnerIndex);
         }
@@ -210,20 +208,18 @@ namespace Shields.Game.Tests
         }
 
         [Test]
-        public void Start_DifferentSeedsProduceDifferentStarts()
+        public void Start_DifferentSeedsProduceDifferentStartsButAlwaysClockwise()
         {
             HashSet<int> starts = new HashSet<int>();
-            HashSet<TurnDirection> directions = new HashSet<TurnDirection>();
 
             for (int seed = 1; seed <= 30; seed++)
             {
                 ShieldsMatch match = new ShieldsMatch(CompletedSetup(6, 1, seed));
                 starts.Add(match.StartingPlayerIndex);
-                directions.Add(match.Direction);
+                Assert.AreEqual(TurnDirection.Clockwise, match.Direction, "Seed {0}", seed);
             }
 
-            Assert.Greater(starts.Count, 1);
-            Assert.AreEqual(2, directions.Count);
+            Assert.Greater(starts.Count, 1, "The starting player is still random.");
         }
 
         [Test]
@@ -271,7 +267,7 @@ namespace Shields.Game.Tests
         public void Turn_ClockwiseAdvancesToTheNextSeat()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 1, CW,
+            ShieldsMatch match = Start(deck, 1,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, C5, C6, C7),
                 Seat(deck, 2, C8, C9, C10), Seat(deck, 3, J, Q, K));
 
@@ -287,29 +283,10 @@ namespace Shields.Game.Tests
         }
 
         [Test]
-        public void Turn_CounterClockwiseAdvancesToThePreviousSeat()
+        public void Turn_EliminatedPlayersAreSkippedGoingClockwise()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 1, CCW,
-                Seat(deck, 0, C2, C3, C4), Seat(deck, 1, C5, C6, C7),
-                Seat(deck, 2, C8, C9, C10), Seat(deck, 3, J, Q, K));
-
-            List<int> order = new List<int>();
-            for (int i = 0; i < 5; i++)
-            {
-                int actor = match.CurrentPlayerIndex;
-                order.Add(actor);
-                Act(match, TurnActionRequest.ReplaceShield(actor, actor));
-            }
-
-            CollectionAssert.AreEqual(new[] { 1, 0, 3, 2, 1 }, order);
-        }
-
-        [Test]
-        public void Turn_EliminatedPlayersAreSkipped([Values(CW, CCW)] TurnDirection direction)
-        {
-            CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 1, direction,
+            ShieldsMatch match = Start(deck, 1,
                 Seat(deck, 0, Q, Q, Q), Seat(deck, 1, J, J, J),
                 Seat(deck, 2, C2, A, A), Seat(deck, 3, C10, C10, C10));
 
@@ -325,8 +302,7 @@ namespace Shields.Game.Tests
                 Act(match, TurnActionRequest.ReplaceShield(actor, actor));
             }
 
-            int[] expected = direction == CW ? new[] { 3, 0, 1, 3, 0, 1 } : new[] { 0, 3, 1, 0, 3, 1 };
-            CollectionAssert.AreEqual(expected, order);
+            CollectionAssert.AreEqual(new[] { 3, 0, 1, 3, 0, 1 }, order);
             CollectionAssert.DoesNotContain(order, 2);
         }
 
@@ -480,7 +456,7 @@ namespace Shields.Game.Tests
         public void Attack_SuccessfulDamageInterruptsTheTargetsCharge()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 1, CW,
+            ShieldsMatch match = Start(deck, 1,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, K, J, C5), Seat(deck, 2, C6, C7, C8));
             List<PlayingCard> draws = Stack(deck, C9, C10, Q);
 
@@ -499,7 +475,7 @@ namespace Shields.Game.Tests
         public void Attack_ZeroDamageDoesNotInterruptTheTargetsCharge()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 1, CW,
+            ShieldsMatch match = Start(deck, 1,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, K, J, C5), Seat(deck, 2, C6, C7, C8));
             List<PlayingCard> draws = Stack(deck, C9, C10, C3);
 
@@ -551,7 +527,7 @@ namespace Shields.Game.Tests
         public void ReplaceShield_WeakerCardStillReplacesAnotherPlayersStrongerShield()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, K, J, C10), Seat(deck, 2, C6, C7, C8));
             PlayingCard oldShield = match.Players[1].ShieldCard;
             PlayingCard newShield = Stack(deck, C2)[0];
@@ -759,7 +735,7 @@ namespace Shields.Game.Tests
         public void SecondCharge_EqualToShieldDealsZeroStillDiscardsBothAndKeepsTheTargetsCharge()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, K, J, C10), Seat(deck, 2, C6, C7, C8));
             List<PlayingCard> draws = Stack(deck, C4, C2, C3, C6);
 
@@ -830,7 +806,7 @@ namespace Shields.Game.Tests
         public void Health_BelowTheLowerCardDiscardsBothAndUsesOnePhysicalCard()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, K, J, A), Seat(deck, 2, C6, C7, C8));
             PlayingCard king = match.Players[1].LeftHealth.Card;
             PlayingCard jack = match.Players[1].RightHealth.Card;
@@ -857,7 +833,7 @@ namespace Shields.Game.Tests
         {
             CardDeck deck = new CardDeck(1);
             // Every 9 is held by players 0 and 2, so no physical 9 can be found.
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C9, C9, C4), Seat(deck, 1, K, J, A), Seat(deck, 2, C9, C9, C8));
             Stack(deck, C8, C10, C3, C8);
 
@@ -879,7 +855,7 @@ namespace Shields.Game.Tests
         public void Health_EqualCardsDiscardTheLeftAndKeepTheRight()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, C10, C10, C2), Seat(deck, 2, C6, C7, C8));
             PlayingCard left = match.Players[1].LeftHealth.Card;
             PlayingCard right = match.Players[1].RightHealth.Card;
@@ -898,7 +874,7 @@ namespace Shields.Game.Tests
         public void Health_EqualToTheLowerCardKeepsItAlone()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, C10, C3, C2), Seat(deck, 2, C6, C7, C8));
             PlayingCard ten = match.Players[1].LeftHealth.Card;
             PlayingCard three = match.Players[1].RightHealth.Card;
@@ -919,7 +895,7 @@ namespace Shields.Game.Tests
         /// </summary>
         static ShieldsMatch NoFivesTable(CardDeck deck)
         {
-            return Start(deck, 0, CW,
+            return Start(deck, 0,
                 Seat(deck, 0, C5, C5, C5), Seat(deck, 1, K, J, A),
                 Seat(deck, 2, K, J, A), Seat(deck, 3, C6, C7, C5));
         }
@@ -1010,7 +986,7 @@ namespace Shields.Game.Tests
         public void VirtualFifo_EliminatedPlayersMarkerLeavesTheQueue()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C5, C5, C5), Seat(deck, 1, K, J, A), Seat(deck, 2, Q, C4, C5));
             PlayingCard p2OldShield = match.Players[2].ShieldCard;
             Stack(deck, K, C2, C9, K, C10);
@@ -1035,7 +1011,7 @@ namespace Shields.Game.Tests
         public void Death_EliminatesThePlayerAndReleasesEveryCardIncludingCharge()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 1, CW,
+            ShieldsMatch match = Start(deck, 1,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, C5, C3, A), Seat(deck, 2, C6, C7, C8));
             MatchPlayerState target = match.Players[1];
             PlayingCard[] owned = { target.LeftHealth.Card, target.RightHealth.Card, target.ShieldCard };
@@ -1068,7 +1044,7 @@ namespace Shields.Game.Tests
         {
             CardDeck deck = new CardDeck(1);
             // Every 5 is held: three by P0, one as P1's left Health.
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C5, C5, C5), Seat(deck, 1, C5, C3, A), Seat(deck, 2, K, J, A));
             PlayingCard dyingFive = match.Players[1].LeftHealth.Card;
             List<PlayingCard> draws = Stack(deck, C9, C4, K);
@@ -1090,7 +1066,7 @@ namespace Shields.Game.Tests
         public void Death_LastLivingPlayerWinsAndNothingElseResolves()
         {
             CardDeck deck = new CardDeck(1);
-            ShieldsMatch match = Start(deck, 0, CW,
+            ShieldsMatch match = Start(deck, 0,
                 Seat(deck, 0, C2, C3, C4), Seat(deck, 1, C2, A, A), Seat(deck, 2, C3, A, A));
             Stack(deck, K, C6, Q);
 

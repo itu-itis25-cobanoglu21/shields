@@ -4,6 +4,7 @@ using Shields.Cards;
 using Shields.Game;
 using Shields.Players;
 using Shields.Presentation;
+using Shields.Session;
 using Shields.Table;
 
 namespace Shields.Match
@@ -48,9 +49,6 @@ namespace Shields.Match
         [Range(CardDeck.MinDeckCount, CardDeck.MaxDeckCount)]
         [SerializeField] int deckCount = 1;
 
-        [Tooltip("Which seat the local human owns in this offline prototype.")]
-        [SerializeField] int localPlayerIndex = 0;
-
         [Tooltip("Start a match immediately instead of waiting for the setup UI.")]
         [SerializeField] bool autoStartOnPlay = false;
 
@@ -64,6 +62,16 @@ namespace Shields.Match
         [Tooltip("Where the local view rests: 0 aims at the deck, 1 at the player's own cards.")]
         [Range(0f, 1f)]
         [SerializeField] float restAimTowardOwnCards = 0.08f;
+
+        /// <summary>The offline human's participant id. Offline has exactly one human.</summary>
+        const ulong LocalParticipant = 0;
+
+        // The seat the local human was given for the current match: chosen by the seat
+        // shuffle every match, never assumed to be 0.
+        int localPlayerIndex;
+
+        MatchParticipant[] _lastSeating;
+        System.Random _seatRandom;
 
         public int TargetPlayerCount
         {
@@ -87,6 +95,9 @@ namespace Shields.Match
 
         /// <summary>The authoritative turn engine once setup has completed, or null.</summary>
         public ShieldsMatch Match { get { return turnController != null ? turnController.Match : null; } }
+
+        /// <summary>Runs the offline turns, and knows whether the local player is targeting.</summary>
+        public MatchTurnController TurnController { get { return turnController; } }
 
         /// <summary>True once every seat has two Health cards, one Shield and numeric Health.</summary>
         public bool InitialSetupComplete { get { return Setup != null && Setup.InitialSetupComplete; } }
@@ -140,7 +151,7 @@ namespace Shields.Match
 
             TargetPlayerCount = playerCount;
             DeckCount = decks;
-            localPlayerIndex = Mathf.Clamp(localPlayerIndex, 0, targetPlayerCount - 1);
+            AssignRandomSeating();
 
             // Park the camera first. It rides under a player's head, so rebuilding the
             // layout while it is still attached would destroy it with the outgoing seat.
@@ -286,6 +297,39 @@ namespace Shields.Match
             turnController.Begin(match, localPlayerIndex, tableLayout, crosshair, cardViewPrefab, deckView, discardView,
                 actionPresenter, useFixedSeed ? fixedSeed : (int?)null);
         }
+
+        // ------------------------------------------------------------------ seating
+
+        /// <summary>
+        /// Fresh random seating for this match, the same algorithm the online host uses:
+        /// the local human and every bot are shuffled over all seats, and an exact repeat
+        /// of last match's table is rerolled. The local seat follows the human.
+        /// </summary>
+        void AssignRandomSeating()
+        {
+            if (_seatRandom == null)
+                _seatRandom = useFixedSeed ? new System.Random(fixedSeed ^ 0x51A7) : new System.Random();
+
+            MatchParticipant[] roster = SeatShuffler.BuildRoster(new[] { LocalParticipant }, targetPlayerCount);
+            MatchParticipant[] previous = _lastSeating != null && _lastSeating.Length == targetPlayerCount ? _lastSeating : null;
+            MatchParticipant[] seating = SeatShuffler.Shuffle(roster, previous, _seatRandom);
+
+            _lastSeating = seating;
+            localPlayerIndex = SeatShuffler.SeatOf(seating, LocalParticipant);
+
+            Debug.Log("Offline seating: " + DescribeSeating(seating) + " (you are seat " + localPlayerIndex + ")", this);
+        }
+
+        static string DescribeSeating(MatchParticipant[] seating)
+        {
+            string[] parts = new string[seating.Length];
+            for (int i = 0; i < seating.Length; i++) parts[i] = i + "=" + (seating[i].IsHuman ? "you" : "bot " + seating[i].BotNumber);
+
+            return string.Join(", ", parts);
+        }
+
+        /// <summary>Who sat where in the current or last match. Diagnostics only.</summary>
+        public IReadOnlyList<MatchParticipant> CurrentSeating { get { return _lastSeating; } }
 
         // ------------------------------------------------------------------ roles
 

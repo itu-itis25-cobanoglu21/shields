@@ -71,6 +71,12 @@ namespace Shields.Network
             get { return matchController != null ? matchController.LocalSeatIndex : NetworkSeatRegistry.NoSeat; }
         }
 
+        /// <summary>
+        /// True while this machine's player is choosing an Attack, Replace Shield or
+        /// Charged Attack target with the crosshair. Social menus read it to stay off the mouse.
+        /// </summary>
+        public bool LocalTargetingActive { get { return _pending != PendingAction.None; } }
+
         void Awake()
         {
             Subscribe();
@@ -86,6 +92,7 @@ namespace Shields.Network
             if (matchController == null) return;
 
             matchController.PhaseChanged += OnPhaseChanged;
+            matchController.MatchGenerationStarted += OnMatchGenerationStarted;
             matchController.SetupSnapshotChanged += OnSetupSnapshot;
             matchController.MatchSnapshotChanged += OnMatchSnapshot;
             matchController.ActionResolved += OnActionResolved;
@@ -97,6 +104,7 @@ namespace Shields.Network
             if (matchController == null) return;
 
             matchController.PhaseChanged -= OnPhaseChanged;
+            matchController.MatchGenerationStarted -= OnMatchGenerationStarted;
             matchController.SetupSnapshotChanged -= OnSetupSnapshot;
             matchController.MatchSnapshotChanged -= OnMatchSnapshot;
             matchController.ActionResolved -= OnActionResolved;
@@ -119,7 +127,27 @@ namespace Shields.Network
                     EndShieldChoice();
                     ClearPending();
                     break;
+
+                case OnlineMatchPhase.WaitingForShieldSelections:
+                    // The phase and the setup snapshot travel separately; whichever lands
+                    // second starts the local Shield choice.
+                    if (matchController.SetupSnapshot.IsValid) TryBeginLocalShieldChoice(matchController.SetupSnapshot);
+                    break;
             }
+        }
+
+        /// <summary>
+        /// A new match (first match or rematch) reached this machine. Everything of the
+        /// previous match goes, the seat layout included: seating is new every match, so
+        /// characters, camera, look and roles are rebuilt from the new seat mapping by the
+        /// snapshot that follows.
+        /// </summary>
+        void OnMatchGenerationStarted(int generation)
+        {
+            TearDown();
+            if (layoutPresenter != null) layoutPresenter.TearDown();
+
+            _refusal = string.Empty;
         }
 
         /// <summary>

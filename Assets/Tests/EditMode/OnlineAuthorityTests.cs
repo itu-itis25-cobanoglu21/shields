@@ -63,7 +63,7 @@ namespace Shields.Game.Tests
                 Seat(deck, 0, false, CardRank.King, CardRank.Jack, CardRank.Five),
                 Seat(deck, 1, false, CardRank.Ten, CardRank.Nine, CardRank.Four),
                 Seat(deck, 2, true, CardRank.Eight, CardRank.Seven, CardRank.Three)
-            }, startingPlayer, TurnDirection.Clockwise);
+            }, startingPlayer);
         }
 
         /// <summary>Host holds seat 0, one client holds seat 1. Seat 2 is nobody's.</summary>
@@ -188,7 +188,7 @@ namespace Shields.Game.Tests
                 Seat(deck, 0, false, CardRank.King, CardRank.Jack, CardRank.Five),
                 Seat(deck, 1, false, CardRank.Ace, CardRank.Two, CardRank.Ace),
                 Seat(deck, 2, true, CardRank.Eight, CardRank.Seven, CardRank.Three)
-            }, 0, TurnDirection.Clockwise);
+            }, 0);
 
             Stack(deck, CardRank.King);
             match.Submit(TurnActionRequest.Attack(0, 1));

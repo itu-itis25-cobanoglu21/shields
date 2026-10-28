@@ -54,6 +54,8 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\Session\SeatOccupant.cs" />
     <Compile Include="Assets\Scripts\Session\SeatRegistry.cs" />
+    <Compile Include="Assets\Scripts\Session\RematchVote.cs" />
+    <Compile Include="Assets\Scripts\Session\SeatShuffler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\Scripts\Session\Shields.Session.asmdef" />

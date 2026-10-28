@@ -137,17 +137,18 @@ The Shield continues working at full value on every attack until a Shield replac
 
 At match start:
 
-- starting player is selected randomly
-- turn direction is selected randomly
+- starting player is selected randomly from the living players
+- turn direction is always clockwise
 
-Direction is either:
+Turn direction is never chosen randomly.
 
-- clockwise
-- counter-clockwise
+Every match proceeds clockwise around the table, as seen from above.
 
-The direction remains active while turns proceed.
+The next player is therefore the player seated to the current player's left.
 
 Eliminated players are skipped.
+
+Seating is a presentation/session concern, not a rule: participants may be seated in a fresh random order for every match. The clockwise rule applies to whatever seating the match uses.
 
 ---
 

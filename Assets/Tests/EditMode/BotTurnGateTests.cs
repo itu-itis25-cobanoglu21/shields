@@ -20,7 +20,7 @@ namespace Shields.Game.Tests
             MatchSetup setup = new MatchSetup(new MatchConfig(4, 1, Local, 31));
             setup.RunBotSelections();
             setup.SelectShieldFor(Local, setup.LocalPlayer.DealtCards[0]);
-            return new ShieldsMatch(setup.Deck, setup.Players, start, TurnDirection.Clockwise);
+            return new ShieldsMatch(setup.Deck, setup.Players, start);
         }
 
         /// <summary>Resolves the current turn with a harmless legal action.</summary>
@@ -50,9 +50,9 @@ namespace Shields.Game.Tests
             setup.SelectShieldFor(2, setup.LocalPlayer.DealtCards[0]);
 
             Assert.AreEqual(SeatControl.LocalHuman,
-                BotTurnGate.ControlOf(new ShieldsMatch(setup.Deck, setup.Players, 2, TurnDirection.Clockwise), 2));
+                BotTurnGate.ControlOf(new ShieldsMatch(setup.Deck, setup.Players, 2), 2));
             Assert.AreEqual(SeatControl.Bot,
-                BotTurnGate.ControlOf(new ShieldsMatch(setup.Deck, setup.Players, 0, TurnDirection.Clockwise), 2));
+                BotTurnGate.ControlOf(new ShieldsMatch(setup.Deck, setup.Players, 0), 2));
         }
 
         [Test]

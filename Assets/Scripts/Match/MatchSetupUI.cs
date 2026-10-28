@@ -67,8 +67,8 @@ namespace Shields.Match
             GUILayout.EndHorizontal();
 
             GUILayout.Space(8f);
-            GUILayout.Label(string.Format("Seat {0} is you. The other {1} are bot placeholders.",
-                bootstrap.LocalPlayerIndex, bootstrap.TargetPlayerCount - 1));
+            GUILayout.Label(string.Format("You and {0} bots are seated at random every match.",
+                bootstrap.TargetPlayerCount - 1));
 
             if (GUILayout.Button("Deal and Start", GUILayout.Height(30f)))
                 bootstrap.StartMatch(bootstrap.TargetPlayerCount, bootstrap.DeckCount);

@@ -54,7 +54,27 @@ namespace Shields.Players
         float _targetYaw;
         float _targetPitch;
 
+        bool _inputSuppressed;
+        int _suppressionEndedFrame = -1;
+
         public Transform HeadPivot { get { return headPivot; } }
+
+        /// <summary>True while a menu owns the mouse and this look ignores input.</summary>
+        public bool InputSuppressed { get { return _inputSuppressed; } }
+
+        /// <summary>
+        /// Lets a small menu borrow the mouse without disabling this component, which
+        /// would reset the look and stop head pose replication. While suppressed the head
+        /// keeps its pose, reads no mouse delta, and leaves the cursor alone. Input stays
+        /// ignored for the rest of the frame suppression ends in, so the key or click that
+        /// closed the menu is not also read as a look or cursor toggle.
+        /// </summary>
+        public void SetInputSuppressed(bool suppressed)
+        {
+            if (_inputSuppressed && !suppressed) _suppressionEndedFrame = Time.frameCount;
+
+            _inputSuppressed = suppressed;
+        }
 
         /// <summary>Current look offset from the neutral seated direction, in degrees.</summary>
         public Vector2 LookAngles { get { return new Vector2(_yaw, _pitch - restPitch); } }
@@ -146,7 +166,9 @@ namespace Shields.Players
 
         void Update()
         {
-            if (Application.isPlaying)
+            bool inputBlocked = _inputSuppressed || Time.frameCount == _suppressionEndedFrame;
+
+            if (Application.isPlaying && !inputBlocked)
             {
                 HandleCursorToggle();
 

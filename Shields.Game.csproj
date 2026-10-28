@@ -59,6 +59,7 @@
     <Compile Include="Assets\Scripts\Game\TurnActionResult.cs" />
     <Compile Include="Assets\Scripts\Game\ShieldsMatch.cs" />
     <Compile Include="Assets\Scripts\Game\TurnTypes.cs" />
+    <Compile Include="Assets\Scripts\Game\TableGeometry.cs" />
     <Compile Include="Assets\Scripts\Game\HealthSlot.cs" />
     <Compile Include="Assets\Scripts\Game\MatchSetup.cs" />
   </ItemGroup>

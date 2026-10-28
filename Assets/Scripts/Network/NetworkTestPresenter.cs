@@ -214,16 +214,16 @@ namespace Shields.Network
                 bool isLocal = seat == localSeat;
                 SeatOccupant occupant = _seatRegistry.OccupantAt(seat);
 
-                // Nobody is a bot during TASK 008. An unoccupied seat is a passive
-                // placeholder body, which is not the same thing as a bot.
-                character.AssignIdentity(seat, isLocal, false);
+                // Bot seats come from the registry's seating for this match; an empty seat
+                // (connection test) is a passive placeholder, not a bot. Presentation only.
+                character.AssignIdentity(seat, isLocal, !isLocal && occupant.IsBot);
 
                 // Only the seat this machine owns reads the mouse. Remote humans are
                 // driven by the head pose bridge; empty seats stay still.
                 SeatedHeadLook look = character.GetComponent<SeatedHeadLook>();
                 if (look != null) look.enabled = isLocal;
 
-                // Presentation marker only, and there are no bots yet, so it stays off.
+                // Presentation marker only; online bots are driven by the host's policy.
                 BotController bot = character.GetComponent<BotController>();
                 if (bot != null) bot.enabled = false;
 

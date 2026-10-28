@@ -1773,6 +1773,7 @@
     <ProjectReference Include="Shields.Bots.csproj" />
     <ProjectReference Include="Shields.Game.csproj" />
     <ProjectReference Include="Shields.Cards.csproj" />
+    <ProjectReference Include="Shields.Social.csproj" />
     <ProjectReference Include="Shields.Online.csproj" />
     <ProjectReference Include="Shields.Session.csproj" />
   </ItemGroup>
