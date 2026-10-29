@@ -735,6 +735,7 @@ Transform:
   m_Children:
   - {fileID: 6178914291545284089}
   - {fileID: 7817806913887166425}
+  - {fileID: 1169853384720119266}
   m_Father: {fileID: 7714107223119592946}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5154517969911531280
@@ -768,6 +769,37 @@ Transform:
   m_Children:
   - {fileID: 6782824678227629158}
   m_Father: {fileID: 3034042394088591337}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5514331760503377188
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1169853384720119266}
+  m_Layer: 0
+  m_Name: DrinkMouthAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1169853384720119266
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5514331760503377188}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.022, z: 0.104}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8717489509487800965}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7964896676314311893
 GameObject:
@@ -863,6 +895,7 @@ MonoBehaviour:
   headVisual: {fileID: 8717489509487800965}
   cameraAnchor: {fileID: 5171871078126273572}
   rightHandAnchor: {fileID: 958016278873137070}
+  leftHandAnchor: {fileID: 0}
   weaponHolsterAnchor: {fileID: 7196607367452821000}
   weaponGripAnchor: {fileID: 8354970214536559340}
   weapon: {fileID: 7274486295811661190}

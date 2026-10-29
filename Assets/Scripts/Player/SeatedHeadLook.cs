@@ -56,8 +56,24 @@ namespace Shields.Players
 
         bool _inputSuppressed;
         int _suppressionEndedFrame = -1;
+        bool _pitchLocked;
 
         public Transform HeadPivot { get { return headPivot; } }
+
+        /// <summary>True while vertical look is frozen (drinking). Yaw keeps working.</summary>
+        public bool PitchLocked { get { return _pitchLocked; } }
+
+        /// <summary>
+        /// Freezes vertical look at the pitch the head has right now, without touching yaw,
+        /// the cursor or this component's enabled state. Unlocking simply lets mouse pitch
+        /// through again from that same pitch, so there is nothing to snap back to.
+        /// </summary>
+        public void SetPitchLocked(bool locked)
+        {
+            if (locked && !_pitchLocked) _targetPitch = _pitch;
+
+            _pitchLocked = locked;
+        }
 
         /// <summary>True while a menu owns the mouse and this look ignores input.</summary>
         public bool InputSuppressed { get { return _inputSuppressed; } }
@@ -157,6 +173,8 @@ namespace Shields.Players
         public void ApplyLookDelta(Vector2 pixelDelta)
         {
             _targetYaw = Mathf.Clamp(_targetYaw + pixelDelta.x * degreesPerPixel, -maxYaw, maxYaw);
+
+            if (_pitchLocked) return;
 
             // Positive pitch looks down, so moving the pointer up must lower it.
             float pitchDelta = pixelDelta.y * degreesPerPixel * (invertY ? -1f : 1f);

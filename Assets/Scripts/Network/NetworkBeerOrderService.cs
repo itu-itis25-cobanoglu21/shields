@@ -111,6 +111,82 @@ namespace Shields.Network
     }
 
     /// <summary>
+    /// The host's accepted drink, as every machine animates it. Start values only; nobody
+    /// streams the mug, hand or head afterwards.
+    /// </summary>
+    public struct BeerDrinkStartMessage : INetworkSerializable
+    {
+        public int OrderId;
+        public byte Seat;
+        public float StartFill;
+        public double StartTime;
+        public float LeadIn;
+        public float Rate;
+
+        public static BeerDrinkStartMessage From(BeerDrinkStart start)
+        {
+            return new BeerDrinkStartMessage
+            {
+                OrderId = start.Beer.OrderId,
+                Seat = (byte)Mathf.Clamp(start.Beer.Seat, 0, byte.MaxValue),
+                StartFill = start.StartFill,
+                StartTime = start.StartTime,
+                LeadIn = start.LeadInSeconds,
+                Rate = start.RatePerSecond
+            };
+        }
+
+        public BeerDrinkStart ToStart()
+        {
+            return new BeerDrinkStart(BeerDrinkRejection.None, new BeerId(OrderId, Seat), BeerLedger.Clamp01(StartFill),
+                StartTime, Mathf.Max(0f, LeadIn), Mathf.Max(0f, Rate));
+        }
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref OrderId);
+            serializer.SerializeValue(ref Seat);
+            serializer.SerializeValue(ref StartFill);
+            serializer.SerializeValue(ref StartTime);
+            serializer.SerializeValue(ref LeadIn);
+            serializer.SerializeValue(ref Rate);
+        }
+    }
+
+    /// <summary>The host's final word on a drink: the remaining beer everyone reconciles to.</summary>
+    public struct BeerDrinkStopMessage : INetworkSerializable
+    {
+        public int OrderId;
+        public byte Seat;
+        public float FinalFill;
+        public byte Reason;
+
+        public static BeerDrinkStopMessage From(BeerDrinkStop stop)
+        {
+            return new BeerDrinkStopMessage
+            {
+                OrderId = stop.Beer.OrderId,
+                Seat = (byte)Mathf.Clamp(stop.Beer.Seat, 0, byte.MaxValue),
+                FinalFill = stop.FinalFill,
+                Reason = (byte)stop.Reason
+            };
+        }
+
+        public BeerDrinkStop ToStop()
+        {
+            return new BeerDrinkStop(new BeerId(OrderId, Seat), BeerLedger.Clamp01(FinalFill), (BeerDrinkStopReason)Reason);
+        }
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref OrderId);
+            serializer.SerializeValue(ref Seat);
+            serializer.SerializeValue(ref FinalFill);
+            serializer.SerializeValue(ref Reason);
+        }
+    }
+
+    /// <summary>
     /// The online side of beer ordering. The host owns the one <see cref="BeerOrderQueue"/>;
     /// every machine, the host included, asks for an order through the same server RPC,
     /// exactly like turn actions do through <see cref="NetworkMatchController"/>.
@@ -135,8 +211,25 @@ namespace Shields.Network
         [Min(1)]
         [SerializeField] int maxQueuedOrders = BeerOrderQueue.DefaultMaxOrders;
 
+        [Tooltip("Seconds of continuous drinking that empty a full beer. Host authoritative.")]
+        [Min(0.5f)]
+        [SerializeField] float secondsPerBeer = BeerLedger.DefaultSecondsPerBeer;
+
         // Host only.
         BeerOrderQueue _queue;
+        BeerLedger _ledger;
+
+        /// <summary>Raised on every machine when the host accepted a drink.</summary>
+        public event Action<BeerDrinkStart> DrinkStarted;
+
+        /// <summary>Raised on every machine when the host ended a drink, with the final fill.</summary>
+        public event Action<BeerDrinkStop> DrinkStopped;
+
+        /// <summary>Raised on the requesting machine when the host refused its drink.</summary>
+        public event Action<BeerId, BeerDrinkRejection> DrinkRefused;
+
+        /// <summary>The authoritative beer ledger, on the host only and only while a match is Playing.</summary>
+        public BeerLedger HostLedger { get { return _ledger; } }
 
         /// <summary>Raised on the requesting machine when the host answers its order.</summary>
         public event Action<BeerOrderReceipt> ReceiptReceived;
@@ -183,6 +276,10 @@ namespace Shields.Network
             if (phase == OnlineMatchPhase.Playing)
             {
                 if (_queue == null) _queue = new BeerOrderQueue(orderCooldownSeconds, maxQueuedOrders);
+
+                // Beers belong to one match generation; a rematch gets a fresh ledger.
+                if (_ledger == null || _ledger.Generation != HostGeneration)
+                    _ledger = new BeerLedger(HostGeneration, secondsPerBeer);
             }
             else
             {
@@ -194,6 +291,11 @@ namespace Shields.Network
         {
             if (_queue != null) _queue.Clear();
             _queue = null;
+
+            // Every machine drops its drink presentation on its own when turn play ends,
+            // so no stop needs to be broadcast for drinks cut short here.
+            if (_ledger != null) _ledger.Clear();
+            _ledger = null;
         }
 
         // ------------------------------------------------------------------ client intent
@@ -330,6 +432,90 @@ namespace Shields.Network
 
             Action<int, bool> ended = WaiterDeliveryEnded;
             if (ended != null) ended(orderId, aborted);
+        }
+
+        // ------------------------------------------------------------------ drinking
+
+        /// <summary>
+        /// Local intent: start (or stop) drinking one of this machine's own beers. Only the
+        /// beer is named; the host derives the drinker from the sender and validates the rest.
+        /// </summary>
+        public bool RequestDrink(BeerId beer, bool start, int generation)
+        {
+            if (!IsSpawned || !beer.IsValid) return false;
+
+            DrinkRequestRpc(beer.OrderId, (byte)Mathf.Clamp(beer.Seat, 0, byte.MaxValue), start, generation);
+            return true;
+        }
+
+        [Rpc(SendTo.Server, Delivery = RpcDelivery.Reliable)]
+        void DrinkRequestRpc(int orderId, byte seat, bool start, int generation, RpcParams rpcParams = default)
+        {
+            if (!IsServer) return;
+
+            ulong sender = rpcParams.Receive.SenderClientId;
+            BeerId beer = new BeerId(orderId, seat);
+            SeatRegistry seats = seatRegistry != null ? seatRegistry.AuthoritativeSeats : null;
+            double now = Time.unscaledTimeAsDouble;
+
+            // A request from an earlier match never reaches this match's ledger.
+            bool live = _ledger != null && seats != null && matchController != null &&
+                matchController.Phase == OnlineMatchPhase.Playing && generation == HostGeneration;
+
+            if (!start)
+            {
+                BeerDrinkStop stop;
+                if (live && _ledger.TryStopFromParticipant(seats, sender, beer, generation, now,
+                        BeerDrinkStopReason.Released, out stop))
+                    BroadcastDrinkStopped(stop);
+
+                return;
+            }
+
+            BeerDrinkStart result = live
+                ? _ledger.TryStartFromParticipant(seats, sender, beer, generation, BuildHostRoster(), now)
+                : BeerDrinkStart.Refused(generation != HostGeneration ? BeerDrinkRejection.StaleGeneration
+                    : BeerDrinkRejection.NotAvailable, beer);
+
+            if (result.Accepted)
+                DrinkStartedRpc(BeerDrinkStartMessage.From(result), HostGeneration);
+            else
+                DrinkRefusedRpc(orderId, seat, (byte)result.Rejection, generation, RpcTarget.Single(sender, RpcTargetUse.Temp));
+        }
+
+        /// <summary>Host only: a drink ended on the host's side (released, empty, interrupted).</summary>
+        public void BroadcastDrinkStopped(BeerDrinkStop stop)
+        {
+            if (!IsServer || !IsSpawned) return;
+
+            DrinkStoppedRpc(BeerDrinkStopMessage.From(stop), HostGeneration);
+        }
+
+        [Rpc(SendTo.ClientsAndHost, Delivery = RpcDelivery.Reliable)]
+        void DrinkStartedRpc(BeerDrinkStartMessage start, int generation)
+        {
+            if (!IsCurrentGeneration(generation)) return;
+
+            Action<BeerDrinkStart> started = DrinkStarted;
+            if (started != null) started(start.ToStart());
+        }
+
+        [Rpc(SendTo.ClientsAndHost, Delivery = RpcDelivery.Reliable)]
+        void DrinkStoppedRpc(BeerDrinkStopMessage stop, int generation)
+        {
+            if (!IsCurrentGeneration(generation)) return;
+
+            Action<BeerDrinkStop> stopped = DrinkStopped;
+            if (stopped != null) stopped(stop.ToStop());
+        }
+
+        [Rpc(SendTo.SpecifiedInParams, Delivery = RpcDelivery.Reliable)]
+        void DrinkRefusedRpc(int orderId, byte seat, byte rejection, int generation, RpcParams rpcParams)
+        {
+            if (!IsCurrentGeneration(generation)) return;
+
+            Action<BeerId, BeerDrinkRejection> refused = DrinkRefused;
+            if (refused != null) refused(new BeerId(orderId, seat), (BeerDrinkRejection)rejection);
         }
 
         /// <summary>

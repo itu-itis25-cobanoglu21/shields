@@ -109,6 +109,19 @@ namespace Shields.Match
 
         readonly Dictionary<int, ThrowMotion> _throws = new Dictionary<int, ThrowMotion>();
 
+        /// <summary>
+        /// Raised with the seat just before a targeted action takes that seat's left hand,
+        /// before its rest pose is read. Cosmetic users of the hand (beer drinking) must give
+        /// it up at once: gameplay presentation always wins.
+        /// </summary>
+        public event Action<int> LeftHandClaimed;
+
+        /// <summary>True while a targeted action (anticipation, throw or return) owns the seat's left hand.</summary>
+        public bool IsLeftHandBusy(int seat)
+        {
+            return _throws.ContainsKey(seat);
+        }
+
         // ------------------------------------------------------------------ events
 
         /// <summary>
@@ -219,6 +232,10 @@ namespace Shields.Match
             PlayerCharacter player = _table != null ? _table.GetPlayer(seat) : null;
             Transform hand = player != null ? player.LeftHandAnchor : null;
             if (hand == null || _deck == null || _cardPrefab == null) return null;
+
+            // A drink in progress lets go of the hand (and re-seeds its true rest) first.
+            Action<int> claimed = LeftHandClaimed;
+            if (claimed != null) claimed(seat);
 
             Pose rest = RestPoseOf(hand);
 

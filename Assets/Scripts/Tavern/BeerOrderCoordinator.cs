@@ -57,10 +57,55 @@ namespace Shields.Tavern
         [Header("Presentation")]
         [SerializeField] TableLayoutController tableLayout;
 
+        [Header("Drinking (offline authority)")]
+        [Tooltip("Seconds of continuous drinking that empty a full beer, offline. The online host has its own value.")]
+        [Min(0.5f)]
+        [SerializeField] float offlineSecondsPerBeer = BeerLedger.DefaultSecondsPerBeer;
+
         BeerOrderQueue _offlineQueue;
+        BeerLedger _offlineLedger;
+        int _offlineGeneration;
         ShieldsMatch _offlineMatch;
         bool _onlinePlaying;
         float _localCooldownUntil;
+
+        /// <summary>The drinking front end, created with this component so the scene needs no new wiring.</summary>
+        public BeerDrinkCoordinator Drinks { get; private set; }
+
+        /// <summary>
+        /// The authoritative beer ledger when this machine is the authority: the offline
+        /// match, or the host online. Null on an online client and outside turn play.
+        /// </summary>
+        public BeerLedger AuthoritativeLedger
+        {
+            get
+            {
+                if (Online) return onlineOrders != null ? onlineOrders.HostLedger : null;
+
+                return _offlineLedger;
+            }
+        }
+
+        /// <summary>
+        /// The match generation a drink request must carry: the online match generation, or
+        /// the offline match counter. Stale requests are refused by the ledger.
+        /// </summary>
+        public int CurrentGeneration
+        {
+            get
+            {
+                if (Online) return onlineMatch.Generation;
+
+                return _offlineLedger != null ? _offlineLedger.Generation : _offlineGeneration;
+            }
+        }
+
+        /// <summary>Authority only: a mug was handed over, so it becomes a drinkable beer.</summary>
+        public void RegisterDeliveredBeer(BeerId beer)
+        {
+            BeerLedger ledger = AuthoritativeLedger;
+            if (ledger != null && ledger.Register(beer)) Debug.Log("Beer delivered: " + beer, this);
+        }
 
         /// <summary>Raised on this machine when its own order was accepted or refused.</summary>
         public event Action<BeerOrderReceipt> ReceiptReceived;
@@ -160,6 +205,21 @@ namespace Shields.Tavern
             }
         }
 
+        /// <summary>
+        /// Whether a seat is alive in this machine's public match state (offline engine or
+        /// the last host snapshot). Presentation checks only; the authority decides.
+        /// </summary>
+        public bool IsSeatAlive(int seat)
+        {
+            if (Online)
+            {
+                PublicMatchSnapshot snapshot = onlineMatch.MatchSnapshot;
+                return snapshot.IsValid && seat >= 0 && seat < snapshot.PlayerCount && snapshot.GetPlayer(seat).IsAlive;
+            }
+
+            return _offlineMatch != null && seat >= 0 && seat < _offlineMatch.PlayerCount && _offlineMatch.Players[seat].IsAlive;
+        }
+
         /// <summary>True while the local player is choosing an action target with the crosshair.</summary>
         public bool LocalTargetingActive
         {
@@ -179,6 +239,14 @@ namespace Shields.Tavern
         public float LocalCooldownRemaining { get { return Mathf.Max(0f, _localCooldownUntil - Time.unscaledTime); } }
 
         // ------------------------------------------------------------------ lifecycle
+
+        void Awake()
+        {
+            Drinks = GetComponent<BeerDrinkCoordinator>();
+            if (Drinks == null) Drinks = gameObject.AddComponent<BeerDrinkCoordinator>();
+
+            Drinks.Bind(this);
+        }
 
         void OnEnable()
         {
@@ -214,14 +282,22 @@ namespace Shields.Tavern
             ForgetOfflineMatch();
 
             _offlineMatch = live;
-            if (live != null) _offlineQueue = new BeerOrderQueue(offlineCooldownSeconds, offlineMaxQueuedOrders);
+            if (live != null)
+            {
+                _offlineQueue = new BeerOrderQueue(offlineCooldownSeconds, offlineMaxQueuedOrders);
+
+                // Every offline match gets its own generation, exactly like online rematches.
+                _offlineLedger = new BeerLedger(++_offlineGeneration, offlineSecondsPerBeer);
+            }
         }
 
         void ForgetOfflineMatch()
         {
             if (_offlineQueue != null) _offlineQueue.Clear();
+            if (_offlineLedger != null) _offlineLedger.Clear();
 
             _offlineQueue = null;
+            _offlineLedger = null;
             _offlineMatch = null;
             _localCooldownUntil = 0f;
         }

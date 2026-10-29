@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Shields.Players;
 using Shields.Social;
 using Shields.Table;
 
@@ -19,7 +20,12 @@ namespace Shields.Tavern
     ///
     /// Route: spawn outside, beside the doorway where no seat can see it → through the
     /// doorway → the ring outside the chairs → in to each stop (behind the recipient's
-    /// right shoulder) → back out → round to the door → out → removed.
+    /// LEFT shoulder, in that seat's own frame) → back out → round to the door → out →
+    /// removed. The mug goes onto the recipient's LEFT, so the serving hand stays on that
+    /// side and never crosses the seated player.
+    ///
+    /// Every route point lies on the measured floor surface, so the waiter's ground point
+    /// (its invisible feet) is on the floor at the lowest point of each step.
     /// </summary>
     [DisallowMultipleComponent]
     public class WaiterPresenter : MonoBehaviour
@@ -45,6 +51,10 @@ namespace Shields.Tavern
         [Tooltip("Outside, on the other side of the doorway, hidden from every seat.")]
         [SerializeField] Transform waiterExit;
 
+        [Header("Ground")]
+        [Tooltip("World height of the tavern's walking surface: the top of the floor tiles (Environment/Tavern/floorN mesh bounds top, measured 0.041 m). The waiter's ground point is put here.")]
+        [SerializeField] float floorSurfaceHeight = 0.041f;
+
         [Header("Route")]
         [Tooltip("Ring radius beyond the seat ring. Keeps the waiter and tray clear of chairs and players.")]
         [SerializeField] float ringClearance = 1.0f;
@@ -52,7 +62,7 @@ namespace Shields.Tavern
         [Tooltip("How far behind the seat ring the waiter stands to serve.")]
         [SerializeField] float stopClearance = 0.62f;
 
-        [Tooltip("Stops sit this many degrees round from the recipient, behind their right shoulder (capped at 45% of a seat step).")]
+        [Tooltip("Stops sit this many degrees round the ring from the recipient toward their LEFT, behind their left shoulder (capped at 45% of a seat step).")]
         [SerializeField] float stopAngle = 22f;
 
         [SerializeField] float walkSpeed = 1.1f;
@@ -85,6 +95,12 @@ namespace Shields.Tavern
 
         [Tooltip("Extra height at the middle of the carry, so the mug arcs instead of sliding.")]
         [SerializeField] float carryArc = 0.10f;
+
+        [Tooltip("The carry curves through a point this far out to the recipient's LEFT of their body centre line, so the hand and mug pass beside the shoulder, never through the player.")]
+        [SerializeField] float leftClearance = 0.40f;
+
+        [Tooltip("Height above the floor of that clearance point: around the seated shoulder.")]
+        [SerializeField] float clearanceHeight = 1.02f;
 
         /// <summary>The waiter reached a stop: order id, seat. The authority answers with a decision.</summary>
         public event Action<int, int> StopReached;
@@ -161,13 +177,14 @@ namespace Shields.Tavern
         float StopAbsoluteAngle(int seat)
         {
             // Seat yaw matches SeatLayout: a seat at yaw a sits at Euler(0, a, 0) * back.
-            // Toward lower yaw is the seated player's right.
-            return SeatLayout.SeatYaw(seat, Metrics) - StopOffset;
+            // Toward higher yaw is the seated player's LEFT (seat 0 faces +Z, and +yaw moves
+            // round toward -X), so this is behind their left shoulder in their own frame.
+            return SeatLayout.SeatYaw(seat, Metrics) + StopOffset;
         }
 
         Vector3 PointOnCircle(float absoluteDegrees, float radius)
         {
-            Vector3 center = tableLayout.TableCenter;
+            Vector3 center = Flat(tableLayout.TableCenter);
             return center + Quaternion.Euler(0f, absoluteDegrees, 0f) * (Vector3.back * radius);
         }
 
@@ -247,6 +264,19 @@ namespace Shields.Tavern
             if (tableLayout == null) return 0;
 
             int removed = 0;
+
+            // A mug being drunk is in a hand, not in its slot: it goes too.
+            IReadOnlyList<BeerMugVisual> mugs = BeerMugVisual.Active;
+            for (int i = mugs.Count - 1; i >= 0; i--)
+            {
+                BeerMugVisual mug = mugs[i];
+                if (mug == null || !mug.IsDelivered || mug.IsHome) continue;
+
+                mug.transform.SetParent(null, true);
+                Destroy(mug.gameObject);
+                removed++;
+            }
+
             foreach (PlayerTableArea area in tableLayout.TableAreas)
             {
                 if (area == null) continue;
@@ -364,9 +394,12 @@ namespace Shields.Tavern
                 yield break;
             }
 
-            List<Vector3> slots = DrinkAreaLayout.Slots(Metrics);
+            // Face the slot this mug will take: the next free one.
             Transform drinkArea = area.DrinkArea;
-            yield return FaceTowards(drinkArea.TransformPoint(slots[0]));
+            Vector3 nextSlotLocal;
+            Quaternion nextSlotRotation;
+            DrinkAreaLayout.Pose(drinkArea.childCount, Metrics, out nextSlotLocal, out nextSlotRotation);
+            yield return FaceTowards(drinkArea.TransformPoint(nextSlotLocal));
             yield return new WaitForSeconds(stopSettle);
 
             Action<int, int> reached = StopReached;
@@ -458,15 +491,17 @@ namespace Shields.Tavern
 
             if (TableLost(slot, mug)) yield break;
 
-            // 3. Carry it over to the player's DrinkArea; unlimited reach, a small arc.
+            // 3. Carry it over to the player's DrinkArea along a small curve that passes
+            //    beside the recipient's LEFT shoulder, never through their body.
             from = hand.position;
             Vector3 mugToHand = hand.position - mug.position;
             Vector3 handTarget = slot.position + mugToHand;
+            Vector3 through = CarryClearancePoint(seat, from, handTarget, mugToHand);
             Quaternion mugFrom = mug.rotation;
             yield return Animate(extendToPlayer, t =>
             {
                 if (slot == null || mug == null) return;
-                hand.position = Vector3.Lerp(from, handTarget, t) + Vector3.up * (carryArc * Mathf.Sin(t * Mathf.PI));
+                hand.position = CurveThrough(from, through, handTarget, t);
                 hand.rotation = rest.rotation;
                 mug.rotation = Quaternion.Slerp(mugFrom, slot.rotation, t);
             });
@@ -481,6 +516,10 @@ namespace Shields.Tavern
             mug.localScale = scale;
             mug.name = "BeerMug_Order" + _plan.OrderId + "_Seat" + seat;
 
+            // From now on this mug is a drinkable beer, full, at home in this slot.
+            BeerMugVisual visual = mug.GetComponent<BeerMugVisual>();
+            if (visual != null) visual.MarkDelivered(new BeerId(_plan.OrderId, seat), slot);
+
             yield return new WaitForSeconds(placePause);
 
             // 5. Hand back to rest.
@@ -492,6 +531,44 @@ namespace Shields.Tavern
             });
 
             waiter.DeliveryHandBusy = false;
+        }
+
+        /// <summary>
+        /// The point the carrying hand passes through halfway: the straight line's midpoint,
+        /// pushed out to the recipient's LEFT until it clears their shoulder by
+        /// <see cref="leftClearance"/>, and lifted to shoulder height. Built in the
+        /// recipient's own frame, so it works for every seat. Only ever moves the path
+        /// further left, never toward the player.
+        /// </summary>
+        Vector3 CarryClearancePoint(int seat, Vector3 from, Vector3 to, Vector3 mugToHand)
+        {
+            Vector3 mid = (from + to) * 0.5f + Vector3.up * carryArc;
+
+            PlayerCharacter player = tableLayout.GetPlayer(seat);
+            if (player == null) return mid;
+
+            Transform body = player.transform;
+            Vector3 left = -body.right;
+            left.y = 0f;
+            left.Normalize();
+
+            // The mug's centre must clear the shoulder; the hand rides above it.
+            float midLateral = Vector3.Dot(mid - mugToHand - body.position, left);
+            float push = Mathf.Max(0f, leftClearance - midLateral);
+
+            Vector3 point = mid + left * push;
+
+            float minHandY = floorSurfaceHeight + clearanceHeight + mugToHand.y;
+            point.y = Mathf.Max(point.y, minHandY);
+            return point;
+        }
+
+        /// <summary>Quadratic curve from a to c that passes exactly through b at t = 0.5.</summary>
+        static Vector3 CurveThrough(Vector3 a, Vector3 b, Vector3 c, float t)
+        {
+            Vector3 control = 2f * b - 0.5f * (a + c);
+            float u = 1f - t;
+            return u * u * a + 2f * u * t * control + t * t * c;
         }
 
         /// <summary>
@@ -603,8 +680,7 @@ namespace Shields.Tavern
 
         Vector3 Flat(Vector3 point)
         {
-            float floor = tableLayout != null ? tableLayout.TableCenter.y : 0f;
-            return new Vector3(point.x, floor, point.z);
+            return new Vector3(point.x, floorSurfaceHeight, point.z);
         }
 
         void CacheMugHeight()

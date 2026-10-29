@@ -402,6 +402,16 @@ namespace Shields.Match
             return rest;
         }
 
+        /// <summary>
+        /// Tells the presenter a part's true rest pose (local) if it has not captured one yet.
+        /// Used by cosmetic animations that move a hand, so a gameplay action starting
+        /// mid-animation never mistakes the moved pose for the rest pose.
+        /// </summary>
+        public void SeedRestPose(Transform part, Pose localRest)
+        {
+            if (part != null && !_restPoses.ContainsKey(part)) _restPoses[part] = localRest;
+        }
+
         // ------------------------------------------------------------------ cards and flame
 
         CardView TakePending(int seat)

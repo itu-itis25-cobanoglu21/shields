@@ -1,1013 +1,1458 @@
-# TASK 026 — Rematch Voting, Full Match Reset, Random Seating & Clockwise Turns
+# TASK 027 — Waiter Grounding, Left-Side Service & Realistic Beer Drinking
 
 Read `CLAUDE.md`, `SHIELDS_RULES.md`, and this entire TASK.md before modifying anything.
 
-TASK 025 completed the waiter delivery system.
+The Beer Order foundation and Waiter Delivery presentation already exist.
 
-Before implementing drinking, we need to make repeated matches inside the SAME online session reliable.
+This task has TWO related goals:
 
-This task introduces:
+1. Fix the remaining waiter presentation problems.
+2. Add the first complete player beer-drinking presentation.
 
-1. multiplayer-safe REMATCH voting
-2. a clean full match reset without leaving the session
-3. fresh randomized seat assignment for EVERY match
-4. offline random seating too
-5. clockwise-only turn direction
-6. a proper fix for the existing second-online-match snapshot/revision bug
+Do NOT redesign Beer Ordering, queue authority, waiter networking, or SHIELDS gameplay rules.
 
-This is a gameplay/session architecture task.
-
-Do not treat it as a simple UI restart button.
+Beer remains purely cosmetic/social.
 
 ---
 
-# 1. Important architecture rule
+# 1. Existing systems to preserve
 
-A PARTICIPANT is not a SEAT.
+Inspect the current project before editing.
 
-A participant/client may occupy a different seat in every match.
+Preserve the existing:
 
-Never assume:
+- BeerOrderQueue
+- BeerOrderCoordinator
+- NetworkBeerOrderService
+- WaiterDeliveryCoordinator
+- WaiterDeliveryScheduler
+- WaiterRoutePlanner
+- WaiterPresenter
+- WaiterCharacter
+- BeerMug prefab
+- WaiterTray prefab
+- PlayerTableArea DrinkArea
+- multiplayer participant → seat mapping
+- rematch/match-generation architecture if currently present
+- existing gameplay animation systems
 
-`clientId == seat`
-
-and do not introduce any new assumptions that:
-
-`participant identity == permanent seat`
-
-The existing explicit participant/client → seat mapping remains authoritative.
-
-For every new match, the host assigns seats again.
-
----
-
-# 2. Match-scoped vs session-scoped state
-
-REMATCH must keep the existing online SESSION alive.
-
-Keep session-scoped systems such as:
-
-- Multiplayer Services session
-- Relay connection
-- NGO connection
-- NetworkManager
-- connected participants
-
-Do NOT:
-
-- disconnect everyone
-- destroy/recreate NetworkManager
-- leave and rejoin the Session
-- create a new room code
-- create a new Relay allocation solely for rematch
-
-Instead, completely reset/recreate MATCH-SCOPED state.
+Do not rewrite working systems unless a small targeted change is necessary.
 
 ---
 
-# 3. Rematch UI
+# PART A — WAITER PRESENTATION FIXES
 
-When a match reaches MatchOver, show a small clear post-match rematch control.
+# 2. Current waiter grounding problem
 
-Suggested presentation:
+The waiter currently looks like it is moving/floating in the air.
 
-`REMATCH?`
+The walking bob itself is acceptable in concept, but its LOWEST point needs to visually correspond to ground contact.
 
-button.
+The waiter should feel like an invisible pair of feet is touching the floor.
 
-After the local human votes yes:
+Desired visual:
 
-`REMATCH ✓`
-`WAITING 2 / 3`
+lowest point of walking cycle
+→ grounded
+
+upper part of walking cycle
+→ small lift
+
+lowest point again
+→ grounded
+
+Not:
+
+floating baseline
+→ bob slightly above floor
+→ still floating
+
+---
+
+# 3. Ground-contact baseline
+
+Inspect the actual waiter prefab, mesh bounds, root position and tavern floor height.
+
+Create/use a reliable waiter ground reference.
+
+For example:
+
+`WaiterGroundPoint`
 
 or equivalent.
 
-The exact visual style should fit the current gameplay HUD.
+At the LOWEST point of the walking bob, the intended ground-contact point must visually align with the floor.
 
-Do not redesign the whole post-match UI.
+Do not guess using an arbitrary Y offset.
 
----
+Determine it from:
 
-# 4. Who votes
-
-ONLINE:
-
-Every currently connected HUMAN participant in the match/session must vote REMATCH.
-
-Bots do not vote.
-
-Bots are implicitly ready for the next match.
-
-Example:
-
-3 humans + 3 bots
-
-required votes:
-
-`3 / 3 humans`
-
-not:
-
-`6 / 6`
-
-Host also has to vote if the host is a human participant.
+- actual waiter visual dimensions
+- current route Y
+- actual tavern floor
 
 ---
 
-# 5. Offline rematch
+# 4. Walking bob must rise FROM the ground
 
-Offline has only one human decision maker.
+The walking bob should no longer oscillate around a floating vertical centre.
 
-At MatchOver:
-
-local human presses REMATCH
-→ immediately proceed into the same rematch pipeline
-
-Bots are implicitly ready.
-
-Do not create a separate incompatible offline restart implementation.
-
-Reuse the same logical match-reset path where practical.
-
----
-
-# 6. Vote authority
-
-Rematch voting must be host-authoritative online.
-
-Clients only send intent such as:
-
-`RequestRematchVote(true)`
-
-The host determines:
-
-- sender identity
-- sender's participant/seat mapping
-- whether match is actually over
-- whether that participant may vote
-- current connected-human voter set
-- whether unanimity has been reached
-
-Clients do not directly start a new match.
-
----
-
-# 7. Vote behavior
-
-Each connected human gets at most one current vote.
-
-Preferred behavior:
-
-press REMATCH
-→ vote becomes YES
-
-Allow the player to cancel their vote before unanimity starts the match if easy and clean.
-
-For example:
-
-`CANCEL REMATCH`
-
-This is optional if existing UI architecture makes it awkward.
-
-Once unanimity is reached and restart begins:
-
-lock the vote state.
-
-Do not allow duplicate votes.
-
----
-
-# 8. Disconnects while waiting
-
-The required voter set should be based on CURRENT connected human participants.
-
-If a player disconnects while everyone is waiting:
-
-remove that participant from the required voter set.
-
-Then re-evaluate unanimity.
-
-Example:
-
-3 humans
-A = yes
-B = yes
-C disconnects
-
-→ remaining humans are A + B
-→ unanimity is satisfied
-→ rematch may begin
-
-Do not keep a disconnected participant blocking the lobby forever.
-
-Do not invent automatic reconnection handling in this task.
-
----
-
-# 9. Join during MatchOver
-
-Do not introduce complicated mid-rematch join behavior.
-
-Inspect current session rules.
-
-If joining a session after the match has already started/ended is not currently supported, preserve that restriction.
-
-Do not redesign matchmaking or late-join.
-
-Report the existing behavior.
-
----
-
-# 10. Rematch status broadcast
-
-All clients should see authoritative rematch status.
-
-At minimum broadcast enough state to display:
-
-- local voted / not voted
-- number of YES votes
-- number of currently required human votes
-- restart beginning
-
-Do not rely on each client independently counting UI state.
-
----
-
-# 11. Unanimous restart
-
-When:
-
-`yesVotes == connectedHumanParticipants`
-
-and there is at least one connected human:
-
-host begins ONE rematch transition.
-
-Protect against starting twice because multiple votes/RPCs arrive close together.
-
-Use an authoritative restart-in-progress guard/state.
-
----
-
-# 12. Full match reset
-
-A rematch means a genuinely NEW match.
-
-Do not reuse previous `ShieldsMatch` gameplay state.
-
-Reset/recreate all match-specific state including:
-
-- authoritative match instance
-- deck(s)
-- shuffle
-- draw pile
-- discard pile
-- initial cards
-- Health values
-- Shield cards
-- stored Charge cards
-- turn state
-- current action
-- target-selection state
-- death state
-- winner state
-- starting player
-- turn counter
-- initial Shield selection
-- physical/public card presentation
-- temporary action/reveal cards
-
-The new match should look and behave like a fresh first game.
-
----
-
-# 13. Deck/configuration behavior
-
-Keep the SAME match configuration for a rematch unless existing project architecture clearly says otherwise.
-
-For example:
-
-- same number of total participants
-- same configured deck count (1 or 2)
-- same bot count
-
-Do not reopen the entire host setup screen merely to rematch.
-
-But:
-
-the deck itself must be freshly created and shuffled.
-
-No previous card order may carry over.
-
----
-
-# 14. Initial setup happens again
-
-The new match must repeat normal SHIELDS starting flow.
-
-That means:
-
-- each participant receives 3 fresh face-up cards
-- human chooses exactly 1 as Shield again
-- remaining 2 become Health
-- bots choose Shield through the existing bot behavior
-
-Do not carry the previous Shield/Health selection into rematch.
-
----
-
-# 15. Social/presentation reset
-
-A new match must also clear previous-match social/presentation state.
-
-At rematch transition:
-
-- abort/remove an active waiter
-- clear pending BeerOrder queue
-- clear BeerOrder cooldowns
-- remove tray mugs
-- remove delivered mugs from all DrinkAreas
-- clear Beer Order UI state
-- clear rematch UI/votes from the previous match
-
-Do not let beers from Match 1 remain on the table in Match 2.
-
----
-
-# 16. Other presentation cleanup
-
-Inspect the existing GameScene presentation and clean all match-scoped visuals.
-
-Examples include:
-
-- discard presentation
-- card hands
-- charge flames
-- weapon/action state
-- hit/reaction state
-- temporary VFX
-- selected-target state
-
-Do not blindly destroy environment objects.
-
-The tavern, table model, lighting and static scene remain.
-
-The PLAY STATE around them is rebuilt.
-
----
-
-# 17. Random seating — applies to every match
-
-Seat assignments must be freshly randomized for:
-
-- first offline match
-- offline rematch
-- first online match
-- online rematch
-- later rematches too
-
-Do not special-case only rematches.
-
-The host/authority generates the assignment.
-
----
-
-# 18. Offline seating
-
-Currently the local offline human often ends up in the same seat.
-
-Fix this.
-
-For an offline match with:
-
-1 human + N bots
-
-randomly assign ALL match participants to the available seats.
-
-The local human may therefore start in any valid seat.
-
-Bots fill the remaining seats randomly.
-
-All local systems must follow the actual local human seat.
-
-Do not assume the human is seat 0.
-
----
-
-# 19. Online seating
-
-For online matches:
-
-randomly assign all current match participants to the available seats.
-
-This includes:
-
-- host human
-- remote humans
-- bots
-
-Preserve participant identity and network ownership while changing only seat assignment.
-
-The mapping must be published authoritatively before match presentation starts.
-
----
-
-# 20. Fresh shuffle every match
-
-Generate a new random seat permutation for every match.
-
-If player count > 1 and the generated COMPLETE assignment is identical to the previous match's complete assignment:
-
-reroll so the whole table is not exactly identical again.
-
-Individual participants are still allowed to coincidentally remain in the same seat.
-
-Do NOT attempt to guarantee that every single player moves.
-
-That would no longer be a normal shuffle.
-
----
-
-# 21. Seat mapping ordering
-
-Rematch startup must have a safe ordering.
+Use a one-sided ground-relative cycle.
 
 Conceptually:
 
-MatchOver
-→ unanimous rematch
-→ enter Restarting state
-→ teardown old match/presentation
-→ generate new seat assignment
-→ publish/update authoritative participant → seat mapping
-→ clients apply the new mapping
-→ rebuild seat/player presentation
-→ create/start fresh match
-→ initial deal
-→ Shield selection
-→ Playing
+`groundedY + bobAmount`
 
-Do not start dealing cards using stale seat mappings.
+where:
 
----
+`bobAmount >= 0`
 
-# 22. Local camera after seat shuffle
+at all times.
 
-The local gameplay camera must follow the local participant's NEW seat.
+The minimum of the cycle must be exactly the grounded baseline.
 
-After every seat reassignment:
+The body may rise slightly during the step and return to the ground.
 
-- correct local PlayerCharacter owns/uses the gameplay camera
-- only local gameplay camera is active
-- view begins from the new chair/seat
-- crosshair and head-look still work
-- remote players do not gain a local camera
+Preferred amplitude remains subtle:
 
-This applies both offline and online.
+approximately:
+
+`0.02–0.03 m`
+
+Start near the existing:
+
+`0.025 m`
+
+Do not make it cartoonishly bouncy.
 
 ---
 
-# 23. Player character rebuilding
+# 5. Preserve tray stability
 
-Inspect whether current player characters can safely be rebound to new seats or should be rebuilt.
+The tray-carrying hand and tray must remain visually stable.
 
-Choose the cleaner existing architecture-compatible solution.
+The waiter body/head may bob.
 
-A rematch must NOT leave:
+The tray should NOT inherit the full body bob.
 
-- old characters at previous seats
-- duplicate characters
-- duplicated chairs
-- stale ownership markers
-- old bot/human visual identities attached to wrong seats
+Keep the existing architectural separation where possible.
 
-Report whether you rebuild or rebind them.
+Acceptance:
 
----
-
-# 24. Bot identity after shuffle
-
-`MatchPlayerState.IsBot` remains authoritative.
-
-Random seating must not accidentally turn:
-
-- a human seat into bot control
-- a bot seat into human local control
-
-Participant type follows the participant, not the old seat.
-
-Do not use presence of `BotController` as authoritative identity.
+walking body visibly moves slightly
+while
+tray remains substantially level/stable.
 
 ---
 
-# 25. Clockwise-only turns — rules change
+# 6. Grounding vs proportions
 
-SHIELDS should no longer choose a random turn direction.
+If simply lowering the existing visual makes the waiter look unnaturally short:
 
-From now on:
+do not blindly force the entire body mesh to floor level.
 
-**every match always proceeds clockwise around the table.**
+Instead establish a believable conceptual foot/contact point and adjust:
 
-This applies to:
+- body offset
+- head offset
+- standing visual offset
+- bob baseline
 
-- offline
-- online
-- first match
-- every rematch
-- 3–8 players
+as needed.
 
-The starting player may STILL be chosen randomly from living players at the beginning of each new match.
+The final waiter should:
 
-Only the DIRECTION becomes fixed.
+- look grounded
+- retain believable SHIELDS-character proportions
+- still align correctly with table/players
+- not look like a seated character sliding around
 
----
-
-# 26. Determine actual clockwise direction correctly
-
-Do NOT assume numeric seat `+1` or `-1` is clockwise without inspecting the real seat layout.
-
-Inspect:
-
-- `TableLayoutController`
-- seat-angle generation
-- current turn-direction representation
-- camera/table orientation
-
-Determine which seat progression is VISUALLY clockwise.
-
-Then make the authoritative match use that direction consistently.
-
-Add tests that verify the actual intended seat order.
+Visual result is more important than preserving the old arbitrary standing Y.
 
 ---
 
-# 27. Update SHIELDS_RULES.md
+# 7. Waiter service-side problem
 
-This is an intentional game-rule change.
+The waiter currently tends to stop behind the player's RIGHT side and then reach across the player toward the player's LEFT DrinkArea.
 
-Update `SHIELDS_RULES.md`.
+This causes the delivery hand/path to visually pass through the seated player.
 
-Replace the old rule that chooses a random fixed direction.
-
-The rule should now state the equivalent of:
-
-- choose a random living starting player
-- turn direction is always clockwise
-- dead players are skipped
-
-Keep the document terminology/style consistent.
-
-Do not leave documentation disagreeing with runtime behavior.
+Fix this.
 
 ---
 
-# 28. Existing online second-match bug
+# 8. Waiter must always serve from player LEFT-REAR
 
-There is an existing bug discovered during TASK 025:
+For each recipient, calculate the waiter stop from the RECIPIENT'S local orientation.
 
-On a second online match inside the same session:
+The waiter should stop:
 
-`NetworkMatchController.StartMatch`
+**behind and to the LEFT of the recipient.**
 
-resets host-side snapshot/revision counters, while clients retain previous values such as:
+Think:
 
-- `_appliedSetupRevision`
-- `_appliedMatchRevision`
+player facing table
+→ waiter stands over player's left-back shoulder
 
-The clients then treat new-match snapshots as stale and discard them.
+Do NOT define this using global left/right.
 
-This prevented the second online match from reaching Shield selection.
+Use seat-local/player-local orientation.
 
-Fix this as part of the rematch architecture.
+Conceptually:
 
----
+`stop = seat position + behind offset + left offset`
 
-# 29. Robust match generation / revision handling
-
-Do not just patch one counter blindly.
-
-Inspect the existing snapshot architecture.
-
-Preferred robust concept:
-
-introduce or reuse an authoritative per-match generation/epoch identifier.
-
-For example:
-
-`MatchGeneration`
-
-Host increments it for every new match.
-
-Snapshots/results belong to:
-
-`generation + revision`
-
-Client behavior:
-
-- newer generation:
-  - reset per-match applied-revision tracking
-  - accept the new match's snapshots
-- same generation:
-  - normal revision ordering
-- older generation:
-  - reject as stale
-
-This protects the system against delayed messages from a previous match.
-
-If the existing architecture already has an equivalent match-instance concept, reuse it instead of adding another.
-
-If a simpler reset mechanism is genuinely safe because of existing reliable ordering, explain why.
+Tune visually.
 
 ---
 
-# 30. Match generation consistency
+# 9. Suggested left-rear geometry
 
-The same generation identity should cover all network state whose revisions restart per match.
+Use the current seat-relative system but change it so the waiter is approximately:
 
-Audit at least:
+- 20–35° around toward the player's LEFT rear
+- outside the chair/player footprint
+- sufficiently behind the player not to block first-person view
 
-- setup snapshot revisions
-- match snapshot revisions
-- match-start state
-- public presentation refresh triggers
+Preserve the efficient route around the table.
 
-Do not fix only ShieldSelection and leave another revision channel broken on Match 3.
+Do not force all stops to global coordinates.
 
----
-
-# 31. Multiple rematches
-
-The system must support:
-
-Match 1
-→ rematch
-→ Match 2
-→ rematch
-→ Match 3
-→ rematch
-→ Match 4
-
-without reconnecting.
-
-Do not implement a one-rematch-only solution.
-
-Counters/epochs, votes and seat assignments must continue working indefinitely within the session.
-
----
-
-# 32. Random starting player
-
-At each new match:
-
-choose a fresh random living starting player through authoritative match setup.
-
-Seat randomization and starting-player randomization are separate.
-
-Do not always make seat 0 start.
-
----
-
-# 33. Offline first-match validation
-
-Start offline multiple times.
-
-Use at least:
+Must continue working for:
 
 - 3 players
 - 6 players
 - 8 players
 
-Confirm:
+---
 
-- local human is not hard-coded to seat 0
-- participant seating is generated through the new shuffle
-- bots fill remaining seats correctly
-- camera follows local human
-- clockwise order is correct
+# 10. Beer must be placed on player's LEFT
 
-Because randomness can repeat by chance, inspect the actual generated seat mappings rather than expecting a different local seat on every launch.
+Delivered mugs should remain on the player's LEFT side of the table presentation.
+
+The existing DrinkArea is already intended to live on that side.
+
+Inspect and retune it if necessary.
+
+The delivered mug must avoid:
+
+- Health cards
+- Shield
+- Charge card
+- action/reveal card
+- neighbouring player's cards
+- table edge
 
 ---
 
-# 34. Offline rematch validation
+# 11. No hand-through-body delivery
 
-Complete or safely force MatchOver through existing development/test mechanisms.
+Because the waiter is now behind-left and the beer destination is also on the player's left:
 
-Press REMATCH.
+the delivery hand path should remain primarily on the player's left side.
 
-Confirm:
+Do not simply lerp in a straight line if that line intersects:
 
-- no setup/session teardown
-- old table play state clears
-- Beer state clears
-- fresh seating assignment generated
-- fresh deck generated/shuffled
-- fresh initial deal
-- Shield selection repeats
-- local human camera moves to their new seat
-- bots still work
-- clockwise play begins
-- random starting player is respected
+- player's body
+- head
+- chair
 
-Do this for at least two consecutive rematches if practical.
+Use a small procedural arc/control point if needed.
 
----
+Preferred conceptual path:
 
-# 35. Online voting validation
+tray
+→ lift
+→ outside/left clearance point
+→ DrinkArea
+→ release
 
-With multiple human participants if practical:
+A small Bezier/arc is acceptable.
 
-MatchOver
-→ Human A votes REMATCH
-→ nothing starts yet
-→ Human B votes REMATCH
-→ if all required humans have voted:
-restart begins exactly once
-
-Confirm all clients show the same vote count.
+Do not make a huge theatrical swing.
 
 ---
 
-# 36. Online rematch validation
+# 12. Revalidate route after the stop change
 
-This task strongly prefers a REAL second client test.
+Changing stops from right-rear to left-rear may alter the best waiter walking route.
 
-Validate:
+Re-run/retune route planning if required.
 
-- same Session remains connected
-- same Relay/NGO connection remains
-- no new NetworkManager
-- seat mappings are randomized
-- host/client both rebuild correct local/remote players
-- both receive new MatchGeneration
-- both reach initial deal
-- both reach Shield selection
-- both enter Playing
-- clockwise turns agree
-- public snapshots no longer get rejected as stale
-- Beer/waiter state from previous match is gone
+The waiter should still:
+
+- remain outside chairs
+- avoid the table
+- avoid players
+- not zig-zag unnecessarily
+- return to the doorway cleanly
 
 ---
 
-# 37. Three-match online validation
+# PART B — DRINKABLE BEER STATE
 
-If tooling allows:
+# 13. Delivered mugs become drinkable
 
-Play Match 1
-→ rematch Match 2
-→ rematch Match 3
+Every successfully delivered BeerMug should now represent an actual drinkable beer.
 
-At minimum force/end matches through a safe developer path if playing them fully is impractical.
+Each delivered mug needs a stable logical identity.
 
-Confirm no accumulated:
+Prefer an identity based on existing authoritative delivery information, for example:
 
-- revision issue
-- duplicate players
-- stale seats
-- stale cards
-- stale waiter
-- stale mugs
-- stale rematch votes
+`BeerId = OrderId + RecipientSeat`
+
+or another deterministic equivalent.
+
+Do not use transient GameObject instance IDs as network identity.
 
 ---
 
-# 38. If real second client cannot be run
+# 14. Beer ownership
 
-If the environment cannot launch a genuine second client:
+Only the player whose DrinkArea contains that beer may drink it.
 
-do NOT claim remote multiplayer validation.
+Host validates ownership online.
 
-Still:
+A client must not be able to tell the host:
 
-- wire the complete real network path
-- unit-test participant IDs that differ from seats
-- run host/local-loopback
-- test at least multiple match generations
-- explicitly report that a real remote second client remains manual validation
+"I am seat X."
 
----
+Use the sender → participant → seat mapping.
 
-# 39. Leave / disconnect behavior
+Never assume:
 
-If someone leaves during MatchOver voting:
-
-update the required voter set.
-
-If host/session shutdown occurs:
-
-cancel restart cleanly.
-
-If a participant disconnects DURING restart:
-
-do not crash or create duplicate/stale seats.
-
-Use the project's existing disconnect/session policy rather than inventing major reconnection behavior.
-
-Report the resulting behavior.
+`clientId == seat`
 
 ---
 
-# 40. Rematch during waiter/order activity
+# 15. Beer state
 
-Normally MatchOver can occur while social presentation is active.
+Track at minimum:
 
-At restart:
+- BeerId
+- owner seat
+- remaining amount normalized `0..1`
+- whether that beer is currently being drunk
+- whether it is empty
 
-- active waiter presentation aborts
-- pending waiter delivery state cancels
-- host Beer queue clears
-- clients remove waiter
-- all mugs clear
+Starting fill:
 
-Do not allow an old MatchGeneration waiter callback to affect the new match.
+`1.0`
 
----
+Empty:
 
-# 41. Input/UI reset
+`0.0`
 
-At rematch:
-
-- Beer Order panel must close
-- rematch panel disappears when restart begins
-- cursor state returns to normal gameplay/setup state
-- head-look suppression clears
-- target-selection UI clears
-- old winner/end UI clears
-
-No stuck cursor.
-
-No duplicate UI.
+Clamp all values safely.
 
 ---
 
-# 42. No scene reload dependency
+# 16. Authority
 
-Prefer rebuilding match-scoped objects/state inside the existing session/GameScene.
+Beer drinking state must be host-authoritative online.
 
-Do not rely on disconnect/reconnect.
+Offline uses the equivalent local-authority path.
 
-Avoid reloading GameScene unless the existing networking architecture already has a safe synchronized scene-reload pattern and it is clearly superior.
+Do not make each client independently decide how much beer remains.
 
-The required behavior is seamless SAME-SESSION rematch.
+The authoritative state decides the final remaining amount.
 
----
-
-# 43. Tests — seating
-
-Add pure tests where practical for:
-
-- random participant → seat permutation contains each seat exactly once
-- no participant duplicated
-- no seat duplicated
-- human/bot identity preserved
-- initial and rematch use the same seating algorithm
-- exact complete previous permutation is rerolled when player count > 1
-- sender/client ID is not assumed equal to seat
-
-Keep randomness injectable/deterministic for tests if appropriate.
+Visual interpolation may run locally between authoritative events.
 
 ---
 
-# 44. Tests — rematch votes
+# 17. Do not spam transform/RPC updates every frame
 
-Add tests for:
+This is a low-frequency cosmetic interaction.
 
-- no restart before unanimity
-- all humans yes → restart once
-- bots don't count as voters
-- duplicate yes vote doesn't increment count
-- disconnected voter is removed from requirement
-- votes reset after new match begins
-- Match 2 can later collect a fresh set of votes
+Avoid sending mug/head transforms every frame.
 
----
+Preferred architecture:
 
-# 45. Tests — revisions/generation
+DRINK START:
+host validates
+→ broadcasts BeerId
+→ authoritative starting fill
+→ authoritative start time
+→ drink rate
 
-Add tests for:
+Clients locally animate from that data.
 
-- MatchGeneration 1 accepts revisions normally
-- Generation 2 resets generation-scoped revision tracking
-- low revision in a NEW generation is accepted
-- stale messages from Generation 1 are rejected after Generation 2 begins
-- Match 3 works too
+DRINK STOP / EMPTY:
+host calculates authoritative final fill
+→ broadcasts final remaining amount
+→ everyone reconciles
 
-Do not only test one transition.
+Use the project's current NGO/network time architecture if appropriate.
 
----
-
-# 46. Tests — clockwise
-
-Replace/update tests that depended on random direction.
-
-Verify:
-
-- 3 players clockwise
-- 6 players clockwise
-- 8 players clockwise
-- dead players are skipped while maintaining clockwise direction
-- random starting seat still works independently
+A small occasional correction is fine.
 
 ---
 
-# 47. Regression
+# PART C — DRINK INPUT
 
-Preserve:
+# 18. Input
+
+Preferred drinking input:
+
+**hold `B` to drink**
+
+Before using B, inspect existing controls.
+
+If B is already meaningfully occupied:
+
+choose another unused key and report it.
+
+Do not silently break an existing input.
+
+---
+
+# 19. Drink prompt
+
+When the local living human player has at least one non-empty delivered beer and drinking is currently allowed:
+
+show a small gameplay prompt such as:
+
+`DRINK (B)`
+
+Keep it subtle and consistent with:
+
+`ORDER! (O)`
+
+Do not create a large new HUD.
+
+---
+
+# 20. Which beer is selected
+
+Do NOT add a complex mug-selection UI yet.
+
+If multiple beers exist:
+
+drink the OLDEST non-empty beer belonging to that player.
+
+This produces deterministic behavior on every machine.
+
+Future tasks may add manual beer selection.
+
+---
+
+# 21. Hold behavior
+
+Desired input:
+
+B pressed
+→ initiate pickup
+
+B held
+→ drink continuously
+
+B released
+→ stop drinking
+→ return mug to its table slot
+
+If the beer becomes empty while B is still held:
+
+finish the drink naturally
+→ return empty mug
+
+Do not require repeated rapid key tapping.
+
+---
+
+# 22. Who can drink
+
+For this task:
+
+- living human players may drink their own beer
+- bots do not automatically drink
+- dead players cannot begin drinking
+
+A human may drink beer during general match play as long as it does not conflict with an active gameplay animation/input state.
+
+---
+
+# PART D — HAND / MUG PICKUP
+
+# 23. Preferred player hand
+
+Use the player's **LEFT HAND** for beer drinking.
+
+Reason:
+
+- delivered beers live on the player's left
+- this creates a natural reach
+- it avoids reaching across the entire body
+
+However, inspect existing left-hand gameplay animation usage.
+
+Drinking must yield to gameplay actions that need the same hand.
+
+---
+
+# 24. No finger rig
+
+The current hand meshes do NOT have individually animated finger bones.
+
+Do NOT attempt to build a finger rig in this task.
+
+Instead create a carefully tuned fixed mug-grip pose.
+
+A small amount of hand/mug mesh overlap is acceptable and desirable if it makes the grip visually convincing.
+
+It should look like the hand is actually holding the mug.
+
+It must NOT look like:
+
+- mug floating 5 cm away from palm
+- mug attached only by air
+- palm obviously missing the mug
+- hand intersecting through the entire mug
+
+---
+
+# 25. Mug grip anchor
+
+Add a project-owned grip reference to BeerMug.
+
+For example:
+
+`LeftHandGripAnchor`
+
+Tune it using the actual mug geometry.
+
+Prefer gripping around:
+
+- the handle if the fixed hand mesh can convincingly fit it
+
+or:
+
+- the mug body/handle junction if that looks more believable with the current non-articulated hand.
+
+Do not force a mathematically correct handle grip if it looks worse.
+
+Visual realism wins.
+
+---
+
+# 26. Pickup contact
+
+Sequence:
+
+1. left hand leaves rest position
+2. moves to the mug
+3. palm/grip aligns accurately
+4. brief contact settle
+5. actual SAME mug object attaches to the hand
+6. hand carries it toward mouth
+
+Do not replace the mug with another spawned mug.
+
+Same object:
+
+DrinkArea
+→ Hand
+→ DrinkArea
+
+---
+
+# 27. Suggested pickup timing
+
+Initial tuning:
+
+reach:
+`0.20–0.30 s`
+
+preferred:
+`0.25 s`
+
+grip settle:
+`0.08–0.12 s`
+
+preferred:
+`0.10 s`
+
+bring to mouth:
+`0.30–0.40 s`
+
+preferred:
+`0.35 s`
+
+Use smooth easing.
+
+---
+
+# PART E — REALISTIC DRINKING POSE
+
+# 28. Mouth target
+
+Create/use a reliable presentation target near the character's mouth.
+
+For example:
+
+`DrinkMouthAnchor`
+
+Place it relative to the visual head.
+
+The mug rim should arrive naturally at the mouth.
+
+Do not aim the mug at the centre of the face/head.
+
+Inspect the actual HeadMesh/FaceMarker.
+
+---
+
+# 29. Mug must contact mouth visually
+
+At drinking position:
+
+- mug rim should be visually near/touching the mouth area
+- hand must remain correctly attached to mug
+- mug should not float in front of face
+- mug should not bury deeply through the head
+
+Small stylized overlap is acceptable.
+
+---
+
+# 30. Head raises while drinking
+
+During active drinking:
+
+the character's VISUAL head should pitch upward slightly.
+
+This procedural drinking pitch must be layered onto the existing head presentation.
+
+Do NOT destroy or replace the normal player head-yaw/head-pose system.
+
+---
+
+# 31. Head raise depends on remaining beer
+
+The amount the head pitches upward should be inversely related to how much beer remains.
+
+Reason:
+
+full mug
+→ only modest tilt required
+
+nearly empty mug
+→ character must tilt head/mug more to get the remaining beer
+
+Use remaining normalized beer amount:
+
+`fill = 1 → small tilt`
+`fill → 0 → larger tilt`
+
+Suggested initial visual range:
+
+full beer:
+approximately `3–5°` upward head pitch
+
+nearly empty:
+approximately `10–14°` upward head pitch
+
+Preferred starting values:
+
+`4° → 12°`
+
+Tune after visual inspection.
+
+Do not make the character stare vertically at the ceiling.
+
+---
+
+# 32. Mug tilt also increases as beer decreases
+
+For the same reason, mug tilt should increase gradually.
+
+Suggested initial range:
+
+full beer:
+approximately `30–40°`
+
+near empty:
+approximately `65–75°`
+
+Preferred starting values:
+
+`35° → 70°`
+
+Tune so the rim stays believable against the mouth.
+
+The head and mug should feel like ONE coordinated action.
+
+---
+
+# 33. Smooth relationship
+
+Do not jump between discrete tilt states.
+
+Use a smooth curve/interpolation based on normalized remaining beer.
+
+A slightly eased/non-linear curve is acceptable if it looks more natural.
+
+---
+
+# PART F — LOCAL CAMERA / HEAD-LOOK BEHAVIOR
+
+# 34. Do not move the camera with the procedural drinking head tilt
+
+This is critical.
+
+The local player's camera should NOT inherit the additional drinking head pitch/vertical movement.
+
+The visual character should appear to tilt their head to other players, but the local camera must remain comfortable.
+
+Given the current hierarchy, prefer applying the drinking offset to the VISUAL head layer rather than the gameplay CameraAnchor/HeadPivot if possible.
+
+Inspect the actual hierarchy before changing it.
+
+---
+
+# 35. Lock vertical look while actively drinking
+
+During the actual drink phase:
+
+the local player may continue turning LEFT/RIGHT.
+
+Yaw remains enabled.
+
+But vertical mouse-look/pitch should be temporarily frozen at the value it had when drinking began.
+
+The player must not manually look up/down while the procedural drinking head pose is active.
+
+This avoids the animation looking broken.
+
+---
+
+# 36. Camera position/height remains unchanged
+
+Do not bob or lift the local camera because the character's visual head raises.
+
+Camera world/local height remains unchanged by drinking.
+
+Do not create a fake "camera drinks with mug" effect.
+
+---
+
+# 37. Restore look correctly
+
+When drinking ends/cancels:
+
+- vertical look control returns
+- previous pitch remains coherent
+- yaw remains continuous
+- no camera snap
+- no cursor state change
+- no stuck suppression flag
+
+Reuse/extend `SeatedHeadLook` cleanly rather than disabling the entire component.
+
+---
+
+# PART G — BEER LIQUID
+
+# 38. Add visible liquid to BeerMug
+
+The BeerMug should contain visible beer.
+
+Use a project-owned child/material.
+
+Desired color:
+
+- warm yellow/golden/amber
+- slightly translucent if appropriate
+- readable but not neon
+- not strongly emissive
+
+Think simple stylized beer.
+
+---
+
+# 39. Do not modify third-party mug source destructively
+
+The current `BeerMug.prefab` is project-owned.
+
+Add liquid support there or in another project-owned variant.
+
+Do not modify original third-party package FBX/materials destructively.
+
+---
+
+# 40. Liquid amount must visually decrease
+
+When:
+
+remaining beer = 1.0
+→ mug appears full
+
+remaining beer decreases
+→ visible liquid level decreases
+
+remaining beer = 0
+→ no beer volume remains visible
+
+The visual amount must correspond to authoritative beer state.
+
+---
+
+# 41. Preferred liquid implementation
+
+Inspect the actual mug interior.
+
+Use the cleanest robust implementation.
+
+Preferred options in order:
+
+1. small interior beer-volume mesh + controlled fill shader
+2. interior volume whose visible height is driven by fill
+3. correctly constrained liquid surface/volume solution
+
+Avoid a loose yellow plane that visibly sticks outside the mug when tilted.
+
+If a custom lightweight shader produces a cleaner fill, use it.
+
+Keep it project-owned.
+
+---
+
+# 42. Gravity-aware liquid appearance
+
+When the mug tilts, the beer should not obviously look glued to the mug at an impossible angle.
+
+Aim for at least an approximate gravity-aware liquid surface.
+
+A full fluid simulation is NOT required.
+
+Good enough solutions include:
+
+- shader clipping by a world-up fill plane
+- counter-oriented liquid surface constrained inside the mug
+- another simple deterministic visual technique
+
+Do not add real fluid physics.
+
+---
+
+# 43. Liquid must not leak visually
+
+Test at:
+
+- full
+- 75%
+- 50%
+- 25%
+- almost empty
+
+and at the major drinking tilt angles.
+
+The yellow beer should not visibly project far outside the cup.
+
+Small hidden/interior clipping is acceptable.
+
+---
+
+# 44. Drink rate
+
+Expose a tunable drink rate.
+
+Suggested starting behavior:
+
+a full beer should take roughly:
+
+`4–6 seconds`
+
+of continuous active drinking to empty.
+
+Preferred starting point:
+
+approximately `5 seconds`
+
+from 100% to 0%.
+
+Do not empty a full mug instantly.
+
+---
+
+# 45. Beginning and end of drinking do not consume beer
+
+Beer depletion should occur primarily during the actual mouth/drink phase.
+
+Do not drain significant beer while the hand is still reaching from the table.
+
+Stop draining when the mug begins returning.
+
+---
+
+# PART H — RETURN / EMPTY MUG
+
+# 46. Releasing B
+
+When B is released before empty:
+
+- stop beer depletion
+- smoothly reduce head drink pitch
+- smoothly untip mug
+- move hand/mug back to original DrinkSlot
+- place the SAME mug
+- hand returns to rest
+
+Remaining beer persists.
+
+The next B hold continues from that remaining amount.
+
+---
+
+# 47. Empty beer
+
+When remaining amount reaches zero:
+
+- finish a short natural end pose
+- mug becomes visually empty
+- head/mug return
+- empty mug is returned to its original DrinkSlot
+
+Do NOT automatically delete the mug yet.
+
+The empty mug remains as table clutter for now.
+
+Future cleanup can handle empty mugs.
+
+---
+
+# 48. Slot identity
+
+A mug must return to the same logical DrinkSlot it came from.
+
+Do not let returning a mug corrupt the DrinkArea slot allocation used by waiter deliveries.
+
+Track occupancy explicitly if needed.
+
+This is important because future waiter deliveries must not reuse an occupied slot accidentally.
+
+---
+
+# PART I — GAMEPLAY ANIMATION CONFLICTS
+
+# 49. Drinking must never block authoritative gameplay
+
+Beer is cosmetic.
+
+Gameplay always wins.
+
+If drinking conflicts with a required gameplay animation/action:
+
+cancel or gracefully return the drink presentation.
+
+Do NOT delay:
 
 - Attack
 - Replace Shield
 - Charge
-- charge privacy
-- death
-- bots
-- discard
+- Charged Attack
 - targeting
-- player animation
-- Beer ordering
-- waiter delivery
+- authoritative turns
 
-Do not weaken existing tests to make the new rule pass.
+because the player is drinking.
 
 ---
 
-# 48. Full EditMode suite
+# 50. Do not start drinking while left hand is already busy
 
-Run the full EditMode test suite.
+Do not start a drink during states such as:
 
-Previous baseline:
+- target card draw/throw
+- another left-hand presentation
+- another modal action that needs that hand
+- death
+- match transition
 
-`291 / 291`
+Use existing presentation state where possible.
 
-All previous tests plus new tests should pass.
-
-Update intentional tests only where the game rule legitimately changed from random direction to clockwise.
-
-Explain those changes.
+Do not infer solely from animation time if a clearer busy flag exists.
 
 ---
 
-# 49. Console
+# 51. If gameplay needs the hand during drinking
+
+If gameplay begins while the player is drinking:
+
+preferred:
+
+1. stop beer depletion immediately
+2. quickly and safely return/release mug
+3. clear drink head pose
+4. restore look state
+5. let gameplay presentation proceed
+
+Use a short emergency return if necessary.
+
+Do not wait for the full leisurely drinking animation.
+
+---
+
+# 52. Weapon compatibility
+
+Because drinking uses the left hand:
+
+the right-hand weapon presentation may remain independent where safe.
+
+However, if an action requires coordinated two-hand/card presentation and conflicts visually:
+
+gameplay presentation wins.
+
+Do not redesign weapon logic.
+
+---
+
+# PART J — MULTIPLAYER PRESENTATION
+
+# 53. Everyone sees drinking
+
+When a human drinks online:
+
+all participants should see:
+
+- correct player
+- correct mug
+- hand picking up mug
+- mug reaching mouth
+- head visual tilting
+- beer level dropping
+- mug returning
+- correct final fill
+
+The owner and remote clients should agree.
+
+---
+
+# 54. Local camera is owner-only behavior
+
+Remote clients do not need camera-lock information.
+
+The local player:
+
+- keeps yaw
+- loses vertical look only while actively drinking
+
+Remote clients only see the resulting character presentation.
+
+Do not network camera input.
+
+---
+
+# 55. Host validation
+
+At DrinkStart host validates:
+
+- match state allows the player to exist/drink
+- sender maps to the owner seat
+- player is alive
+- BeerId exists
+- BeerId belongs to that seat
+- remaining amount > 0
+- player is not already drinking another beer
+- request is not obviously stale from an old match generation
+
+If current rematch architecture has `MatchGeneration`, include/use it.
+
+Do not allow a prior-match DrinkStop message to affect a current-match mug.
+
+---
+
+# 56. One active beer per player
+
+A player may drink only one mug at a time.
+
+Other mugs remain on the table.
+
+Do not permit overlapping drink animations.
+
+---
+
+# 57. Disconnect/death during drinking
+
+If the drinking player:
+
+- dies
+- disconnects
+- match ends
+- rematch starts
+- GameScene tears down
+
+stop drinking safely.
+
+Clear:
+
+- active drink state
+- mug hand attachment
+- visual head offset
+- look suppression
+- stale network callbacks
+
+No exceptions.
+
+---
+
+# PART K — WAITER + LIQUID INTEGRATION
+
+# 58. Waiter tray mugs should already contain beer
+
+When mugs are created on the waiter's tray:
+
+they should visually start full.
+
+The same mug object then moves:
+
+tray
+→ waiter hand
+→ player's DrinkArea
+
+and remains full until the recipient actually drinks it.
+
+---
+
+# 59. Waiter does not spill beer
+
+Do not animate liquid depletion during waiter delivery.
+
+Waiter movement should keep mug beer state at 1.0.
+
+No need to simulate sloshing.
+
+---
+
+# 60. Invalid/unserved mug
+
+If a mug remains on the waiter tray because its recipient became invalid:
+
+it leaves with the waiter and is cleaned up normally.
+
+Do not register it as a persistent drinkable beer.
+
+---
+
+# PART L — MANUAL VISUAL VALIDATION
+
+# 61. Waiter grounding test
+
+Watch waiter from multiple seats.
+
+Confirm:
+
+- lowest bob point visually reaches ground
+- waiter no longer appears to hover
+- body bob remains subtle
+- tray remains stable
+- no ground penetration that looks obviously wrong
+
+---
+
+# 62. Left-rear service test
+
+At 3 / 6 / 8 players:
+
+confirm waiter always stops on recipient LEFT-REAR.
+
+Confirm:
+
+- delivery hand does not pass through recipient body
+- mug ends on recipient LEFT
+- route still avoids chairs/table
+
+---
+
+# 63. Grip validation
+
+Observe drinking:
+
+- front/side view
+- remote player view if available
+- first-person local view
+
+Confirm:
+
+- hand visually touches/grips mug
+- mug does not float from hand
+- slight natural overlap is acceptable
+- no severe hand-through-mug artifact
+
+Tune the grip anchor rather than accepting a visibly floating mug.
+
+---
+
+# 64. Head/mug relationship
+
+Test beer at approximately:
+
+- 100%
+- 75%
+- 50%
+- 25%
+- near empty
+
+Confirm:
+
+less beer
+→ progressively more mug tilt
+→ progressively more head-up tilt
+
+The result should look like the character is trying to get the remaining liquid.
+
+---
+
+# 65. Camera validation
+
+While actively drinking:
+
+move mouse horizontally
+→ yaw works
+
+move mouse vertically
+→ camera/head gameplay pitch does not change
+
+Camera position/height stays unchanged.
+
+Release drink:
+→ normal vertical look returns with no snap.
+
+---
+
+# 66. Partial drinking
+
+Hold B for only part of a beer.
+
+Release.
+
+Confirm:
+
+- mug returns
+- remaining beer stays partially full
+- liquid remains visible at correct level
+
+Drink again.
+
+Confirm:
+
+- same mug is used
+- it resumes from existing amount
+- head/mug tilt begins according to current remaining amount
+
+---
+
+# 67. Empty beer
+
+Drink one full beer to zero.
+
+Confirm:
+
+- liquid disappears/reads empty
+- mug returns to table
+- B does not try to drink that empty mug again if another non-empty mug exists
+- if all beers are empty, DRINK prompt disappears/disables
+
+---
+
+# 68. Multiple beers
+
+Have at least two delivered beers.
+
+Confirm:
+
+- B chooses oldest non-empty beer
+- partial/empty state of one does not alter another
+- after first becomes empty, next drink uses the next non-empty mug
+- DrinkArea slot occupancy remains correct
+
+---
+
+# 69. Gameplay interruption
+
+Start drinking and then trigger/enter a gameplay presentation conflict if practical.
+
+Confirm:
+
+- drink cancels cleanly
+- no stuck mug
+- no stuck hand
+- no stuck head tilt
+- no stuck vertical-look lock
+- gameplay animation proceeds normally
+
+---
+
+# 70. Offline validation
+
+Test at minimum:
+
+- 3 players
+- 6 players
+- 8 players
+
+Validate:
+
+- waiter grounding
+- left-rear service
+- left-side mug placement
+- drinking
+- partial beer
+- full empty
+- multiple mugs
+- gameplay continuing during drinks
+
+Bots do not need to drink.
+
+---
+
+# 71. Online validation
+
+Prefer a real two-human test:
+
+Human A orders for A + B.
+
+After delivery:
+
+A drinks their beer.
+
+Both A and B should see A's:
+
+- hand pickup
+- mug movement
+- head tilt
+- liquid decrease
+- return
+
+Then B drinks.
+
+Both should see B correctly.
+
+If a real second client is NOT tested, explicitly state that.
+
+---
+
+# PART M — TESTS
+
+# 72. Pure/state tests
+
+Add focused tests where appropriate for:
+
+- BeerId ownership
+- full → partial remaining amount
+- clamping 0..1
+- wrong sender cannot drink another seat's beer
+- empty beer cannot start
+- one active drink per player
+- start/stop calculates correct authoritative fill
+- old match-generation messages ignored if generation exists
+- drink state clears on match reset
+
+Do not write brittle transform-animation unit tests.
+
+---
+
+# 73. Existing tests
+
+Run the COMPLETE current EditMode suite.
+
+Previous historical baseline before later rematch work was 291/291.
+
+Do NOT blindly expect 291 if TASK 026 added more tests.
+
+Report the CURRENT exact total and result.
+
+Do not weaken existing tests.
+
+---
+
+# 74. Console
 
 Final validation should have:
 
 - 0 project-code errors
 - 0 missing references
-- 0 duplicate NetworkManager
-- 0 stale-revision spam
-- 0 duplicate-seat warnings
-- 0 orphan-player/waiter errors
+- 0 drink-state exceptions
+- 0 stale BeerId/network warnings
+- no stuck hand/head state
+- no invalid slot reuse
+- no waiter routing exceptions
 
 Report unrelated third-party warnings separately.
 
 ---
 
-# 50. Final report
+# 75. Out of scope
+
+Do NOT add:
+
+- gameplay buffs/debuffs from alcohol
+- drunken camera effects
+- screen blur
+- player intoxication stats
+- bot drinking AI
+- finger rigging
+- skeletal IK package
+- physics liquid simulation
+- mug throwing
+- breaking mugs
+- beer purchasing/currency
+- audio
+
+Those can come later.
+
+---
+
+# 76. Final report
 
 Report:
 
-1. Rematch architecture
-2. Rematch UI behavior
-3. Vote RPC/state flow
-4. Who counts as a voter
-5. Disconnect handling during voting
-6. Unanimity/start-once guard
-7. Match-scoped teardown path
-8. Session-scoped objects preserved
-9. New-match startup sequence
-10. Seat randomization algorithm
-11. Offline local-human seat behavior
-12. Online participant → seat remapping
-13. Whether complete identical seating is rerolled
-14. Local-camera reassignment
-15. Player prefab rebuild/rebind behavior
-16. Bot identity preservation
-17. Clockwise direction implementation
-18. Actual seat progression that represents clockwise
-19. Random starting-player behavior
-20. SHIELDS_RULES.md change
-21. Root cause of old second-match revision bug
-22. Exact revision/generation fix
-23. Handling of stale prior-match messages
-24. Beer/waiter/mug cleanup
-25. Initial offline random-seat validation
-26. Offline rematch validation
-27. Consecutive offline rematch validation
-28. Online vote validation
-29. Online Match 2 validation
-30. Online Match 3 validation if performed
-31. Real second-client test status
-32. Disconnect-during-rematch result
-33. Seat tests
-34. Vote tests
-35. generation/revision tests
-36. clockwise tests
-37. final full EditMode count
-38. Console result
-39. exact files created/modified
-40. any remaining manual validation required
+1. Root cause of waiter floating appearance
+2. Ground-contact solution
+3. Final waiter grounded Y/contact method
+4. Bob amplitude/frequency after tuning
+5. Confirmation tray still remains stable
+6. Left-rear stop calculation
+7. Player-local left/right basis used
+8. Delivery-hand path change
+9. DrinkArea position changes
+10. BeerId/state architecture
+11. Drinking authority/network flow
+12. Drink input chosen
+13. Beer-selection rule
+14. Which player hand drinks
+15. Mug grip-anchor implementation
+16. Grip pose tuning values
+17. Mouth-anchor implementation
+18. Pickup/carry/return timings
+19. Head tilt min/max
+20. Mug tilt min/max
+21. How tilt depends on remaining beer
+22. Camera/head-look separation
+23. Vertical-look lock implementation
+24. Liquid visual implementation
+25. Liquid material/color
+26. How fill amount is rendered
+27. How liquid behaves while mug tilts
+28. Full-beer drink duration/rate
+29. Partial-drink behavior
+30. Empty-mug behavior
+31. DrinkArea slot occupancy handling
+32. Gameplay interruption behavior
+33. Rematch/match teardown cleanup
+34. 3-player validation
+35. 6-player validation
+36. 8-player validation
+37. Partial beer validation
+38. Empty beer validation
+39. Multiple-beer validation
+40. Real second-client status
+41. Gameplay regression
+42. Full EditMode test result
+43. Console result
+44. Exact files created/modified
+45. Inspector/material tuning values
+46. Remaining visual limitations
 
 Do not commit anything.
 
-Stop when REMATCH + RANDOM SEATING + CLOCKWISE TURN FLOW is complete.
-
-Do not begin drinking animation.
+Stop when WAITER FIXES + BEER DRINKING PRESENTATION are complete.

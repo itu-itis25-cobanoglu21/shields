@@ -60,6 +60,9 @@ namespace Shields.Social
 
         /// <summary>Any living, present seat may be bought a beer, bots included.</summary>
         public bool CanReceive { get { return IsPresent && IsAlive; } }
+
+        /// <summary>Only living, present humans drink their beers. Bots never drink.</summary>
+        public bool CanDrink { get { return IsPresent && IsAlive && !IsBot; } }
     }
 
     /// <summary>

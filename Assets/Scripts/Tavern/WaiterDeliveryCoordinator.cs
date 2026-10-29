@@ -190,6 +190,10 @@ namespace Shields.Tavern
             bool deliver = WaiterDeliveryScheduler.IsValidRecipient(beerOrders.BuildAuthoritativeRoster(), seat);
             if (!deliver) Debug.Log("Beer for seat " + seat + " stays on the tray: no longer at the table.", this);
 
+            // Handed over: from now on it is a drinkable beer, full, owned by that seat. A mug
+            // that stays on the tray is never registered and leaves with the waiter.
+            if (deliver) beerOrders.RegisterDeliveredBeer(new BeerId(orderId, seat));
+
             if (beerOrders.IsOnline)
             {
                 if (_service != null) _service.BroadcastWaiterHandoff(orderId, seat, deliver);

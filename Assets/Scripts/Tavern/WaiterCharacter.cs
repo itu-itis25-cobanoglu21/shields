@@ -13,6 +13,13 @@ namespace Shields.Tavern
     ///   small procedural walking bob and sway;
     /// - <see cref="TrayHand"/> is a sibling of the bob root, not a child, so the tray is
     ///   carried at a steady height while the body bobs.
+    ///
+    /// Grounding: the waiter has no visible legs, so <see cref="GroundPoint"/> marks where
+    /// its invisible feet touch the floor (the root's origin; the presenter puts it on the
+    /// measured floor surface). The bob is one-sided: the body stands on the grounded
+    /// baseline and only ever lifts from it, so the lowest point of every step is the
+    /// contact. A soft contact shadow lies on the floor at the ground point; it never bobs,
+    /// and it is darkest and tightest at the contact, lifting slightly with the body.
     /// </summary>
     [DisallowMultipleComponent]
     public class WaiterCharacter : MonoBehaviour
@@ -33,6 +40,21 @@ namespace Shields.Tavern
         [SerializeField] Transform trayAnchor;
 
         [SerializeField] Transform mugSlots;
+
+        [Header("Ground Contact")]
+        [Tooltip("Where the invisible feet touch the floor. Not under the bob root: it never moves vertically.")]
+        [SerializeField] Transform groundPoint;
+
+        [Tooltip("Soft shadow quad on the floor under the ground point.")]
+        [SerializeField] Renderer contactShadow;
+
+        [Tooltip("Shadow strength while the body is lifted at the top of a step (1 at contact).")]
+        [Range(0f, 1f)]
+        [SerializeField] float shadowLiftedStrength = 0.82f;
+
+        [Tooltip("Shadow spread while the body is lifted, relative to its size at contact.")]
+        [Range(1f, 1.3f)]
+        [SerializeField] float shadowLiftedSpread = 1.06f;
 
         [Header("Walking Bob")]
         [Tooltip("Vertical body bob in meters at full walking speed.")]
@@ -57,6 +79,7 @@ namespace Shields.Tavern
         float _weight;
 
         public Transform BodyBobRoot { get { return bodyBobRoot; } }
+        public Transform GroundPoint { get { return groundPoint != null ? groundPoint : transform; } }
         public Transform DeliveryHand { get { return deliveryHand; } }
         public Transform DeliveryHandRest { get { return deliveryHandRest; } }
         public Transform TrayHand { get { return trayHand; } }
@@ -74,6 +97,16 @@ namespace Shields.Tavern
         /// <summary>Current body bob offset in meters, for validation.</summary>
         public float CurrentBobOffset { get; private set; }
 
+        /// <summary>Contact shadow strength right now (1 = grounded), for validation.</summary>
+        public float CurrentShadowStrength { get; private set; } = 1f;
+
+        static readonly int StrengthId = Shader.PropertyToID("_Strength");
+        static readonly int OpacityId = Shader.PropertyToID("_Opacity");
+        static readonly int SoftnessId = Shader.PropertyToID("_Softness");
+        static readonly int ShadowColorId = Shader.PropertyToID("_Color");
+        Material _shadowMaterial;
+        Vector3 _shadowBaseScale;
+
         void Awake()
         {
             if (bodyBobRoot != null)
@@ -81,27 +114,74 @@ namespace Shields.Tavern
                 _bobBaseLocal = bodyBobRoot.localPosition;
                 _bobBaseRotation = bodyBobRoot.localRotation;
             }
+
+            if (contactShadow != null) _shadowBaseScale = contactShadow.transform.localScale;
+        }
+
+        /// <summary>
+        /// One-sided step lift, 0 at contact and <paramref name="amplitude"/> at the top of a
+        /// step. |sin| repeats every PI, so a phase advancing PI per step gives one contact
+        /// per step, with the sharp corner of |sin| at the contact and a rounded top.
+        /// </summary>
+        public static float StepLift(float phase, float amplitude)
+        {
+            return Mathf.Max(0f, amplitude) * Mathf.Abs(Mathf.Sin(phase));
         }
 
         void LateUpdate()
         {
             float dt = Time.deltaTime;
             _weight = Mathf.MoveTowards(_weight, Mathf.Clamp01(WalkWeight), bobBlendSpeed * dt);
-            // |sin| repeats every PI, so this gives bobFrequency lifts per second; the sway
-            // (plain sin) completes one side to side per two steps.
+            // bobFrequency steps per second; the sway (plain sin) is one side to side per two steps.
             _phase += dt * bobFrequency * Mathf.PI * Mathf.Max(_weight, 0.0001f);
 
             if (bodyBobRoot != null)
             {
-                // Two lifts per cycle like footfalls: |sin| rises from zero, never sinks below rest.
-                CurrentBobOffset = bobAmplitude * _weight * Mathf.Abs(Mathf.Sin(_phase));
-                bodyBobRoot.localPosition = _bobBaseLocal + Vector3.up * CurrentBobOffset;
+                // groundedY + lift, lift >= 0: the body stands on the ground baseline and only
+                // rises from it. Standing still, the weight fades to 0 and it rests on the ground.
+                CurrentBobOffset = StepLift(_phase, bobAmplitude * _weight);
+                float groundedY = _bobBaseLocal.y;
+                bodyBobRoot.localPosition = new Vector3(_bobBaseLocal.x, groundedY + CurrentBobOffset, _bobBaseLocal.z);
                 bodyBobRoot.localRotation = _bobBaseRotation *
                     Quaternion.Euler(0f, 0f, swayDegrees * _weight * Mathf.Sin(_phase));
             }
 
+            UpdateContactShadow();
+
             if (!DeliveryHandBusy && deliveryHand != null && deliveryHandRest != null)
                 deliveryHand.SetPositionAndRotation(deliveryHandRest.position, deliveryHandRest.rotation);
+        }
+
+        void UpdateContactShadow()
+        {
+            if (contactShadow == null) return;
+
+            float lifted = bobAmplitude > 0f ? Mathf.Clamp01(CurrentBobOffset / bobAmplitude) : 0f;
+            CurrentShadowStrength = Mathf.Lerp(1f, shadowLiftedStrength, lifted);
+
+            contactShadow.transform.localScale = _shadowBaseScale * Mathf.Lerp(1f, shadowLiftedSpread, lifted);
+
+            // A per-waiter material instance (one waiter at a time). Its values are pushed
+            // explicitly once: in testing, neither a property block nor the asset's saved
+            // values reached this shader until they were set at runtime.
+            if (_shadowMaterial == null)
+            {
+                Material shared = contactShadow.sharedMaterial;
+                _shadowMaterial = contactShadow.material;
+                if (shared != null)
+                {
+                    _shadowMaterial.SetColor(ShadowColorId, shared.GetColor(ShadowColorId));
+                    _shadowMaterial.SetFloat(OpacityId, shared.GetFloat(OpacityId));
+                    _shadowMaterial.SetFloat(SoftnessId, shared.GetFloat(SoftnessId));
+                }
+            }
+
+            _shadowMaterial.SetFloat(StrengthId, CurrentShadowStrength);
+        }
+
+        void OnDestroy()
+        {
+            if (_shadowMaterial != null) Destroy(_shadowMaterial);
         }
 
         /// <summary>
@@ -177,6 +257,13 @@ namespace Shields.Tavern
             trayHand = tray;
             trayAnchor = anchor;
             mugSlots = slots;
+        }
+
+        /// <summary>Editor wiring for the ground contact parts.</summary>
+        public void BindGround(Transform ground, Renderer shadow)
+        {
+            groundPoint = ground;
+            contactShadow = shadow;
         }
     }
 }
