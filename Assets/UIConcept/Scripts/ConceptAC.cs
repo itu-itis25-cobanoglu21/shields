@@ -11,10 +11,14 @@ namespace Shields.UIConcept
     /// Customize is a showroom: the character stands centre stage, the categories are the
     /// main menu's own word list on the left, the chosen item gets a big title card on the
     /// right, and the items run along the foot of the screen as a strip.
+    ///
+    /// Original theme is concept 2 as approved; Hearth is its cozier "old" variant.
     /// </summary>
     public sealed class ConceptAC : ConceptA
     {
-        public override string Code { get { return "AC"; } }
+        public ConceptAC(CandleTheme theme) : base(theme) { }
+
+        public override string Code { get { return "AC" + Th.Suffix; } }
 
         public override float PreviewYaw { get { return 0f; } }
         public override float PreviewTurn { get { return 10f; } }
@@ -45,7 +49,7 @@ namespace Shields.UIConcept
 
             LeftShade(scr, 900, 0.85f);
             RightShade(scr, 1050, 0.92f);
-            Image floor = K.Img(scr, "FloorShade", ConceptSprites.FadeUp(), new Color(0, 0, 0, 0.92f));
+            Image floor = K.Img(scr, "FloorShade", ConceptSprites.FadeUp(), ShadeColor(scr, 0.92f));
             floor.rectTransform.At(0, 0, 0, 0, 0, 0, 0, 380);
             floor.rectTransform.anchorMax = new Vector2(1, 0);
             floor.rectTransform.sizeDelta = new Vector2(0, 380);
@@ -73,7 +77,7 @@ namespace Shields.UIConcept
                 b.name = "Cat_" + slot;
                 b.GetComponent<RectTransform>().TL(140, 390 + i * 70, 420, 62);
             }
-            K.Img(wardrobe, "CatRule", ConceptSprites.White(), Bone.A(0.22f)).rectTransform.TL(144, 368, 56, 2);
+            Line(wardrobe, "CatRule", Bone.A(0.22f)).rectTransform.TL(144, 368, 56, Thk(2));
 
             BuildTitleCard(wardrobe);
 
@@ -86,32 +90,39 @@ namespace Shields.UIConcept
         {
             RectTransform card = K.Node(root, "TitleCard").At(1, 1, 1, 1, -110, -300, 560, 420);
 
-            TextMeshProUGUI kicker = T(card, "Kicker", "", 15, Red);
+            TextMeshProUGUI kicker = Kicker(card, "Kicker", "", 15, Red, 12);
             kicker.rectTransform.TL(2, 0, 560, 24);
-            kicker.characterSpacing = 12;
             TextMeshProUGUI name = T(card, "Name", "", 66, Bone, TextAlignmentOptions.TopLeft, true);
             name.rectTransform.TL(0, 28, 560, 170);
             name.textWrappingMode = TextWrappingModes.Normal;
             name.lineSpacing = -24;
-            Image rule = K.Img(card, "Rule", ConceptSprites.White(), Red);
-            rule.rectTransform.TL(4, 120, 56, 3);
+            Image rule = Line(card, "Rule", Red);
+            rule.rectTransform.TL(4, 120, 56, Thk(3));
             TextMeshProUGUI status = T(card, "Status", "", 16, Muted);
             status.rectTransform.TL(2, 136, 560, 24);
-            status.characterSpacing = 8;
+            status.characterSpacing = Sp(8);
 
             Button equip = Btn(card, "Equip", () => S.EquipSelected(), null, out ConceptFx eqFx);
             RectTransform eqRt = equip.GetComponent<RectTransform>().TL(0, 180, 360, 66);
+            Image eqPool = HoverPool(eqRt);
             TextMeshProUGUI eqText = T(eqRt, "Label", "EQUIP", 46, Bone, TextAlignmentOptions.MidlineLeft, true);
             eqText.rectTransform.Fill();
-            Image eqBar = K.Img(eqRt, "Blade", ConceptSprites.White(), Red);
-            eqBar.rectTransform.At(0, 0.5f, 1, 0.5f, -16, 0, 0, 5);
+            if (eqPool != null)
+            {
+                float w = eqText.GetPreferredValues("EQUIP").x;
+                eqPool.rectTransform.At(0, 0.5f, 0.5f, 0.5f, 16 + w * 0.5f, 0, w + 184, 148);
+            }
+            Image eqBar = Line(eqRt, "Blade", Red);
+            float eqBarH = Thk(5);
+            eqBar.rectTransform.At(0, 0.5f, 1, 0.5f, -16, 0, 0, eqBarH);
             eqFx.Apply = f =>
             {
                 float h = ConceptFx.Ease(f.Hover);
                 eqText.color = K.Lerp(Dim, Bone, 0.6f + 0.4f * h);
                 eqText.rectTransform.offsetMin = eqText.rectTransform.offsetMax = new Vector2(16 * h, 0);
-                eqBar.rectTransform.sizeDelta = new Vector2(30 * h, 5);
+                eqBar.rectTransform.sizeDelta = new Vector2(30 * h, eqBarH);
                 eqBar.color = Red.A(h);
+                SetPool(eqPool, h, 7.3f);
             };
 
             RectTransform reset = TextLink(card, "ResetDefault", "RESET TO DEFAULT", 18, false, () => S.ResetSlotToDefault());
@@ -173,7 +184,7 @@ namespace Shields.UIConcept
                 scroll.Scroll.horizontalNormalizedPosition = Mathf.Clamp01(scroll.Scroll.horizontalNormalizedPosition + dir * step);
             }, null, out ConceptFx fx);
             RectTransform rt = b.GetComponent<RectTransform>().At(0.5f, 0, 0.5f, 0.5f, dir * (StripW * 0.5f + 40), 40 + SlotH - 62, 56, 80);
-            Image chev = K.Img(rt, "Chevron", ConceptSprites.Chevron(), Dim);
+            Image chev = K.Img(rt, "Chevron", Chev, Dim);
             chev.rectTransform.At(0.5f, 0.5f, 0.5f, 0.5f, 0, 0, 20, 30);
             if (dir < 0) chev.rectTransform.localScale = new Vector3(-1, 1, 1);
             fx.Apply = f =>
@@ -204,8 +215,9 @@ namespace Shields.UIConcept
             name.rectTransform.TL(0, 128, SlotW, 44);
             name.textWrappingMode = TextWrappingModes.Normal;
             name.lineSpacing = -16;
-            Image bar = K.Img(rt, "Underline", ConceptSprites.White(), Red);
-            bar.rectTransform.At(0.5f, 0, 0.5f, 0, 0, 18, 0, 4);
+            Image bar = Line(rt, "Underline", Red);
+            float barH = Thk(4);
+            bar.rectTransform.At(0.5f, 0, 0.5f, 0, 0, 18, 0, barH);
 
             CosmeticItem item = null;
             int count = 0;
@@ -237,7 +249,7 @@ namespace Shields.UIConcept
                 float sc = 1f + 0.1f * s + 0.05f * h * (1 - s) - 0.04f * f.Press;
                 thumb.rectTransform.localScale = new Vector3(sc, sc, 1);
                 name.color = K.Lerp(locked ? Muted : Dim, Bone, Mathf.Max(s, h * 0.7f));
-                bar.rectTransform.sizeDelta = new Vector2(48 * Mathf.Max(s, h * 0.4f), 4);
+                bar.rectTransform.sizeDelta = new Vector2(48 * Mathf.Max(s, h * 0.4f), barH);
                 bar.color = Red.A(Mathf.Max(s, h * 0.5f));
             };
         }
@@ -245,17 +257,16 @@ namespace Shields.UIConcept
         void BuildShop(RectTransform root)
         {
             RectTransform card = K.Node(root, "ShopCard").At(1, 1, 1, 1, -110, -300, 560, 360);
-            TextMeshProUGUI kicker = T(card, "Kicker", "THE SHOP", 15, Red);
+            TextMeshProUGUI kicker = Kicker(card, "Kicker", "THE SHOP", 15, Red, 12);
             kicker.rectTransform.TL(2, 0, 560, 24);
-            kicker.characterSpacing = 12;
             TextMeshProUGUI big = T(card, "Title", "COMING\nSOON", 66, Bone, TextAlignmentOptions.TopLeft, true);
             big.rectTransform.TL(0, 28, 560, 170);
             big.lineSpacing = -24;
             float below = 28 + big.GetPreferredValues(big.text, 560, 0).y + 16;
-            K.Img(card, "Rule", ConceptSprites.White(), Red).rectTransform.TL(4, below, 56, 3);
+            Line(card, "Rule", Red).rectTransform.TL(4, below, 56, Thk(3));
             TextMeshProUGUI line = T(card, "Line", "THE MERCHANT IS STILL ON THE ROAD.", 18, Dim);
             line.rectTransform.TL(2, below + 18, 560, 26);
-            line.characterSpacing = 4;
+            line.characterSpacing = Sp(4);
 
             // The strip, empty and locked.
             RectTransform strip = K.Node(root, "GhostStrip").At(0.5f, 0, 0.5f, 0, 0, 34, 6 * SlotStep, SlotH);
@@ -263,9 +274,9 @@ namespace Shields.UIConcept
             {
                 float a = 1f - Mathf.Abs(i - 2.5f) / 4f;
                 RectTransform s = K.Node(strip, "Ghost" + i).At(0.5f, 0, 0.5f, 0, (i - 2.5f) * SlotStep, 0, SlotW, SlotH);
-                K.Img(s, "Box", ConceptSprites.RoundRectOutline(10, 1), Bone.A(0.12f * a)).rectTransform.At(0.5f, 1, 0.5f, 0.5f, 0, -62, 104, 104);
+                K.Img(s, "Box", Th.Frame(10, 1), Bone.A(0.12f * a)).rectTransform.At(0.5f, 1, 0.5f, 0.5f, 0, -62, 104, 104);
                 K.Img(s, "Lock", ConceptSprites.Lock(), Bone.A(0.2f * a)).rectTransform.At(0.5f, 1, 0.5f, 0.5f, 0, -62, 24, 28);
-                K.Img(s, "Name", ConceptSprites.RoundRect(5), Bone.A(0.07f * a)).rectTransform.At(0.5f, 1, 0.5f, 0.5f, 0, -142, 80, 10);
+                K.Img(s, "Name", Th.Fill(5), Bone.A(0.07f * a)).rectTransform.At(0.5f, 1, 0.5f, 0.5f, 0, -142, 80, 10);
             }
         }
     }

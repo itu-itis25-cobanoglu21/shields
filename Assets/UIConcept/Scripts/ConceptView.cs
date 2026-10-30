@@ -9,7 +9,7 @@ namespace Shields.UIConcept
     /// <summary>
     /// Base for one visual direction. A concept builds its own canvas once, registers
     /// small "bind" callbacks that copy the shared state onto its widgets, and calls the
-    /// shared actions below. All three concepts drive the same <see cref="UIConceptState"/>.
+    /// shared actions below. Every concept drives the same <see cref="UIConceptState"/>.
     /// </summary>
     public abstract class ConceptView
     {
@@ -89,7 +89,7 @@ namespace Shields.UIConcept
 
         /// <summary>
         /// The SHIELDS! word mark in Knewave: a red gradient face with a bone inline, a
-        /// heavy dark outer stroke and a hard extruded drop. Same mark in every concept.
+        /// heavy dark outer stroke and a hard extruded drop. Concepts tune its colours.
         /// </summary>
         public RectTransform Logo(Transform parent, string name, float size, TextAlignmentOptions align = TextAlignmentOptions.Left,
             string top = "#E2492F", string bottom = "#9A1A20", Material faceMaterial = null, Material strokeMaterial = null)
@@ -137,35 +137,55 @@ namespace Shields.UIConcept
 
         // ------------------------------------------------------------------ actions
 
-        public void GoMenu() { S.Screen = ConceptScreen.MainMenu; S.JoinOpen = false; S.Notify(); }
-        public void GoCustomize() { S.Screen = ConceptScreen.Customize; S.JoinOpen = false; S.Notify(); }
-        public void GoSettings() { S.Screen = ConceptScreen.Settings; S.JoinOpen = false; S.Notify(); }
+        public void GoMenu() { S.Screen = ConceptScreen.MainMenu; S.Panel = MenuPanel.None; S.Notify(); }
+        public void GoCustomize() { S.Screen = ConceptScreen.Customize; S.Panel = MenuPanel.None; S.Notify(); }
+        public void GoSettings() { S.Screen = ConceptScreen.Settings; S.Panel = MenuPanel.None; S.Notify(); }
 
-        public void Offline() { D.Toast("OFFLINE MODE  ·  WOULD OPEN THE OFFLINE TABLE SETUP (CONCEPT ONLY)"); }
-        public void CreateRoom() { D.Toast("CREATE ROOM  ·  WOULD HOST A NEW ROOM (CONCEPT ONLY)"); }
         public void Exit() { D.Toast("EXIT  ·  DISABLED IN THE CONCEPT SCENE"); }
+
+        /// <summary>Unfolds a main menu panel (Offline Mode, Create Room) under its entry.</summary>
+        public void OpenPanel(MenuPanel panel)
+        {
+            if (S.Panel == panel) return;
+            S.Panel = panel;
+            S.JoinMessage = string.Empty;
+            S.Notify();
+        }
+
+        public void ClosePanel()
+        {
+            S.Panel = MenuPanel.None;
+            S.JoinMessage = string.Empty;
+            S.Notify();
+        }
 
         public void OpenJoin(TMP_InputField input)
         {
-            if (S.JoinOpen)
+            if (S.Panel == MenuPanel.Join)
             {
                 if (input != null) input.ActivateInputField();
                 return;
             }
-            S.JoinOpen = true;
-            S.JoinMessage = string.Empty;
-            S.Notify();
+            OpenPanel(MenuPanel.Join);
             if (input == null) return;
             input.text = string.Empty;
             input.Select();
             input.ActivateInputField();
         }
 
-        public void CloseJoin()
+        static string TableLine(UIConceptState s)
         {
-            S.JoinOpen = false;
-            S.JoinMessage = string.Empty;
-            S.Notify();
+            return s.TablePlayers + " PLAYERS, " + s.TableDecks + (s.TableDecks == 1 ? " DECK" : " DECKS");
+        }
+
+        public void ConfirmOffline()
+        {
+            D.Toast("OFFLINE  ·  " + TableLine(S) + "  ·  WOULD DEAL AND START (CONCEPT ONLY)");
+        }
+
+        public void ConfirmCreate()
+        {
+            D.Toast("CREATE ROOM  ·  " + TableLine(S) + "  ·  WOULD HOST AND SHOW THE ROOM CODE (CONCEPT ONLY)");
         }
 
         public void ConfirmJoin(TMP_InputField input)
@@ -218,34 +238,9 @@ namespace Shields.UIConcept
         public void SetTab(CustomizeTab tab) { S.Tab = tab; S.Notify(); }
         public void SetSlot(WardrobeSlot slot) { S.Slot = slot; S.Notify(); }
 
-        /// <summary>Whether this concept lists the extra scroll-test placeholders.</summary>
-        public virtual bool ShowExtraItems { get { return true; } }
-
         public List<CosmeticItem> SlotItems(WardrobeSlot slot)
         {
-            var list = new List<CosmeticItem>();
-            foreach (CosmeticItem item in S.ItemsIn(slot))
-                if (ShowExtraItems || !item.Extra) list.Add(item);
-            return list;
-        }
-
-        public string EquipLabel()
-        {
-            CosmeticItem item = S.SelectedItem(S.Slot);
-            if (item == null) return "EQUIP";
-            if (item.Locked) return "LOCKED";
-            if (S.IsEquipped(item)) return "EQUIPPED";
-            return item.IsDefault ? "EQUIP DEFAULT" : "EQUIP";
-        }
-
-        public Texture2D SlotIcon(WardrobeSlot slot)
-        {
-            switch (slot)
-            {
-                case WardrobeSlot.Head: return D.HeadIcon;
-                case WardrobeSlot.Body: return D.BodyIcon;
-                default: return D.HandsIcon;
-            }
+            return new List<CosmeticItem>(S.ItemsIn(slot));
         }
     }
 }

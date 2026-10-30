@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Shields.Cards;
+using Shields.Game;
 using UnityEngine;
 
 namespace Shields.UIConcept
@@ -8,6 +10,7 @@ namespace Shields.UIConcept
     // concept keeps the same screen, tab, selection and settings values.
 
     public enum ConceptScreen { MainMenu, Customize, Settings }
+    public enum MenuPanel { None, Offline, Join, Create }
     public enum CustomizeTab { Wardrobe, Shop }
     public enum WardrobeSlot { Head, Body, Hands }
     public enum ItemRarity { Common, Rare, Legendary }
@@ -21,8 +24,7 @@ namespace Shields.UIConcept
         public bool IsDefault;
         public bool Locked;
 
-        // Extra placeholders that only exist to make scrolling testable. The Armory
-        // concept hides them so it stays exactly as it was approved.
+        // Extra placeholders that only exist to make scrolling testable.
         public bool Extra;
 
         // Preview data: a head prop prefab, or a material for body / hands.
@@ -39,8 +41,20 @@ namespace Shields.UIConcept
         public event Action Changed;
 
         public ConceptScreen Screen = ConceptScreen.MainMenu;
-        public bool JoinOpen;
+        // The main menu panel unfolded under its entry (Offline, Join Room or Create Room).
+        public MenuPanel Panel = MenuPanel.None;
         public string JoinMessage = string.Empty;
+
+        // Table setup shared by the Offline and Create Room panels. Defaults match the
+        // production offline setup (MatchBootstrap): six players, one deck.
+        public int TablePlayers = 6;
+        public int TableDecks = 1;
+
+        public const int MinPlayers = MatchConfig.MinPlayers;
+        public const int MaxPlayers = MatchConfig.MaxPlayers;
+        public const int MinDecks = CardDeck.MinDeckCount;
+        public const int MaxDecks = CardDeck.MaxDeckCount;
+        public const int CardsPerDeck = CardDeck.CardsPerStandardDeck;
 
         public CustomizeTab Tab = CustomizeTab.Wardrobe;
         public WardrobeSlot Slot = WardrobeSlot.Head;

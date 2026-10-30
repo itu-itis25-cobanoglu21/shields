@@ -10,8 +10,8 @@ using UnityEngine.UI;
 namespace Shields.UIConcept
 {
     /// <summary>
-    /// Runs UIConceptScene: builds the three UI concepts from code, shares one prototype
-    /// state between them, switches them with 1 / 2 / 3, and moves between the main menu
+    /// Runs UIConceptScene: builds the UI concepts from code, shares one prototype state
+    /// between them, switches them with 1 – 5, and moves between the main menu
     /// diorama and the tavern weapon corner used for the Customize preview.
     ///
     /// Design exploration only. Nothing here is production UI, and nothing persists.
@@ -51,9 +51,6 @@ namespace Shields.UIConcept
         [SerializeField] int startConcept;
 
         public UIConceptState State { get; private set; }
-        public Texture2D HeadIcon { get; private set; }
-        public Texture2D BodyIcon { get; private set; }
-        public Texture2D HandsIcon { get; private set; }
         public PreviewTurntable Turntable { get { return turntable; } }
 
         readonly List<ConceptView> _views = new List<ConceptView>();
@@ -93,9 +90,11 @@ namespace Shields.UIConcept
 
             BuildOverlay();
 
-            _views.Add(new ConceptA());
-            _views.Add(new ConceptAC());
-            _views.Add(new ConceptC());
+            _views.Add(new ConceptA(CandleTheme.Original()));
+            _views.Add(new ConceptAC(CandleTheme.Original()));
+            _views.Add(new ConceptA(CandleTheme.Ink()));
+            _views.Add(new ConceptAC(CandleTheme.Hearth()));
+            _views.Add(new ConceptA(CandleTheme.Main()));
             for (int i = 0; i < _views.Count; i++)
             {
                 Canvas canvas = MakeCanvas("Concept" + _views[i].Code, 10);
@@ -267,10 +266,6 @@ namespace Shields.UIConcept
                 }
             }
 
-            HeadIcon = State.Find("head_great").Thumbnail;
-            BodyIcon = studio.Render(Mannequin(holder.transform, null), 192, 205f, 8f, 1.08f);
-            HandsIcon = State.Find("hands_bare").Thumbnail;
-
             studio.Dispose();
             Destroy(holder);
         }
@@ -383,6 +378,8 @@ namespace Shields.UIConcept
                 if (kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame) ShowConcept(0);
                 if (kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame) ShowConcept(1);
                 if (kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame) ShowConcept(2);
+                if (kb.digit4Key.wasPressedThisFrame || kb.numpad4Key.wasPressedThisFrame) ShowConcept(3);
+                if (kb.digit5Key.wasPressedThisFrame || kb.numpad5Key.wasPressedThisFrame) ShowConcept(4);
                 if (kb.hKey.wasPressedThisFrame && _switchBar != null) _switchBar.SetActive(!_switchBar.activeSelf);
                 if (kb.f12Key.wasPressedThisFrame) CaptureBoth();
             }
@@ -407,7 +404,7 @@ namespace Shields.UIConcept
 
         public void Back()
         {
-            if (State.JoinOpen) { State.JoinOpen = false; State.JoinMessage = string.Empty; State.Notify(); return; }
+            if (State.Panel != MenuPanel.None) { State.Panel = MenuPanel.None; State.JoinMessage = string.Empty; State.Notify(); return; }
             if (State.Screen != ConceptScreen.MainMenu) { State.Screen = ConceptScreen.MainMenu; State.Notify(); }
         }
 
@@ -473,18 +470,21 @@ namespace Shields.UIConcept
             _fade.rectTransform.Fill();
 
             // Prototype switcher: deliberately plain, so it never reads as part of a concept.
-            RectTransform bar = K.Node(root, "SwitcherBar").At(1, 1, 1, 1, -20, -18, 720, 40);
+            string[] names = { "1  CANDLELIGHT", "2  CANDLELIGHT SHOWROOM", "3  CANDLELIGHT OLD", "4  CANDLELIGHT SHOWROOM OLD", "5  MAIN" };
+            float[] widths = { 152, 266, 196, 310, 96 };
+            float barW = 124 + 12;
+            foreach (float w in widths) barW += w + 6;
+            RectTransform bar = K.Node(root, "SwitcherBar").At(1, 1, 1, 1, -20, -18, barW, 40);
             _switchBar = bar.gameObject;
             K.Img(bar, "Back", ConceptSprites.RoundRect(10), new Color(0, 0, 0, 0.55f)).rectTransform.Fill();
             TextMeshProUGUI tag = K.Text(bar, "Tag", "UI CONCEPT", ui, 15, new Color(1, 1, 1, 0.55f), TextAlignmentOptions.MidlineLeft);
             tag.rectTransform.TL(14, 0, 110, 40);
             tag.characterSpacing = 6;
-            string[] names = { "1  CANDLELIGHT", "2  CANDLELIGHT SHOWROOM", "3  ARMORY" };
             float x = 118;
             for (int i = 0; i < names.Length; i++)
             {
                 int index = i;
-                float w = i == 1 ? 266 : 152;
+                float w = widths[i];
                 Button b = K.Button(bar, "Concept" + i, () => ShowConcept(index), out _);
                 b.GetComponent<RectTransform>().TL(x, 6, w, 28);
                 Image back = K.Img(b.transform, "Back", ConceptSprites.RoundRect(8), Color.white);
@@ -513,7 +513,7 @@ namespace Shields.UIConcept
         void CaptureBoth()
         {
             string dir = Path.Combine(Application.dataPath, "..", "Screenshots", "UIConcept");
-            string name = _views[_active].Code + "_" + State.Screen + (State.JoinOpen ? "_Join" : "") + (State.Screen == ConceptScreen.Customize ? "_" + State.Tab : "");
+            string name = _views[_active].Code + "_" + State.Screen + (State.Panel != MenuPanel.None ? "_" + State.Panel : "") + (State.Screen == ConceptScreen.Customize ? "_" + State.Tab : "");
             Capture(Path.Combine(dir, name + "_1080p.png"), 1920, 1080);
             Capture(Path.Combine(dir, name + "_1440p.png"), 2560, 1440);
             Toast("SAVED " + name + " TO /Screenshots/UIConcept");

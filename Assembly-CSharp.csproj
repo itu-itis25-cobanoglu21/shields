@@ -63,7 +63,6 @@
     <Compile Include="Assets\UIConcept\Scripts\ConceptKit.cs" />
     <Compile Include="Assets\Scripts\Tavern\WaiterCharacter.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Throw.cs" />
-    <Compile Include="Assets\UIConcept\Scripts\ArmoryKit.cs" />
     <Compile Include="Assets\Scripts\Menu\MainMenuController.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Hit.cs" />
@@ -78,7 +77,6 @@
     <Compile Include="Assets\UIConcept\Scripts\UIConceptDirector.cs" />
     <Compile Include="Assets\UIConcept\Scripts\ConceptView.cs" />
     <Compile Include="Assets\Scripts\Menu\MainMenuLaunchRequest.cs" />
-    <Compile Include="Assets\UIConcept\Scripts\ArmoryCustomize.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkTestPresenter.cs" />
     <Compile Include="Assets\Laterns and candles\scripts\CameraFacing.cs" />
     <Compile Include="Assets\VFXPACK_IMPACT_WALLCOEUR_FreeVersion\Scripts\DropdownController.cs" />
@@ -95,6 +93,7 @@
     <Compile Include="Assets\Scripts\Presentation\LocalShieldSelection.cs" />
     <Compile Include="Assets\UIConcept\Scripts\ConceptA.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerDrinkPresenter.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\CandleTheme.cs" />
     <Compile Include="Assets\Scripts\Network\OnlineMatchDriver.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkBeerOrderService.cs" />
@@ -118,7 +117,6 @@
     <Compile Include="Assets\Scripts\Table\TableLayoutController.cs" />
     <Compile Include="Assets\Scripts\Match\RematchUI.cs" />
     <Compile Include="Assets\UIConcept\Scripts\ThumbnailStudio.cs" />
-    <Compile Include="Assets\UIConcept\Scripts\ConceptC.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerCharacter.cs" />
     <Compile Include="Assets\UIConcept\Scripts\ConceptSprites.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkMatchController.cs" />

@@ -50,15 +50,6 @@ namespace Shields.UIConcept
             return Mathf.Sqrt(ox * ox + oy * oy) + Mathf.Min(Mathf.Max(qx, qy), 0f) - r;
         }
 
-        // Rectangle with 45° cut corners of size c.
-        static float Chamfer(float px, float py, float cx, float cy, float hx, float hy, float c)
-        {
-            float dx = Mathf.Abs(px - cx), dy = Mathf.Abs(py - cy);
-            float box = Mathf.Max(dx - hx, dy - hy);
-            float cut = (dx + dy - (hx + hy - c)) * 0.70710678f;
-            return Mathf.Max(box, cut);
-        }
-
         static float Circle(float px, float py, float cx, float cy, float r)
         {
             float dx = px - cx, dy = py - cy;
@@ -95,26 +86,6 @@ namespace Shields.UIConcept
                 int s = radius * 2 + 4;
                 return Paint("RoundRectOutline", s, s, new Vector4(radius + 1, radius + 1, radius + 1, radius + 1),
                     (x, y) => Ring(Box(x, y, s * 0.5f, s * 0.5f, s * 0.5f - 1f, s * 0.5f - 1f, radius), thickness));
-            });
-        }
-
-        public static Sprite ChamferRect(int cut)
-        {
-            return Get("ch" + cut, () =>
-            {
-                int s = cut * 2 + 6;
-                return Paint("Chamfer", s, s, new Vector4(cut + 2, cut + 2, cut + 2, cut + 2),
-                    (x, y) => Chamfer(x, y, s * 0.5f, s * 0.5f, s * 0.5f - 1f, s * 0.5f - 1f, cut));
-            });
-        }
-
-        public static Sprite ChamferOutline(int cut, int thickness)
-        {
-            return Get("cho" + cut + "_" + thickness, () =>
-            {
-                int s = cut * 2 + 6;
-                return Paint("ChamferOutline", s, s, new Vector4(cut + 2, cut + 2, cut + 2, cut + 2),
-                    (x, y) => Ring(Chamfer(x, y, s * 0.5f, s * 0.5f, s * 0.5f - 1f, s * 0.5f - 1f, cut), thickness));
             });
         }
 
@@ -201,43 +172,6 @@ namespace Shields.UIConcept
 
         // ------------------------------------------------------------------ icons
 
-        public static Sprite CircleShape()
-        {
-            return Get("circle", () => Paint("Circle", 128, 128, Vector4.zero, (x, y) => Circle(x, y, 64, 64, 62)));
-        }
-
-        public static Sprite RingShape(int thickness)
-        {
-            return Get("ring" + thickness, () => Paint("Ring", 128, 128, Vector4.zero, (x, y) => Ring(Circle(x, y, 64, 64, 62), thickness)));
-        }
-
-        public static Sprite DiamondShape()
-        {
-            return Get("diamond", () => Paint("Diamond", 64, 64, Vector4.zero,
-                (x, y) => (Mathf.Abs(x - 32) + Mathf.Abs(y - 32) - 30f) * 0.7071f));
-        }
-
-        /// <summary>Heater shield: flat top, curved sides meeting in a point.</summary>
-        public static Sprite ShieldShape()
-        {
-            return Get("shield", () => Paint("Shield", 112, 128, Vector4.zero, ShieldSdf));
-        }
-
-        public static Sprite ShieldOutline(int thickness)
-        {
-            return Get("shieldo" + thickness, () => Paint("ShieldOutline", 112, 128, Vector4.zero, (x, y) => Ring(ShieldSdf(x, y), thickness)));
-        }
-
-        static float ShieldSdf(float x, float y)
-        {
-            // Top box part plus a pointed bottom made of two large circles.
-            float top = Box(x, y, 56, 92, 52, 34, 6);
-            float left = Circle(x, y, 108, 92, 102);
-            float right = Circle(x, y, 4, 92, 102);
-            float bottom = Mathf.Max(Mathf.Max(left, right), y - 92);
-            return Mathf.Min(top, bottom);
-        }
-
         public static Sprite Lock()
         {
             return Get("lock", () => Paint("Lock", 96, 112, Vector4.zero, (x, y) =>
@@ -254,12 +188,6 @@ namespace Shields.UIConcept
         {
             return Get("check", () => Paint("Check", 96, 96, Vector4.zero, (x, y) =>
                 Union(Segment(x, y, 14, 50, 38, 24, 8), Segment(x, y, 38, 24, 84, 74, 8))));
-        }
-
-        public static Sprite Cross()
-        {
-            return Get("cross", () => Paint("Cross", 96, 96, Vector4.zero, (x, y) =>
-                Union(Segment(x, y, 20, 20, 76, 76, 8), Segment(x, y, 20, 76, 76, 20, 8))));
         }
 
         /// <summary>Chevron pointing right.</summary>
@@ -283,7 +211,7 @@ namespace Shields.UIConcept
                 Union(Segment(x, y, 30, 30, 78, 78, 10), Segment(x, y, 14, 14, 24, 24, 4))));
         }
 
-        // ------------------------------------------------------------------ worn cloth
+        // ------------------------------------------------------------------ noise
 
         static float Hash(int n)
         {
@@ -315,90 +243,6 @@ namespace Shields.UIConcept
             return Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fy);
         }
 
-        static float Bite(float y, float y0, float depth, float half)
-        {
-            return depth * Mathf.Max(0f, 1f - Mathf.Abs(y - y0) / half);
-        }
-
-        /// <summary>
-        /// A battle-worn hanging banner baked in colour (use Image colour white): ragged
-        /// frayed edges, torn bites in the sides, a slashed swallowtail, two holes, scorched
-        /// darkening along every edge, cloth folds, grime, and a brass trim that the tears cut
-        /// through. Width/height are in canvas units; the texture is baked at a higher density.
-        /// </summary>
-        public static Sprite TornBanner(int width, int height, int seed, Color cloth, Color trim)
-        {
-            return Get("torn" + width + "x" + height + "_" + seed, () =>
-            {
-                const float density = 1.25f;
-                int w = Mathf.RoundToInt(width * density), h = Mathf.RoundToInt(height * density);
-                float s = density;
-                float notch = 150f * s;
-                var px = new Color32[w * h];
-                var tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { name = "TornBanner", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
-
-                // Hole centres and slit, in texture pixels measured from the top.
-                Vector2 hole1 = new Vector2(w * 0.78f, h * 0.30f), hole2 = new Vector2(w * 0.2f, h * 0.71f);
-                float r1 = 13f * s, r2 = 9f * s;
-                float slitX = w * 0.74f, slitTop = h - notch * 0.25f - 170f * s;
-
-                for (int py = 0; py < h; py++)
-                {
-                    float y = h - 1 - py + 0.5f; // distance from the top
-                    float leftEdge = 2f * s + Fbm1(y / (26f * s), seed) * 9f * s
-                                     + Bite(y, h * 0.58f, 46f * s, 38f * s) + Bite(y, h * 0.83f, 22f * s, 18f * s);
-                    float rightEdge = w - 2f * s - Fbm1(y / (24f * s), seed + 3) * 9f * s
-                                      - Bite(y, h * 0.41f, 34f * s, 30f * s) - Bite(y, h * 0.69f, 58f * s, 26f * s);
-                    for (int px_ = 0; px_ < w; px_++)
-                    {
-                        float x = px_ + 0.5f;
-                        float centre = Mathf.Abs(x / w * 2f - 1f);
-                        float bottom = h - notch * (1f - centre) - Fbm1(x / (14f * s), seed + 5) * 26f * s
-                                       - Bite(x, w * 0.12f, 70f * s, w * 0.07f) - Bite(x, w * 0.88f, 40f * s, w * 0.05f);
-                        float dl = x - leftEdge, dr = rightEdge - x, db = bottom - y, dt = y + 4f;
-                        float edge = Mathf.Min(Mathf.Min(dl, dr), Mathf.Min(db, dt));
-
-                        // Holes with ragged rims.
-                        float a1 = Mathf.Atan2(y - hole1.y, x - hole1.x), a2 = Mathf.Atan2(y - hole2.y, x - hole2.x);
-                        float h1 = Vector2.Distance(new Vector2(x, y), hole1) - r1 * (0.75f + 0.5f * Noise1(a1 * 2.5f + 10f, seed + 9));
-                        float h2 = Vector2.Distance(new Vector2(x, y), hole2) - r2 * (0.75f + 0.5f * Noise1(a2 * 2.5f + 10f, seed + 11));
-                        edge = Mathf.Min(edge, Mathf.Min(h1, h2));
-
-                        // A slash up from the right tail.
-                        if (y > slitTop)
-                        {
-                            float wobble = (Noise1(y / (10f * s), seed + 17) - 0.5f) * 6f * s;
-                            float open = 2.5f * s * Mathf.Clamp01((y - slitTop) / (60f * s));
-                            edge = Mathf.Min(edge, Mathf.Abs(x - slitX - wobble) - open);
-                        }
-
-                        float alpha = Mathf.Clamp01(edge + 0.5f);
-                        if (alpha <= 0f) { px[py * w + px_] = new Color32(0, 0, 0, 0); continue; }
-
-                        // Cloth shading: folds, grime, a darker sleeve at the top.
-                        float folds = 1f + 0.07f * Mathf.Sin(x / w * Mathf.PI * 6.5f + Noise1(y / (90f * s), seed + 21) * 2.5f);
-                        float grime = 0.82f + 0.22f * Noise2(x / (60f * s), y / (60f * s), seed + 23) + 0.06f * Noise2(x / (9f * s), y / (9f * s), seed + 29);
-                        float sleeve = y < 46f * s ? 0.72f : 1f;
-                        Color c = cloth * (folds * grime * sleeve);
-
-                        // Brass trim, cut wherever the cloth is torn away.
-                        float tx = Mathf.Min(Mathf.Abs(x - 22f * s), Mathf.Abs(x - (w - 22f * s)));
-                        if (tx < 2.4f * s && y > 50f * s && y < h - notch - 40f * s)
-                            c = trim * (0.8f + 0.25f * Noise2(x / (6f * s), y / (30f * s), seed + 31));
-
-                        // Scorched, frayed edges.
-                        float burn = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(edge / (16f * s)));
-                        c = Color.Lerp(c * 0.35f, c, burn);
-                        c.a = alpha;
-                        px[py * w + px_] = c;
-                    }
-                }
-                tex.SetPixels32(px);
-                tex.Apply(false, true);
-                return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f * s);
-            });
-        }
-
         /// <summary>Turntable glyph: the front half of a floor ellipse with an arrow head at each end.</summary>
         public static Sprite RotateArrows()
         {
@@ -411,6 +255,197 @@ namespace Shields.UIConcept
                 float triR = Mathf.Max(40f - y, (Mathf.Abs(x - 176f) - (66f - y) * 0.55f) * 0.88f);
                 return Union(ring, Union(triL, triR));
             }));
+        }
+
+        // ------------------------------------------------------------------ old-world strokes
+        // Used by the cozy Candlelight themes. Thin, noisy strokes are drawn much larger
+        // than they show, so these textures carry mipmaps to stay clean when scaled down.
+
+        static Sprite Baked(string name, int w, int h, Func<float, float, float> alpha, Vector4 border = default)
+        {
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, true)
+            {
+                name = name, wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Trilinear, mipMapBias = -0.4f
+            };
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    px[y * w + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(alpha(x + 0.5f, y + 0.5f)) * 255f));
+            tex.SetPixels32(px);
+            tex.Apply(true, true);
+            return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        }
+
+        static float TaperSegment(float px, float py, float ax, float ay, float bx, float by, float r0, float r1)
+        {
+            float pax = px - ax, pay = py - ay, bax = bx - ax, bay = by - ay;
+            float h = Mathf.Clamp01((pax * bax + pay * bay) / (bax * bax + bay * bay));
+            float dx = pax - bax * h, dy = pay - bay * h;
+            return Mathf.Sqrt(dx * dx + dy * dy) - Mathf.Lerp(r0, r1, h);
+        }
+
+        /// <summary>
+        /// A single brush stroke: a loaded start, a wavering body with rough edges, and a dry
+        /// tail where the bristles break into streaks. Horizontal, or vertical from the top.
+        /// </summary>
+        public static Sprite InkStroke(bool vertical)
+        {
+            return Get("inkStroke" + vertical, () =>
+            {
+                const int L = 256, T = 28;
+                Func<float, float, float> stroke = (u, v) =>
+                {
+                    float t = u / L;
+                    float centre = T * 0.5f + (Fbm1(u / 60f, 41) - 0.5f) * 4f;
+                    float body = Mathf.Pow(Mathf.Sin(Mathf.PI * (t * 0.94f + 0.03f)), 0.35f);
+                    float half = T * 0.36f * body * Mathf.Lerp(1.05f, 0.72f, t) * (0.86f + 0.28f * Noise1(u / 4f, 43));
+                    float a = Mathf.Clamp01(half - Mathf.Abs(v - centre) + 0.5f);
+                    float streak = Noise2(u / 26f, v / 1.8f, 47);
+                    a *= Mathf.Lerp(1f, Mathf.SmoothStep(0.25f, 0.6f, streak), Mathf.SmoothStep(0.5f, 1f, t) * 0.9f);
+                    return a * (0.86f + 0.14f * Noise2(u / 2.5f, v / 2.5f, 53));
+                };
+                return vertical
+                    ? Baked("InkStrokeV", T, L, (x, y) => stroke(L - y, x))
+                    : Baked("InkStroke", L, T, stroke);
+            });
+        }
+
+        /// <summary>A thin, slightly broken pen line for long rules and slider tracks.</summary>
+        public static Sprite InkHairline()
+        {
+            return Get("inkHair", () =>
+            {
+                const int L = 512, T = 16;
+                return Baked("InkHairline", L, T, (x, y) =>
+                {
+                    float t = x / L;
+                    float centre = T * 0.5f + (Fbm1(x / 90f, 61) - 0.5f) * 3f;
+                    float half = T * 0.2f * (0.75f + 0.5f * Noise1(x / 7f, 67)) * Mathf.Pow(Mathf.Sin(Mathf.PI * (t * 0.96f + 0.02f)), 0.25f);
+                    float a = Mathf.Clamp01(half - Mathf.Abs(y - centre) + 0.5f);
+                    return a * Mathf.Lerp(0.55f, 1f, Noise2(x / 18f, y / 3f, 71));
+                });
+            });
+        }
+
+        /// <summary>Pen-drawn chevron pointing right: pressure swells at the corner.</summary>
+        public static Sprite InkChevron()
+        {
+            return Get("inkChev", () => Paint("InkChevron", 64, 96, Vector4.zero, (x, y) =>
+            {
+                float wobble = (Noise2(x / 9f, y / 9f, 79) - 0.5f) * 2.4f;
+                return Union(TaperSegment(x, y, 14, 14, 49, 49, 3.5f, 7.5f), TaperSegment(x, y, 49, 49, 18, 84, 7.5f, 3f)) + wobble;
+            }));
+        }
+
+        static float Deckle(float x, float y)
+        {
+            float d = Box(x, y, 80, 80, 74, 74, 5);
+            return d + (Noise2(x / 7f, y / 7f, 83) - 0.5f) * 4f + (Noise2(x / 2.5f, y / 2.5f, 86) - 0.5f) * 1.2f;
+        }
+
+        /// <summary>A scrap of old paper: deckled edges, mottled, a little darker at the rim.</summary>
+        public static Sprite DeckledFill()
+        {
+            return Get("deckFill", () => Baked("DeckledFill", 160, 160, (x, y) =>
+            {
+                float d = Deckle(x, y);
+                float a = Mathf.Clamp01(0.5f - d);
+                float mottle = 0.7f + 0.3f * Noise2(x / 16f, y / 16f, 89);
+                float rim = Mathf.Lerp(1.25f, 1f, Mathf.SmoothStep(0f, 14f, -d));
+                return a * Mathf.Clamp01(mottle * rim);
+            }));
+        }
+
+        /// <summary>The deckled edge drawn in ink.</summary>
+        public static Sprite DeckledFrame(int thickness)
+        {
+            return Get("deckFrame" + thickness, () => Baked("DeckledFrame", 160, 160, (x, y) =>
+            {
+                float w = 1.6f + thickness * 1.1f;
+                float ring = Mathf.Abs(Deckle(x, y) + w * 0.5f) - w * 0.5f;
+                return Mathf.Clamp01(0.5f - ring) * (0.6f + 0.4f * Noise2(x / 4f, y / 4f, 97));
+            }));
+        }
+
+        /// <summary>Wax seal: a blobby disc with a pressed ring.</summary>
+        public static Sprite WaxSeal()
+        {
+            return Get("wax", () => Baked("WaxSeal", 96, 96, (x, y) =>
+            {
+                float dx = x - 48f, dy = y - 48f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy), ang = Mathf.Atan2(dy, dx);
+                float edge = 40f + (Noise1(ang * 2.2f + 20f, 101) - 0.5f) * 8f + (Noise1(ang * 7f + 5f, 103) - 0.5f) * 3f;
+                float a = Mathf.Clamp01(edge - r + 0.5f);
+                if (Mathf.Abs(r - 27f) < 2.5f) a *= 0.6f;
+                else if (r < 24f) a *= 0.88f;
+                return a;
+            }));
+        }
+
+        /// <summary>Engraved line, swelling in the middle and tapering to points at both ends.</summary>
+        public static Sprite TaperLine(bool vertical)
+        {
+            return Get("taper" + vertical, () =>
+            {
+                const int L = 256, T = 16;
+                Func<float, float, float> line = (u, v) =>
+                {
+                    float t = u / L;
+                    float half = T * 0.24f * Mathf.Pow(Mathf.Sin(Mathf.PI * t), 0.7f);
+                    return Mathf.Clamp01(half - Mathf.Abs(v - T * 0.5f) + 0.5f);
+                };
+                return vertical
+                    ? Baked("TaperLineV", T, L, (x, y) => line(L - y, x))
+                    : Baked("TaperLine", L, T, line);
+            });
+        }
+
+        /// <summary>Old engraved pointer: an arrowhead with a hollowed crescent back, pointing right.</summary>
+        public static Sprite LeafArrow()
+        {
+            return Get("leafArrow", () => Paint("LeafArrow", 64, 96, Vector4.zero, (x, y) =>
+            {
+                // Counter-clockwise triangle (12,10) (54,48) (12,86); outward half-plane distances.
+                float e1 = HalfPlane(x, y, 12, 10, 54, 48);
+                float e2 = HalfPlane(x, y, 54, 48, 12, 86);
+                float e3 = HalfPlane(x, y, 12, 86, 12, 10);
+                float tri = Mathf.Max(e1, Mathf.Max(e2, e3));
+                return Mathf.Max(tri, -Circle(x, y, 0, 48, 24));
+            }));
+        }
+
+        static float HalfPlane(float px, float py, float ax, float ay, float bx, float by)
+        {
+            float dx = bx - ax, dy = by - ay, len = Mathf.Sqrt(dx * dx + dy * dy);
+            return ((px - ax) * dy - (py - ay) * dx) / len;
+        }
+
+        // Square whose corners are rounded inwards, like an old picture frame or label.
+        static float Notched(float x, float y, float s, float c)
+        {
+            float half = s * 0.5f - 1f, lo = s * 0.5f - half, hi = s * 0.5f + half;
+            float box = Box(x, y, s * 0.5f, s * 0.5f, half, half, 0f);
+            float corner = Mathf.Min(Mathf.Min(Circle(x, y, lo, lo, c), Circle(x, y, hi, lo, c)),
+                                     Mathf.Min(Circle(x, y, lo, hi, c), Circle(x, y, hi, hi, c)));
+            return Mathf.Max(box, -corner);
+        }
+
+        public static Sprite FrameFill(int corner)
+        {
+            return Get("frameFill" + corner, () =>
+            {
+                int s = corner * 2 + 8;
+                return Paint("FrameFill", s, s, new Vector4(corner + 2, corner + 2, corner + 2, corner + 2), (x, y) => Notched(x, y, s, corner));
+            });
+        }
+
+        public static Sprite FrameOutline(int corner, int thickness)
+        {
+            return Get("frameLine" + corner + "_" + thickness, () =>
+            {
+                int s = corner * 2 + 8;
+                return Paint("FrameOutline", s, s, new Vector4(corner + 2, corner + 2, corner + 2, corner + 2), (x, y) => Ring(Notched(x, y, s, corner), thickness));
+            });
         }
     }
 }
