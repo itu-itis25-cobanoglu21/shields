@@ -1,3 +1,4 @@
+using Shields.Settings;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -191,7 +192,7 @@ namespace Shields.Players
                 HandleCursorToggle();
 
                 if (allowLookWhileUnlocked || Cursor.lockState == CursorLockMode.Locked)
-                    ApplyLookDelta(ReadLookDelta());
+                    ApplyLookDelta(ReadLookDelta() * GameSettings.MouseSensitivity);
             }
 
             if (smoothing > 0f)

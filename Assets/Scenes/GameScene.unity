@@ -5505,10 +5505,12 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f32cf538c8c40584f9bd3bfa1fdae9ce, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Shields.Network.NetworkPrototypeUI
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Network.GameLobbyUI
   networkBootstrap: {fileID: 716784350}
   offlineSetupUI: {fileID: 521735739}
   offlineBootstrap: {fileID: 521735740}
+  bowlby: {fileID: 11400000, guid: d65eda613c54fc44388c809088fdb0c0, type: 2}
+  knewave: {fileID: 11400000, guid: d397e9fa17e6fa54d8b0fd3416282eb5, type: 2}
 --- !u!114 &716784350
 MonoBehaviour:
   m_ObjectHideFlags: 0
