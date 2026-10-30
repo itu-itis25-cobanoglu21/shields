@@ -58,9 +58,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\Network\ShieldsSessionController.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\PreviewCosmetics.cs" />
     <Compile Include="Assets\Scripts\Presentation\CrosshairInteraction.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ConceptKit.cs" />
     <Compile Include="Assets\Scripts\Tavern\WaiterCharacter.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Throw.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ArmoryKit.cs" />
     <Compile Include="Assets\Scripts\Menu\MainMenuController.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Hit.cs" />
@@ -70,8 +73,12 @@
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerOrderCoordinator.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerLayouts.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ConceptFx.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerMugVisual.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\UIConceptDirector.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ConceptView.cs" />
     <Compile Include="Assets\Scripts\Menu\MainMenuLaunchRequest.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ArmoryCustomize.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkTestPresenter.cs" />
     <Compile Include="Assets\Laterns and candles\scripts\CameraFacing.cs" />
     <Compile Include="Assets\VFXPACK_IMPACT_WALLCOEUR_FreeVersion\Scripts\DropdownController.cs" />
@@ -80,11 +87,13 @@
     <Compile Include="Assets\Scripts\Match\GameplayCamera.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkPrototypeUI.cs" />
     <Compile Include="Assets\Scripts\Match\MatchHud.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\PreviewTurntable.cs" />
     <Compile Include="Assets\Scripts\Match\MatchBootstrap.cs" />
     <Compile Include="Assets\Scripts\Presentation\ChargeCardFlame.cs" />
     <Compile Include="Assets\Scripts\Menu\MainMenuButtonVisual.cs" />
     <Compile Include="Assets\Scripts\Presentation\WorldLabel.cs" />
     <Compile Include="Assets\Scripts\Presentation\LocalShieldSelection.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ConceptA.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerDrinkPresenter.cs" />
     <Compile Include="Assets\Scripts\Network\OnlineMatchDriver.cs" />
     <Compile Include="Assets\TutorialInfo\Readme.cs" />
@@ -97,8 +106,10 @@
     <Compile Include="Assets\Scripts\Tavern\WaiterDeliveryCoordinator.cs" />
     <Compile Include="Assets\Scripts\Player\BotController.cs" />
     <Compile Include="Assets\Scripts\Player\SeatedHeadLook.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\UIConceptState.cs" />
     <Compile Include="Assets\Scripts\Menu\MainMenuCameraBreathing.cs" />
     <Compile Include="Assets\Scripts\Table\PlayerTableArea.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ConceptAC.cs" />
     <Compile Include="Assets\Laterns and candles\scripts\ExtendedFlycam.cs" />
     <Compile Include="Assets\Scripts\Match\MatchSetupUI.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkHeadPoseBridge.cs" />
@@ -106,7 +117,10 @@
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Weapon.cs" />
     <Compile Include="Assets\Scripts\Table\TableLayoutController.cs" />
     <Compile Include="Assets\Scripts\Match\RematchUI.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ThumbnailStudio.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ConceptC.cs" />
     <Compile Include="Assets\Scripts\Player\PlayerCharacter.cs" />
+    <Compile Include="Assets\UIConcept\Scripts\ConceptSprites.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkMatchController.cs" />
     <Compile Include="Assets\Scripts\Network\ShieldsNetworkBootstrap.cs" />
   </ItemGroup>
