@@ -122,6 +122,23 @@ namespace Shields.Match
         [Tooltip("The head's tilt relative to the body's.")]
         [SerializeField] float headWhip = 1.25f;
 
+        [Header("Local View")]
+        [Tooltip("How much of the body's hit tilt the head carrying this machine's camera follows. 1 rides exactly with the body.")]
+        [Range(0f, 1.5f)]
+        [SerializeField] float localViewFollow = 1f;
+
+        [Tooltip("Impact shake of the local view, in degrees, for the damage taken.")]
+        [SerializeField] AnimationCurve viewShakeByDamage = new AnimationCurve(
+            new Keyframe(1f, 0.6f), new Keyframe(10f, 1.6f), new Keyframe(25f, 3f));
+
+        [SerializeField] float viewShakeDuration = 0.35f;
+
+        [Tooltip("Local view recoil kick per degree of the gun's recoil, when you fire.")]
+        [SerializeField] float viewRecoilPerDegree = 0.12f;
+
+        [Tooltip("Largest local view recoil kick, in degrees.")]
+        [SerializeField] float viewRecoilMax = 6f;
+
         [Header("Hit Flash")]
         [SerializeField] Color hitFlashColor = new Color(1f, 0.92f, 0.88f);
 
@@ -150,8 +167,11 @@ namespace Shields.Match
             public Vector3 PivotLocal;
             public readonly List<TiltPart> Parts = new List<TiltPart>();
 
-            // The head is rotated as well unless it carries this machine's camera.
+            // The head rides with the body. When it carries this machine's camera
+            // (HeadIsView) it follows the hit tilt but not the anticipation lean, so an
+            // aim held on a target stays on it.
             public Transform Head;
+            public bool HeadIsView;
             public Pose HeadRest;
             public Quaternion HeadBase;
             public Quaternion HeadWritten;
@@ -212,6 +232,18 @@ namespace Shields.Match
             // Tipping the up axis toward the shot direction leans the top away from the shooter.
             StartBodyReaction(target, shot, hitTiltByDamage.Evaluate(damage), HitStopFor(damage),
                 hitSquash * Mathf.Clamp01(damage / 15f));
+
+            // Hit yourself: the view rides the body's reaction and takes a jolt on top.
+            GameplayCamera view = ViewOf(target);
+            if (view != null) view.Shake(viewShakeByDamage.Evaluate(damage), viewShakeDuration);
+        }
+
+        /// <summary>The gameplay camera, when it rides on this player's head (this machine's own player).</summary>
+        static GameplayCamera ViewOf(PlayerCharacter player)
+        {
+            Camera view = Camera.main;
+            if (view == null || player == null || player.HeadPivot == null || !view.transform.IsChildOf(player.HeadPivot)) return null;
+            return view.GetComponent<GameplayCamera>();
         }
 
         /// <summary>The discharge, in world space where the shot left the barrel.</summary>
@@ -423,15 +455,15 @@ namespace Shields.Match
             AddTiltPart(reaction, player.RightHandAnchor != null ? player.RightHandAnchor.parent : null, false);
             AddTiltPart(reaction, player.WeaponHolsterAnchor, false);
 
-            // The head carrying this machine's camera stays put: the local player is never
-            // shoved around, only their body and hands react. Everyone else sees their head.
+            // The head rides with the body, the one carrying this machine's camera too: a
+            // hit knocks the local view around with the body instead of leaving it behind.
             Camera view = Camera.main;
             Transform head = player.HeadPivot;
-            bool headHoldsCamera = view != null && head != null && view.transform.IsChildOf(head);
-            if (head != null && !headHoldsCamera && head.parent == root)
+            if (head != null && head.parent == root)
             {
                 reaction.Head = head;
                 reaction.HeadRest = RestPoseOf(head);
+                reaction.HeadIsView = view != null && view.transform.IsChildOf(head);
             }
 
             return reaction.Parts.Count > 0 ? reaction : null;
@@ -548,7 +580,9 @@ namespace Shields.Match
             // layered on top of whatever look last wrote, and never fed back into it.
             if (!r.HeadWrote || r.Head.localRotation != r.HeadWritten) r.HeadBase = r.Head.localRotation;
 
-            Quaternion headOffset = Quaternion.SlerpUnclamped(Quaternion.identity, headTilt, headWhip) * lean;
+            Quaternion headOffset = r.HeadIsView
+                ? Quaternion.SlerpUnclamped(Quaternion.identity, headTilt, localViewFollow)
+                : Quaternion.SlerpUnclamped(Quaternion.identity, headTilt, headWhip) * lean;
             r.HeadWritten = headOffset * r.HeadBase;
             r.Head.localRotation = r.HeadWritten;
             r.HeadWrote = true;

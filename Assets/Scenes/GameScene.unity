@@ -3196,6 +3196,52 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4083487842677607695, guid: 076818e7e0429a54b935402064f6b249, type: 3}
   m_PrefabInstance: {fileID: 432128326}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &437829613
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 437829614}
+  - component: {fileID: 437829615}
+  m_Layer: 0
+  m_Name: GameHud
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &437829614
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 437829613}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &437829615
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 437829613}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3129b808221e16b44a97437c4897c61f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.UI.GameHud
+  bowlby: {fileID: 11400000, guid: d65eda613c54fc44388c809088fdb0c0, type: 2}
+  knewave: {fileID: 11400000, guid: d397e9fa17e6fa54d8b0fd3416282eb5, type: 2}
 --- !u!1001 &439306201
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -24733,3 +24779,4 @@ SceneRoots:
   - {fileID: 1011184221}
   - {fileID: 1574094757}
   - {fileID: 898693193}
+  - {fileID: 437829614}

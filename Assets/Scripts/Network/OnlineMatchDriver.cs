@@ -77,6 +77,17 @@ namespace Shields.Network
         /// </summary>
         public bool LocalTargetingActive { get { return _pending != PendingAction.None; } }
 
+        const float RefusalSeconds = 3f;
+
+        /// <summary>The host's latest refusal line and its 0..1 visibility, for a replacement HUD.</summary>
+        public bool TryGetRefusal(out string text, out float alpha)
+        {
+            text = _refusal;
+            float age = Time.unscaledTime - _refusalShownAt;
+            alpha = Mathf.Clamp01((RefusalSeconds - age) / 0.5f);
+            return !string.IsNullOrEmpty(_refusal) && age <= RefusalSeconds;
+        }
+
         void Awake()
         {
             Subscribe();
@@ -446,8 +457,10 @@ namespace Shields.Network
 
                 _hud.Draw(shown, LocalSeat, PendingForHud(), _hoveredTarget);
             }
-            else if (phase == OnlineMatchPhase.WaitingForShieldSelections)
+            else if (phase == OnlineMatchPhase.WaitingForShieldSelections && !HudOverride.Active)
                 DrawSetupHint();
+
+            if (HudOverride.Active) return;
 
             DrawRefusal();
 
@@ -485,7 +498,7 @@ namespace Shields.Network
 
         void DrawRefusal()
         {
-            if (string.IsNullOrEmpty(_refusal) || Time.unscaledTime - _refusalShownAt > 3f) return;
+            if (string.IsNullOrEmpty(_refusal) || Time.unscaledTime - _refusalShownAt > RefusalSeconds) return;
 
             float scale = Screen.height / 1080f;
             Rect line = new Rect(0f, Screen.height - 120f * scale, Screen.width, 40f * scale);

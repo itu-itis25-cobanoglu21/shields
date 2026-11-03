@@ -161,7 +161,19 @@ namespace Shields.Network
             get
             {
                 if (_mode == Mode.None || _leaving || LobbyVisible) return false;
-                return GameplayOnScreen() && Cursor.lockState != CursorLockMode.Locked;
+                // The beer order panel opens in the same corner; it has its own CANCEL.
+                return GameplayOnScreen() && Cursor.lockState != CursorLockMode.Locked && !BeerPanelOpen;
+            }
+        }
+
+        Shields.Tavern.BeerOrderUI _beerUI;
+
+        bool BeerPanelOpen
+        {
+            get
+            {
+                if (_beerUI == null) _beerUI = FindAnyObjectByType<Shields.Tavern.BeerOrderUI>();
+                return _beerUI != null && _beerUI.IsOpen;
             }
         }
 

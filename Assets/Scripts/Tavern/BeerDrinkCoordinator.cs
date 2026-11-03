@@ -177,6 +177,18 @@ namespace Shields.Tavern
             }
         }
 
+        /// <summary>True while the local player is drinking.</summary>
+        public bool LocalDrinking
+        {
+            get { return _orders != null && _presenter != null && _orders.LocalSeat >= 0 && _presenter.IsDrinking(_orders.LocalSeat); }
+        }
+
+        /// <summary>True while pressing drink would start drinking a mug now (for HUD prompts).</summary>
+        public bool LocalCanDrink
+        {
+            get { return _orders != null && _presenter != null && _turnPlay && LocalCandidate() != null; }
+        }
+
         /// <summary>The mug a press would drink now, or null.</summary>
         BeerMugVisual LocalCandidate()
         {
@@ -363,7 +375,7 @@ namespace Shields.Tavern
 
         void OnGUI()
         {
-            if (_orders == null || _presenter == null || !_turnPlay) return;
+            if (_orders == null || _presenter == null || !_turnPlay || HudOverride.Active) return;
 
             int seat = _orders.LocalSeat;
             bool drinking = seat >= 0 && _presenter.IsDrinking(seat);

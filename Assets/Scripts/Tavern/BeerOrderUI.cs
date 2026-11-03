@@ -52,8 +52,11 @@ namespace Shields.Tavern
         bool _previousCursorVisible;
         Vector2 _scroll;
 
+        /// <summary>What kind of line the feedback is, so a replacement HUD can colour it its own way.</summary>
+        public enum FeedbackTone { Info, Accepted, Refused }
+
         string _feedback = string.Empty;
-        Color _feedbackColor = Color.white;
+        FeedbackTone _feedbackTone;
         float _feedbackShownAt = -100f;
         float _awaitingReplySince = -1f;
 
@@ -63,6 +66,48 @@ namespace Shields.Tavern
         GUIStyle _buttonStyle;
 
         public bool IsOpen { get { return _open; } }
+
+        // ------------------------------------------------------------------ replacement HUD access
+        // A replacement HUD (HudOverride.BeerPanel) draws the panel itself and drives it
+        // through these. Ordering, cursor and validation rules stay here.
+
+        /// <summary>Who can be ordered for, refreshed every frame while the panel is open.</summary>
+        public IReadOnlyList<BeerRecipient> Recipients { get { return _recipients; } }
+
+        public bool IsSelected(int seat) { return _selected.Contains(seat); }
+
+        public void SetSelected(int seat, bool on)
+        {
+            if (on) _selected.Add(seat);
+            else _selected.Remove(seat);
+        }
+
+        public int SelectedCount { get { return _selected.Count; } }
+
+        public float CooldownRemaining { get { return coordinator != null ? coordinator.LocalCooldownRemaining : 0f; } }
+
+        public bool AwaitingReply { get { return _awaitingReplySince >= 0f; } }
+
+        /// <summary>Same as pressing O.</summary>
+        public void RequestOpen()
+        {
+            if (!_open && coordinator != null && coordinator.OrderingAvailable) TryOpen();
+        }
+
+        public void Order() { if (_open) SubmitOrder(); }
+
+        public void Cancel() { Close(false); }
+
+        /// <summary>The current feedback line and its 0..1 visibility; false when nothing is shown.</summary>
+        public bool TryGetFeedback(out string text, out FeedbackTone tone, out float alpha)
+        {
+            text = _feedback;
+            tone = _feedbackTone;
+            float age = Time.unscaledTime - _feedbackShownAt;
+            bool waiting = _awaitingReplySince >= 0f;
+            alpha = waiting ? 1f : Mathf.Clamp01((feedbackSeconds - age) / 0.5f);
+            return !string.IsNullOrEmpty(_feedback) && (age < feedbackSeconds || waiting);
+        }
 
         // ------------------------------------------------------------------ lifecycle
 
@@ -104,6 +149,7 @@ namespace Shields.Tavern
                 else
                 {
                     KeepCursorFree();
+                    RefreshRecipients();
                 }
 
                 return;
@@ -119,12 +165,15 @@ namespace Shields.Tavern
             if (_awaitingReplySince >= 0f && Time.unscaledTime - _awaitingReplySince > replyTimeoutSeconds)
             {
                 _awaitingReplySince = -1f;
-                ShowFeedback("NO ANSWER FROM HOST", RefuseColor);
+                ShowFeedback("NO ANSWER FROM HOST", FeedbackTone.Refused);
             }
 
-            if (!TogglePressed()) return;
+            if (TogglePressed()) TryOpen();
+        }
 
-            if (coordinator.LocalTargetingActive) ShowFeedback("CANNOT ORDER WHILE CHOOSING A TARGET", RefuseColor);
+        void TryOpen()
+        {
+            if (coordinator.LocalTargetingActive) ShowFeedback("CANNOT ORDER WHILE CHOOSING A TARGET", FeedbackTone.Refused);
             else Open();
         }
 
@@ -199,18 +248,18 @@ namespace Shields.Tavern
 
             if (_submitBuffer.Count == 0)
             {
-                ShowFeedback(BeerOrderQueue.DescribeRejection(BeerOrderRejection.NoRecipients), RefuseColor);
+                ShowFeedback(BeerOrderQueue.DescribeRejection(BeerOrderRejection.NoRecipients), FeedbackTone.Refused);
                 return;
             }
 
             // Shown until the receipt replaces it; offline that happens inside Submit.
-            ShowFeedback("ORDER SENT...", AccentColor);
+            ShowFeedback("ORDER SENT...", FeedbackTone.Info);
             _awaitingReplySince = Time.unscaledTime;
 
             if (!coordinator.Submit(_submitBuffer))
             {
                 _awaitingReplySince = -1f;
-                ShowFeedback(BeerOrderQueue.DescribeRejection(BeerOrderRejection.NotAvailable), RefuseColor);
+                ShowFeedback(BeerOrderQueue.DescribeRejection(BeerOrderRejection.NotAvailable), FeedbackTone.Refused);
                 return;
             }
 
@@ -228,7 +277,7 @@ namespace Shields.Tavern
                 string beers = receipt.BeerCount + (receipt.BeerCount == 1 ? " BEER" : " BEERS");
                 ShowFeedback(receipt.OrdersAhead == 0
                     ? "ORDER ACCEPTED — " + beers
-                    : "ORDER QUEUED — " + receipt.OrdersAhead + " AHEAD", AcceptColor);
+                    : "ORDER QUEUED — " + receipt.OrdersAhead + " AHEAD", FeedbackTone.Accepted);
                 return;
             }
 
@@ -236,14 +285,24 @@ namespace Shields.Tavern
             if (receipt.Rejection == BeerOrderRejection.Cooldown)
                 reason += " — " + Mathf.CeilToInt(receipt.CooldownRemaining) + "s";
 
-            ShowFeedback(reason, RefuseColor);
+            ShowFeedback(reason, FeedbackTone.Refused);
         }
 
-        void ShowFeedback(string text, Color color)
+        void ShowFeedback(string text, FeedbackTone tone)
         {
             _feedback = text;
-            _feedbackColor = color;
+            _feedbackTone = tone;
             _feedbackShownAt = Time.unscaledTime;
+        }
+
+        static Color ToneColor(FeedbackTone tone)
+        {
+            switch (tone)
+            {
+                case FeedbackTone.Accepted: return AcceptColor;
+                case FeedbackTone.Refused: return RefuseColor;
+                default: return AccentColor;
+            }
         }
 
         // ------------------------------------------------------------------ drawing
@@ -251,6 +310,8 @@ namespace Shields.Tavern
         void OnGUI()
         {
             if (coordinator == null || !coordinator.OrderingAvailable) return;
+            // The replacement HUD draws the panel and the feedback line itself.
+            if (HudOverride.Active && HudOverride.BeerPanel) return;
 
             EnsureStyles();
 
@@ -264,6 +325,9 @@ namespace Shields.Tavern
 
             // Sits above the online diagnostics line in the bottom left corner.
             float bottom = Screen.height - 40f * scale;
+            // A replacement HUD draws its own entry prompt; the open panel is still drawn here.
+            if (!_open && HudOverride.Active) return;
+
             float top = _open ? DrawPanel(margin, bottom, scale) : DrawEntryButton(margin, bottom, scale);
 
             DrawFeedbackLine(margin, top, scale);
@@ -348,15 +412,12 @@ namespace Shields.Tavern
 
         void DrawFeedbackLine(float left, float top, float scale)
         {
-            float age = Time.unscaledTime - _feedbackShownAt;
-            bool waiting = _awaitingReplySince >= 0f;
-            if (string.IsNullOrEmpty(_feedback) || (age >= feedbackSeconds && !waiting)) return;
+            if (!TryGetFeedback(out string text, out FeedbackTone tone, out float alpha)) return;
 
-            float alpha = waiting ? 1f : Mathf.Clamp01((feedbackSeconds - age) / 0.5f);
             Rect line = new Rect(left, top - 30f * scale, 520f * scale, 28f * scale);
+            Color color = ToneColor(tone);
 
-            MatchHud.ShadowLabel(line, _feedback, _labelStyle,
-                new Color(_feedbackColor.r, _feedbackColor.g, _feedbackColor.b, alpha));
+            MatchHud.ShadowLabel(line, text, _labelStyle, new Color(color.r, color.g, color.b, alpha));
         }
 
         void EnsureStyles()

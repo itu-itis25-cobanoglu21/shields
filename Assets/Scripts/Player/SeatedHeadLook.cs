@@ -59,7 +59,31 @@ namespace Shields.Players
         int _suppressionEndedFrame = -1;
         bool _pitchLocked;
 
+        bool _aimLocked;
+        Vector3 _aimPoint;
+
         public Transform HeadPivot { get { return headPivot; } }
+
+        /// <summary>True while the head is held on a world point (the player's own shot).</summary>
+        public bool AimLocked { get { return _aimLocked; } }
+
+        /// <summary>
+        /// Turns the head to face a world point and holds it there, ignoring look input,
+        /// until <see cref="ReleaseAim"/>. Call again whenever the point moves. The seated
+        /// limits still apply. The head turns with the usual smoothing, and the turn is
+        /// part of the head pose, so other machines see it too. Presentation only.
+        /// </summary>
+        public void LockAim(Vector3 worldPoint)
+        {
+            _aimLocked = true;
+            _aimPoint = worldPoint;
+        }
+
+        /// <summary>Gives the head back to look input, from where it points now: nothing snaps back.</summary>
+        public void ReleaseAim()
+        {
+            _aimLocked = false;
+        }
 
         /// <summary>True while vertical look is frozen (drinking). Yaw keeps working.</summary>
         public bool PitchLocked { get { return _pitchLocked; } }
@@ -160,6 +184,7 @@ namespace Shields.Players
         [ContextMenu("Reset Look")]
         public void ResetLook()
         {
+            _aimLocked = false;
             _yaw = 0f;
             _targetYaw = 0f;
             _pitch = restPitch;
@@ -191,9 +216,11 @@ namespace Shields.Players
             {
                 HandleCursorToggle();
 
-                if (allowLookWhileUnlocked || Cursor.lockState == CursorLockMode.Locked)
+                if (!_aimLocked && (allowLookWhileUnlocked || Cursor.lockState == CursorLockMode.Locked))
                     ApplyLookDelta(ReadLookDelta() * GameSettings.MouseSensitivity);
             }
+
+            if (_aimLocked) AimTargetsAt(_aimPoint);
 
             if (smoothing > 0f)
             {
@@ -208,6 +235,43 @@ namespace Shields.Players
             }
 
             ApplyRotation();
+        }
+
+        /// <summary>
+        /// Sets the look targets so the eye (the camera, when it rides on this head) looks
+        /// straight at a world point. The eye sits off the pivot, so the angles are refined
+        /// a few times from the eye's position at the previous guess.
+        /// </summary>
+        void AimTargetsAt(Vector3 worldPoint)
+        {
+            if (headPivot == null) return;
+
+            Transform reference = headPivot.parent;
+            Vector3 target = reference != null ? reference.InverseTransformPoint(worldPoint) : worldPoint;
+            Vector3 pivot = headPivot.localPosition;
+            Vector3 eye = EyeOffset();
+
+            float yaw = _targetYaw, pitch = _targetPitch;
+            for (int i = 0; i < 3; i++)
+            {
+                Vector3 toTarget = target - (pivot + Quaternion.Euler(pitch, yaw, 0f) * eye);
+                if (toTarget.sqrMagnitude < 0.000001f) return;
+
+                toTarget.Normalize();
+                yaw = Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg;
+                pitch = -Mathf.Asin(Mathf.Clamp(toTarget.y, -1f, 1f)) * Mathf.Rad2Deg;
+            }
+
+            _targetYaw = Mathf.Clamp(yaw, -maxYaw, maxYaw);
+            _targetPitch = Mathf.Clamp(pitch, restPitch - maxLookUp, restPitch + maxLookDown);
+        }
+
+        /// <summary>The camera's position in the pivot's own space, or zero when no camera rides on this head.</summary>
+        Vector3 EyeOffset()
+        {
+            Camera view = Camera.main;
+            if (view == null || !view.transform.IsChildOf(headPivot)) return Vector3.zero;
+            return headPivot.InverseTransformPoint(view.transform.position);
         }
 
         void ApplyRotation()

@@ -49,6 +49,7 @@ namespace Shields.Match
             _feedbackHeadline = headline ?? string.Empty;
             _feedbackDetail = detail ?? string.Empty;
             _feedbackShownAt = Time.unscaledTime;
+            HudOverride.RaiseFeedback(_feedbackHeadline, _feedbackDetail);
         }
 
         /// <summary>
@@ -58,6 +59,8 @@ namespace Shields.Match
         public void ShowResult(PublicActionResult result, int localSeat)
         {
             if (!result.Accepted) return;
+
+            HudOverride.RaiseResult(result, localSeat);
 
             string actor = PlayerName(result.ActorIndex, localSeat, false);
             string target = PlayerName(result.TargetIndex, localSeat, result.TargetIndex == result.ActorIndex);
@@ -96,6 +99,9 @@ namespace Shields.Match
             int hoveredTarget, string overrideHint = null)
         {
             if (!snapshot.IsValid) return;
+
+            HudOverride.Record(snapshot, localSeat, pending, hoveredTarget);
+            if (HudOverride.Active) return;
 
             EnsureStyles();
 

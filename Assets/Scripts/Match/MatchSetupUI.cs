@@ -24,7 +24,7 @@ namespace Shields.Match
 
         void OnGUI()
         {
-            if (bootstrap == null || !bootstrap.MatchRunning || !showInMatchHint) return;
+            if (bootstrap == null || !bootstrap.MatchRunning || !showInMatchHint || HudOverride.Active) return;
 
             DrawInMatchHint();
         }

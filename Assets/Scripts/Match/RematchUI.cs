@@ -59,7 +59,7 @@ namespace Shields.Match
 
         void OnGUI()
         {
-            if (!Visible) return;
+            if (!Visible || HudOverride.Active) return;
 
             EnsureStyles();
             float scale = Screen.height / 1080f;

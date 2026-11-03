@@ -143,6 +143,8 @@ namespace Shields.Match
         {
             // The local player cannot see above their own head; the HUD covers them.
             if (player.PlayerIndex == _localPlayerIndex) return;
+            // A replacement screen HUD draws its own names above heads.
+            if (HudOverride.Active) return;
 
             WorldLabel label = StatusLabelFor(player.PlayerIndex);
             if (label == null) return;
@@ -191,6 +193,8 @@ namespace Shields.Match
         public void ShowResult(PublicActionResult result, System.Action onRevealed = null)
         {
             if (!result.Accepted || _table == null) return;
+
+            HudOverride.RaiseActionStarted(result, _localPlayerIndex);
 
             bool synced = _syncedSinceResult;
             _syncedSinceResult = false;
@@ -241,8 +245,9 @@ namespace Shields.Match
         {
             if (_table == null) return;
 
+            // A replacement screen HUD tells the action in its own event feed.
             PlayerCharacter actor = _table.GetPlayer(result.ActorIndex);
-            if (actor != null)
+            if (actor != null && !HudOverride.Active)
             {
                 WorldLabel label = WorldLabel.Create("ActionLabel", actor.transform, LabelOffset(actor, ActionHeight),
                     Color.white, 0.011f);

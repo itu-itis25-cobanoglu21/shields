@@ -13,6 +13,10 @@ namespace Shields.Match
     /// Presentation only. Nothing here decides a target or an outcome: free aim follows
     /// the local view, and the lock comes from the target the player clicked (cosmetic,
     /// reversible) or from the public action result every machine receives.
+    ///
+    /// When the shooter is this machine's player, their view locks too: from the moment a
+    /// target is chosen until the shot has fired and settled, the head turns to the target
+    /// and ignores the mouse, and the shot kicks the view up a little.
     /// </summary>
     public partial class PlayerActionPresenter
     {
@@ -77,6 +81,9 @@ namespace Shields.Match
             public Transform Muzzle;
             public Pose Rest;
             public Coroutine Routine;
+
+            // This machine's own look, when the shooter is this machine's player; null otherwise.
+            public SeatedHeadLook View;
 
             public bool FollowCamera;
             public int LockTarget = -1;
@@ -198,6 +205,7 @@ namespace Shields.Match
             if (_weapons.TryGetValue(seat, out previous) && previous.Routine != null)
             {
                 StopCoroutine(previous.Routine);
+                ReleaseView(previous);
                 carried = previous.Weapon.parent == previous.Grip;
             }
 
@@ -210,7 +218,8 @@ namespace Shields.Match
                 Weapon = player.Weapon,
                 Holster = player.WeaponHolsterAnchor,
                 Muzzle = player.Weapon.Find(MuzzleName),
-                Rest = RestPoseOf(player.RightHandAnchor)
+                Rest = RestPoseOf(player.RightHandAnchor),
+                View = LocalLook(player)
             };
 
             _weapons[seat] = rig;
@@ -229,6 +238,7 @@ namespace Shields.Match
             if (!_weapons.TryGetValue(seat, out rig)) return;
 
             if (rig.Routine != null) StopCoroutine(rig.Routine);
+            ReleaseView(rig);
             if (landPendingHit && rig.LockConfirmed && rig.Damage > 0 && !rig.Fired)
             {
                 rig.Fired = true;
@@ -290,6 +300,9 @@ namespace Shields.Match
 
                 if (rig.HolsterRequested) break;
 
+                // A chosen target holds the shooter's own view on it for the whole shot.
+                if (rig.View != null && rig.LockTarget >= 0) rig.View.LockAim(aimPoint);
+
                 if (rig.LockTarget >= 0)
                 {
                     if (rig.LockedSince < 0f && raised >= drawRaiseDuration && OnTarget(rig, aimPoint))
@@ -318,6 +331,9 @@ namespace Shields.Match
 
                 yield return null;
             }
+
+            // The shot is over (or called off): the view is the player's again while the weapon goes away.
+            ReleaseView(rig);
 
             if (rig.Hand == null) yield break;
 
@@ -386,6 +402,15 @@ namespace Shields.Match
             rig.HitStop = HitStopFor(rig.Damage);
 
             PlayMuzzleFlash(muzzle, rig.Damage, rig.Seed);
+
+            // Your own shot kicks your view up a little, more for a bigger hit.
+            GameplayCamera view = ViewOf(rig.Player);
+            if (view != null)
+            {
+                float kick = Mathf.Min(viewRecoilMax, rig.Recoil * viewRecoilPerDegree);
+                view.Kick(kick, kick * 0.15f);
+            }
+
             PlayHit(rig.LockTarget, muzzle.position, rig.Damage, rig.Seed);
 
             PlayerCharacter target = _table != null ? _table.GetPlayer(rig.LockTarget) : null;
@@ -415,6 +440,18 @@ namespace Shields.Match
             rig.Weapon.localPosition = Vector3.zero;
             rig.Weapon.localRotation = Quaternion.identity;
             rig.Weapon.localScale = Vector3.one;
+        }
+
+        /// <summary>This machine's own look on a player, or null for anyone this machine does not control.</summary>
+        static SeatedHeadLook LocalLook(PlayerCharacter player)
+        {
+            SeatedHeadLook look = player != null ? player.GetComponent<SeatedHeadLook>() : null;
+            return look != null && look.isActiveAndEnabled ? look : null;
+        }
+
+        static void ReleaseView(WeaponRig rig)
+        {
+            if (rig.View != null && rig.View.AimLocked) rig.View.ReleaseAim();
         }
 
         static void RestoreHand(WeaponRig rig)
