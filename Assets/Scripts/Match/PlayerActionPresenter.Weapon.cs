@@ -14,9 +14,15 @@ namespace Shields.Match
     /// the local view, and the lock comes from the target the player clicked (cosmetic,
     /// reversible) or from the public action result every machine receives.
     ///
-    /// When the shooter is this machine's player, their view locks too: from the moment a
-    /// target is chosen until the shot has fired and settled, the head turns to the target
-    /// and ignores the mouse, and the shot kicks the view up a little.
+    /// The shot goes exactly where the shooter is looking: when the target is chosen, the
+    /// shooter's line of sight (their head's camera anchor, the same pose on every machine)
+    /// is traced onto the target's body, head or hands, and that spot is what the weapon
+    /// aims at and where the hit lands. A line of sight that misses the body (aiming at
+    /// their Shield card, say) falls back to the upper body.
+    ///
+    /// When the shooter is this machine's player, their view freezes on that same line
+    /// from the click until the shot has fired and settled, ignoring the mouse, and the
+    /// shot kicks the view up a little.
     /// </summary>
     public partial class PlayerActionPresenter
     {
@@ -87,6 +93,11 @@ namespace Shields.Match
 
             public bool FollowCamera;
             public int LockTarget = -1;
+
+            // The exact spot aimed at on the target, in the space of the part it lies on
+            // (so it rides along when that part moves). Null: aim at the upper body.
+            public Transform SpotOn;
+            public Vector3 SpotLocal;
             public bool LockConfirmed;
             public float LockedSince = -1f;
             public float LockRequestedAt;
@@ -179,7 +190,15 @@ namespace Shields.Match
 
             if (rig == null) return null;
 
-            if (rig.LockTarget != target) rig.LockedSince = -1f;
+            if (rig.LockTarget != target)
+            {
+                rig.LockedSince = -1f;
+
+                // The shooter's own view freezes right where it points, and that line of
+                // sight picks the exact spot the shot will go.
+                if (rig.View != null) rig.View.HoldAim();
+                CaptureSpot(rig, target);
+            }
 
             rig.LockTarget = target;
             rig.LockRequestedAt = Time.time;
@@ -242,7 +261,7 @@ namespace Shields.Match
             if (landPendingHit && rig.LockConfirmed && rig.Damage > 0 && !rig.Fired)
             {
                 rig.Fired = true;
-                PlayHit(rig.LockTarget, rig.Player != null ? rig.Player.transform.position : Vector3.zero, rig.Damage, rig.Seed);
+                PlayHit(rig.LockTarget, rig.Player != null ? rig.Player.transform.position : Vector3.zero, rig.Damage, rig.Seed, Spot(rig));
             }
 
             Holster(rig);
@@ -299,9 +318,6 @@ namespace Shields.Match
                 SetGripPose(rig, Recoiled(held, rig.Recoil, kicked));
 
                 if (rig.HolsterRequested) break;
-
-                // A chosen target holds the shooter's own view on it for the whole shot.
-                if (rig.View != null && rig.LockTarget >= 0) rig.View.LockAim(aimPoint);
 
                 if (rig.LockTarget >= 0)
                 {
@@ -411,7 +427,7 @@ namespace Shields.Match
                 view.Kick(kick, kick * 0.15f);
             }
 
-            PlayHit(rig.LockTarget, muzzle.position, rig.Damage, rig.Seed);
+            PlayHit(rig.LockTarget, muzzle.position, rig.Damage, rig.Seed, Spot(rig));
 
             PlayerCharacter target = _table != null ? _table.GetPlayer(rig.LockTarget) : null;
             if (target != null) StartShooterLean(rig.Player, target.transform.position - rig.Player.transform.position, rig.Recoil, rig.HitStop);
@@ -451,7 +467,7 @@ namespace Shields.Match
 
         static void ReleaseView(WeaponRig rig)
         {
-            if (rig.View != null && rig.View.AimLocked) rig.View.ReleaseAim();
+            if (rig.View != null && rig.View.AimHeld) rig.View.ReleaseAim();
         }
 
         static void RestoreHand(WeaponRig rig)
@@ -473,6 +489,8 @@ namespace Shields.Match
         {
             if (rig.LockTarget >= 0)
             {
+                if (rig.SpotOn != null) return rig.SpotOn.TransformPoint(rig.SpotLocal);
+
                 PlayerCharacter target = _table != null ? _table.GetPlayer(rig.LockTarget) : null;
                 if (target != null) return target.UpperBodyAimPoint(targetUpperBody);
             }
@@ -486,9 +504,178 @@ namespace Shields.Match
             RaycastHit hit;
             if (Physics.Raycast(ray, out hit, freeAimRange, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
                 hit.distance > 0.3f)
+            {
+                // A player's targeting box is loose; aim at the body inside it, as the shot will.
+                PlayerCharacter other = hit.collider.GetComponentInParent<PlayerCharacter>();
+                Transform part;
+                Vector3 onBody;
+                if (other != null && other != rig.Player && SightOnBody(other, ray, out part, out onBody)) return onBody;
                 return hit.point;
+            }
 
             return ray.origin + ray.direction * freeAimFallbackDistance;
+        }
+
+        /// <summary>
+        /// Traces the shooter's line of sight onto the target and keeps the spot it meets,
+        /// on the part it lies on. The line of sight is the shooter's camera anchor: on
+        /// their own machine that is exactly the crosshair, and elsewhere it comes from the
+        /// same replicated head pose, so every machine finds the same spot.
+        /// </summary>
+        void CaptureSpot(WeaponRig rig, int target)
+        {
+            rig.SpotOn = null;
+
+            PlayerCharacter victim = _table != null ? _table.GetPlayer(target) : null;
+            Transform eye = rig.Player != null ? rig.Player.CameraAnchor : null;
+            if (victim == null || eye == null) return;
+
+            Transform part;
+            Vector3 point;
+            if (!SightOnBody(victim, new Ray(eye.position, eye.forward), out part, out point)) return;
+
+            rig.SpotOn = part;
+            rig.SpotLocal = part.InverseTransformPoint(point);
+        }
+
+        Vector3? Spot(WeaponRig rig)
+        {
+            if (rig.SpotOn == null) return null;
+            return rig.SpotOn.TransformPoint(rig.SpotLocal);
+        }
+
+        // ------------------------------------------------------------------ line of sight
+
+        static readonly List<MeshFilter> SightParts = new List<MeshFilter>();
+
+        /// <summary>
+        /// Where a ray first meets a player's body, head or hands. The character meshes are
+        /// not CPU-readable, so each part is a shape fitted to its mesh bounds: the body an
+        /// upright capsule, the head and hands ellipsoids. Close enough for these rounded
+        /// low-poly figures. The chair and the weapon are not part of the player.
+        /// </summary>
+        static bool SightOnBody(PlayerCharacter victim, Ray ray, out Transform part, out Vector3 point)
+        {
+            part = null;
+            point = default;
+            float best = float.MaxValue;
+
+            TestSightParts(victim, victim.Body, true, ray, ref best, ref part, ref point);
+            TestSightParts(victim, victim.HeadVisual, false, ray, ref best, ref part, ref point);
+            TestSightParts(victim, victim.LeftHandAnchor, false, ray, ref best, ref part, ref point);
+            TestSightParts(victim, victim.RightHandAnchor, false, ray, ref best, ref part, ref point);
+
+            return part != null;
+        }
+
+        static void TestSightParts(PlayerCharacter victim, Transform root, bool capsule, Ray ray,
+            ref float best, ref Transform part, ref Vector3 point)
+        {
+            if (root == null || !root.gameObject.activeInHierarchy) return;
+
+            root.GetComponentsInChildren(false, SightParts);
+            foreach (MeshFilter filter in SightParts)
+            {
+                Mesh mesh = filter.sharedMesh;
+                if (mesh == null) continue;
+                if (victim.Weapon != null && filter.transform.IsChildOf(victim.Weapon)) continue;
+
+                Renderer renderer = filter.GetComponent<Renderer>();
+                if (renderer == null || !renderer.enabled) continue;
+
+                Transform t = filter.transform;
+                Vector3 origin = t.InverseTransformPoint(ray.origin);
+                Vector3 direction = t.InverseTransformVector(ray.direction).normalized;
+
+                Vector3 local;
+                if (!(capsule ? RayCapsule(origin, direction, mesh.bounds, out local) : RayEllipsoid(origin, direction, mesh.bounds, out local)))
+                    continue;
+
+                Vector3 world = t.TransformPoint(local);
+                float distance = Vector3.Distance(ray.origin, world);
+                if (distance >= best) continue;
+
+                best = distance;
+                part = t;
+                point = world;
+            }
+        }
+
+        /// <summary>First hit of a ray (unit direction) on the ellipsoid inscribed in a box.</summary>
+        static bool RayEllipsoid(Vector3 origin, Vector3 direction, Bounds box, out Vector3 hit)
+        {
+            hit = default;
+            Vector3 e = box.extents;
+            if (e.x <= 0f || e.y <= 0f || e.z <= 0f) return false;
+
+            Vector3 o = new Vector3((origin.x - box.center.x) / e.x, (origin.y - box.center.y) / e.y, (origin.z - box.center.z) / e.z);
+            Vector3 d = new Vector3(direction.x / e.x, direction.y / e.y, direction.z / e.z);
+
+            float a = Vector3.Dot(d, d);
+            float b = Vector3.Dot(o, d);
+            float c = Vector3.Dot(o, o) - 1f;
+            float h = b * b - a * c;
+            if (h < 0f) return false;
+
+            float t = (-b - Mathf.Sqrt(h)) / a;
+            if (t < 0f) return false;
+
+            hit = origin + direction * t;
+            return true;
+        }
+
+        /// <summary>First hit of a ray (unit direction) on an upright capsule fitted inside a box.</summary>
+        static bool RayCapsule(Vector3 origin, Vector3 direction, Bounds box, out Vector3 hit)
+        {
+            hit = default;
+            Vector3 e = box.extents;
+            float r = Mathf.Min(e.x, e.z);
+            if (r <= 0f) return false;
+
+            float half = Mathf.Max(0f, e.y - r);
+            Vector3 pa = box.center - Vector3.up * half;
+            Vector3 pb = box.center + Vector3.up * half;
+
+            Vector3 ba = pb - pa, oa = origin - pa;
+            float baba = Vector3.Dot(ba, ba), bard = Vector3.Dot(ba, direction), baoa = Vector3.Dot(ba, oa);
+            float rdoa = Vector3.Dot(direction, oa), oaoa = Vector3.Dot(oa, oa);
+
+            float t = -1f;
+            if (baba > 0f)
+            {
+                float qa = baba - bard * bard;
+                float qb = baba * rdoa - baoa * bard;
+                float qc = baba * oaoa - baoa * baoa - r * r * baba;
+                float qh = qb * qb - qa * qc;
+                if (qh >= 0f && qa > 0f)
+                {
+                    float side = (-qb - Mathf.Sqrt(qh)) / qa;
+                    float y = baoa + side * bard;
+                    if (y > 0f && y < baba) t = side;
+                }
+            }
+
+            if (t < 0f)
+            {
+                // The rounded ends: the nearer sphere hit, if any.
+                t = Mathf.Min(SphereHit(origin, direction, pa, r), SphereHit(origin, direction, pb, r));
+                if (float.IsInfinity(t)) return false;
+            }
+
+            if (t < 0f) return false;
+            hit = origin + direction * t;
+            return true;
+        }
+
+        static float SphereHit(Vector3 origin, Vector3 direction, Vector3 centre, float r)
+        {
+            Vector3 oc = origin - centre;
+            float b = Vector3.Dot(direction, oc);
+            float c = Vector3.Dot(oc, oc) - r * r;
+            float h = b * b - c;
+            if (h < 0f) return float.PositiveInfinity;
+            float t = -b - Mathf.Sqrt(h);
+            return t >= 0f ? t : float.PositiveInfinity;
         }
 
         /// <summary>

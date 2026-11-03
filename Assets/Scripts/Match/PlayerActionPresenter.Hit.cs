@@ -81,6 +81,9 @@ namespace Shields.Match
         [Tooltip("Distance from the body's centre line, toward the shooter, where the burst is centred. Clear of the body surface.")]
         [SerializeField] float bloodSurfaceOffset = 0.2f;
 
+        [Tooltip("For a shot at an exact spot on the body: how far out from that spot, toward the shooter, the burst is centred.")]
+        [SerializeField] float bloodSpotOffset = 0.03f;
+
         [Tooltip("Extra blood size per point of damage, as a fraction of its prefab size.")]
         [SerializeField] float bloodGrowthPerDamage = 0.025f;
 
@@ -220,13 +223,19 @@ namespace Shields.Match
         /// <summary>A damaging shot from a world point landed on this seat.</summary>
         void PlayHit(int seat, Vector3 shotOrigin, int damage, int seed)
         {
+            PlayHit(seat, shotOrigin, damage, seed, null);
+        }
+
+        /// <summary>As above, landing on an exact spot on the body when one was aimed at.</summary>
+        void PlayHit(int seat, Vector3 shotOrigin, int damage, int seed, Vector3? spot)
+        {
             PlayerCharacter target = _table != null ? _table.GetPlayer(seat) : null;
             if (target == null) return;
 
-            Vector3 aimPoint = target.UpperBodyAimPoint(targetUpperBody);
+            Vector3 aimPoint = spot ?? target.UpperBodyAimPoint(targetUpperBody);
             Vector3 shot = Flat(aimPoint - shotOrigin);
 
-            PlayBlood(target, aimPoint, shot, damage, seed);
+            PlayBlood(target, aimPoint, shot, damage, seed, spot.HasValue ? bloodSpotOffset : bloodSurfaceOffset);
             StartBodyFlash(target);
 
             // Tipping the up axis toward the shot direction leans the top away from the shooter.
@@ -280,14 +289,14 @@ namespace Shields.Match
         /// Centred just clear of the body surface facing the shooter, its +Z toward the
         /// shooter, parented to the body so it rides the reaction.
         /// </summary>
-        void PlayBlood(PlayerCharacter target, Vector3 aimPoint, Vector3 shot, int damage, int seed)
+        void PlayBlood(PlayerCharacter target, Vector3 aimPoint, Vector3 shot, int damage, int seed, float offset)
         {
             if (hitBloodPrefab == null) return;
 
             Transform parent = target.Body != null ? target.Body : target.transform;
             float growth = Mathf.Min(bloodMaxGrowth, 1f + bloodGrowthPerDamage * damage);
 
-            PlaySeeded(hitBloodPrefab, aimPoint - shot * bloodSurfaceOffset,
+            PlaySeeded(hitBloodPrefab, aimPoint - shot * offset,
                 Quaternion.LookRotation(-shot, Vector3.up), parent, growth, seed + 7919);
         }
 
