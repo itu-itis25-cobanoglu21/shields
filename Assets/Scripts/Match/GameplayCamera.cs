@@ -100,6 +100,11 @@ namespace Shields.Match
         void Awake()
         {
             StoreParkedPose();
+
+            // This machine's first-person view never draws its own player's head (it sits
+            // inside it). Only that head is on this layer; every other head stays visible.
+            int localHead = Shields.Players.PlayerCharacter.LocalHeadLayer;
+            if (localHead >= 0) GetComponent<Camera>().cullingMask &= ~(1 << localHead);
         }
 
         void StoreParkedPose()

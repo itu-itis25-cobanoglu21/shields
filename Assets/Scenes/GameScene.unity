@@ -4014,6 +4014,7 @@ MonoBehaviour:
   shooterLeanPerDegree: 0.12
   hitBloodPrefab: {fileID: 766092769117596024, guid: 849d3cf28290e6347afbcb138cb2cf78, type: 3}
   bloodSurfaceOffset: 0.2
+  bloodSpotOffset: 0.03
   bloodGrowthPerDamage: 0.025
   bloodMaxGrowth: 1.4
   hitTiltByDamage:
@@ -4077,6 +4078,43 @@ MonoBehaviour:
   hitSquash: 0.07
   headLag: 0.05
   headWhip: 1.25
+  localViewFollow: 1
+  viewShakeByDamage:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 1
+      value: 0.6
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 10
+      value: 1.6
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 25
+      value: 3
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  viewShakeDuration: 0.35
+  viewRecoilPerDegree: 0.12
+  viewRecoilMax: 6
   hitFlashColor: {r: 1, g: 0.92, b: 0.88, a: 1}
   hitFlashStrength: 0.85
   hitFlashDuration: 0.2
@@ -7084,6 +7122,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b3dd04aee2a51cd4ba6f40f3ad7b34cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Shields.Match.GameplayCamera
+  kickSharpness: 45
+  kickRecovery: 9
+  shakeFrequency: 22
 --- !u!81 &878030572
 AudioListener:
   m_ObjectHideFlags: 0
@@ -10275,8 +10316,7 @@ MonoBehaviour:
   doorInside: {fileID: 1474320125}
   waiterExit: {fileID: 1486024726}
   floorSurfaceHeight: 0.041
-  ringClearance: 1
-  stopClearance: 0.62
+  ringClearance: 1.15
   stopAngle: 22
   walkSpeed: 1.1
   turnSpeed: 320
@@ -10290,10 +10330,11 @@ MonoBehaviour:
   skipPause: 0.35
   decisionTimeout: 6
   gripAboveRim: 0.035
-  liftHeight: 0.07
-  carryArc: 0.1
+  liftHeight: 0.03
   leftClearance: 0.4
-  clearanceHeight: 1.02
+  clearanceHeight: 0.9
+  setDownHeight: 0.16
+  handSpeed: 2.2
 --- !u!1001 &1028394207
 PrefabInstance:
   m_ObjectHideFlags: 0

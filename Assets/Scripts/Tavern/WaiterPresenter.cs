@@ -19,10 +19,12 @@ namespace Shields.Tavern
     /// and only the authority turns that into a queue completion.
     ///
     /// Route: spawn outside, beside the doorway where no seat can see it → through the
-    /// doorway → the ring outside the chairs → in to each stop (behind the recipient's
-    /// LEFT shoulder, in that seat's own frame) → back out → round to the door → out →
-    /// removed. The mug goes onto the recipient's LEFT, so the serving hand stays on that
-    /// side and never crosses the seated player.
+    /// doorway → onto one ring of constant radius outside the chairs → round the ring, by
+    /// angle, to each stop (on the ring, behind the recipient's LEFT shoulder in that
+    /// seat's own frame) → round to the door → out → removed. The body never leaves the
+    /// ring to serve: it turns to the recipient's DrinkArea and the floating delivery hand
+    /// covers the distance, rising over the chair backs, passing beside the recipient's
+    /// LEFT shoulder and setting the mug down on their LEFT, so it never crosses them.
     ///
     /// Every route point lies on the measured floor surface, so the waiter's ground point
     /// (its invisible feet) is on the floor at the lowest point of each step.
@@ -56,11 +58,8 @@ namespace Shields.Tavern
         [SerializeField] float floorSurfaceHeight = 0.041f;
 
         [Header("Route")]
-        [Tooltip("Ring radius beyond the seat ring. Keeps the waiter and tray clear of chairs and players.")]
-        [SerializeField] float ringClearance = 1.0f;
-
-        [Tooltip("How far behind the seat ring the waiter stands to serve.")]
-        [SerializeField] float stopClearance = 0.62f;
+        [Tooltip("Walking ring radius beyond the seat ring. The waiter walks and serves on this one circle; it must keep the tray (carried on the left, 0.66 m out) clear of the chair backs (0.38 m behind a seat) whichever way the waiter faces.")]
+        [SerializeField] float ringClearance = 1.15f;
 
         [Tooltip("Stops sit this many degrees round the ring from the recipient toward their LEFT, behind their left shoulder (capped at 45% of a seat step).")]
         [SerializeField] float stopAngle = 22f;
@@ -88,19 +87,26 @@ namespace Shields.Tavern
         [SerializeField] float decisionTimeout = 6f;
 
         [Header("Hand")]
-        [Tooltip("The hand hovers this far above a mug's rim while carrying it.")]
-        [SerializeField] float gripAboveRim = 0.035f;
+        [Tooltip("The carrying hand's rotation in the waiter's facing frame: palm down flat over the mug like a lid, fingers forward, tipped about 8 degrees fingers-down.")]
+        [SerializeField] Vector3 gripEuler = new Vector3(301.33f, 278.92f, 56.82f);
 
-        [SerializeField] float liftHeight = 0.07f;
+        [Tooltip("Where the carrying hand sits relative to the centre of the mug's rim, in the waiter's facing frame (x right, y up, z forward), metres. Measured so the hand is centred over the cup and its lowest point over the opening just rests on the rim: never inside the cup.")]
+        [SerializeField] Vector3 gripOffset = new Vector3(0.0233f, 0.015f, -0.0585f);
 
-        [Tooltip("Extra height at the middle of the carry, so the mug arcs instead of sliding.")]
-        [SerializeField] float carryArc = 0.10f;
+        [Tooltip("How far the mug is lifted off the tray before the reach: just enough to clear the tray rim.")]
+        [SerializeField] float liftHeight = 0.03f;
 
-        [Tooltip("The carry curves through a point this far out to the recipient's LEFT of their body centre line, so the hand and mug pass beside the shoulder, never through the player.")]
+        [Tooltip("The carry passes beside the recipient's shoulder this far out to their LEFT of their body centre line, so the hand and mug never go through the player.")]
         [SerializeField] float leftClearance = 0.40f;
 
-        [Tooltip("Height above the floor of that clearance point: around the seated shoulder.")]
-        [SerializeField] float clearanceHeight = 1.02f;
+        [Tooltip("Height above the floor of the carried mug's bottom as it passes beside the recipient's shoulder: just above the table and armrests, so the reach stays low and direct. The path goes beside the chair, not over its back.")]
+        [SerializeField] float clearanceHeight = 0.90f;
+
+        [Tooltip("The mug comes down onto its slot from this far above it, so it drops in beside the armrest rather than sweeping over it.")]
+        [SerializeField] float setDownHeight = 0.16f;
+
+        [Tooltip("Speed of the long reach from the ring to a DrinkArea and back, in metres per second. Short reaches take at least the extend / return times.")]
+        [SerializeField] float handSpeed = 2.2f;
 
         /// <summary>The waiter reached a stop: order id, seat. The authority answers with a decision.</summary>
         public event Action<int, int> StopReached;
@@ -139,8 +145,6 @@ namespace Shields.Tavern
         TableLayoutMetrics Metrics { get { return tableLayout.Metrics; } }
 
         float RingRadius { get { return Metrics.SeatRadius + ringClearance; } }
-
-        float StopRadius { get { return Metrics.SeatRadius + stopClearance; } }
 
         float StopOffset { get { return Mathf.Min(stopAngle, Metrics.SeatAngleStep * 0.45f); } }
 
@@ -186,6 +190,13 @@ namespace Shields.Tavern
         {
             Vector3 center = Flat(tableLayout.TableCenter);
             return center + Quaternion.Euler(0f, absoluteDegrees, 0f) * (Vector3.back * radius);
+        }
+
+        /// <summary>Walking direction along the ring at an angle: increasing angle for a positive sign.</summary>
+        static Vector3 RingTangent(float absoluteDegrees, float sign)
+        {
+            // d/dangle of Euler(0, a, 0) * back is Euler(0, a, 0) * left.
+            return Quaternion.Euler(0f, absoluteDegrees, 0f) * Vector3.left * Mathf.Sign(sign);
         }
 
         static float AngleOf(Vector3 fromCenter)
@@ -354,19 +365,9 @@ namespace Shields.Tavern
                 Stage = "Ring";
                 yield return WalkRing(door, target);
 
+                // Served from the ring itself: the body stays put, only the hand reaches.
                 Stage = "Serving";
-                Vector3 ringPoint = PointOnCircle(door + target, RingRadius);
-                Vector3 stopPoint = PointOnCircle(door + target, StopRadius);
-
-                _path.Clear();
-                _path.Add(stopPoint);
-                yield return Walk(_path);
-
                 yield return ServeAt(plan.OrderId, seat, i);
-
-                _path.Clear();
-                _path.Add(ringPoint);
-                yield return Walk(_path);
             }
 
             Stage = "Leaving";
@@ -463,47 +464,44 @@ namespace Shields.Tavern
             slot.localPosition = slotLocal;
             slot.localRotation = slotRotationLocal;
 
-            float above = _mugHeight + gripAboveRim;
-
-            // 1. Reach to the mug on the tray.
+            // 1. Reach to the mug on the tray and take it from the top, tilting into the grip.
             Vector3 from = hand.position;
+            Quaternion fromRotation = hand.rotation;
             yield return Animate(reachTray, t =>
             {
                 if (mug == null) return;
-                hand.position = Vector3.Lerp(from, mug.position + Vector3.up * above, t);
-                hand.rotation = rest.rotation;
+                hand.SetPositionAndRotation(Vector3.Lerp(from, TopGripPosition(mug.position, rest.rotation), t),
+                    Quaternion.Slerp(fromRotation, TopGripRotation(rest.rotation), t));
             });
 
             if (TableLost(slot, mug)) yield break;
 
-            // 2. Take it: the tray loses this mug, the hand carries it.
+            // 2. Take it: the tray loses this mug, the hand carries it at the grip.
             waiter.ReleaseMug(mugIndex);
             Transform traySlot = mug.parent;
             mug.SetParent(hand, true);
             if (traySlot != null && traySlot != hand) Destroy(traySlot.gameObject);
 
-            from = hand.position;
+            Vector3 mugFromPosition = mug.position;
+            Quaternion mugFrom = mug.rotation;
             yield return Animate(grabLift, t =>
             {
-                hand.position = from + Vector3.up * (liftHeight * t);
-                hand.rotation = rest.rotation;
+                if (mug == null) return;
+                PlaceHeldMug(hand, mug, rest.rotation, mugFromPosition + Vector3.up * (liftHeight * t), mugFrom);
             });
 
             if (TableLost(slot, mug)) yield break;
 
-            // 3. Carry it over to the player's DrinkArea along a small curve that passes
-            //    beside the recipient's LEFT shoulder, never through their body.
-            from = hand.position;
-            Vector3 mugToHand = hand.position - mug.position;
-            Vector3 handTarget = slot.position + mugToHand;
-            Vector3 through = CarryClearancePoint(seat, from, handTarget, mugToHand);
-            Quaternion mugFrom = mug.rotation;
-            yield return Animate(extendToPlayer, t =>
+            // 3. Carry it from the ring to the player's DrinkArea: a low reach beside the
+            //    recipient's LEFT shoulder, down onto the slot. The path is the mug's own;
+            //    the hand follows it at the grip. The waiter stays on the ring.
+            Vector3 mugStart = mug.position;
+            List<Vector3> carry = CarryPath(seat, mugStart, slot.position, Vector3.zero);
+            float carryLength = PathLength(carry);
+            yield return Animate(Mathf.Max(extendToPlayer, carryLength / handSpeed), t =>
             {
                 if (slot == null || mug == null) return;
-                hand.position = CurveThrough(from, through, handTarget, t);
-                hand.rotation = rest.rotation;
-                mug.rotation = Quaternion.Slerp(mugFrom, slot.rotation, t);
+                PlaceHeldMug(hand, mug, rest.rotation, PointAlong(carry, carryLength * t), Quaternion.Slerp(mugFrom, slot.rotation, t));
             });
 
             if (TableLost(slot, mug)) yield break;
@@ -522,53 +520,102 @@ namespace Shields.Tavern
 
             yield return new WaitForSeconds(placePause);
 
-            // 5. Hand back to rest.
+            // 5. Hand back to the waiter the same way, letting go of the grip angle as it goes.
             from = hand.position;
-            yield return Animate(returnHand, t =>
+            fromRotation = hand.rotation;
+            Vector3 restAtStart = rest.position;
+            List<Vector3> back = CarryPath(seat, restAtStart, from, Vector3.zero);
+            back.Reverse();
+            float backLength = PathLength(back);
+            yield return Animate(Mathf.Max(returnHand, backLength / handSpeed), t =>
             {
-                hand.position = Vector3.Lerp(from, rest.position, t);
-                hand.rotation = rest.rotation;
+                // The rest point bobs with the body; follow it in.
+                hand.position = PointAlong(back, backLength * t) + (rest.position - restAtStart) * t;
+                hand.rotation = Quaternion.Slerp(fromRotation, rest.rotation, Mathf.Clamp01(t * 2.5f));
             });
 
             waiter.DeliveryHandBusy = false;
         }
 
         /// <summary>
-        /// The point the carrying hand passes through halfway: the straight line's midpoint,
-        /// pushed out to the recipient's LEFT until it clears their shoulder by
-        /// <see cref="leftClearance"/>, and lifted to shoulder height. Built in the
-        /// recipient's own frame, so it works for every seat. Only ever moves the path
-        /// further left, never toward the player.
+        /// Where the hand sits to hold a mug (whose bottom is at <paramref name="mugPosition"/>)
+        /// from the top: flat on the rim, palm down, centred over the cup.
         /// </summary>
-        Vector3 CarryClearancePoint(int seat, Vector3 from, Vector3 to, Vector3 mugToHand)
+        Vector3 TopGripPosition(Vector3 mugPosition, Quaternion restRotation)
         {
-            Vector3 mid = (from + to) * 0.5f + Vector3.up * carryArc;
-
-            PlayerCharacter player = tableLayout.GetPlayer(seat);
-            if (player == null) return mid;
-
-            Transform body = player.transform;
-            Vector3 left = -body.right;
-            left.y = 0f;
-            left.Normalize();
-
-            // The mug's centre must clear the shoulder; the hand rides above it.
-            float midLateral = Vector3.Dot(mid - mugToHand - body.position, left);
-            float push = Mathf.Max(0f, leftClearance - midLateral);
-
-            Vector3 point = mid + left * push;
-
-            float minHandY = floorSurfaceHeight + clearanceHeight + mugToHand.y;
-            point.y = Mathf.Max(point.y, minHandY);
-            return point;
+            return mugPosition + Vector3.up * _mugHeight + restRotation * gripOffset;
         }
 
-        /// <summary>Quadratic curve from a to c that passes exactly through b at t = 0.5.</summary>
-        static Vector3 CurveThrough(Vector3 a, Vector3 b, Vector3 c, float t)
+        Quaternion TopGripRotation(Quaternion restRotation)
         {
-            Vector3 control = 2f * b - 0.5f * (a + c);
-            float u = 1f - t;
-            return u * u * a + 2f * u * t * control + t * t * c;
+            return restRotation * Quaternion.Euler(gripEuler);
+        }
+
+        /// <summary>
+        /// Puts a mug the hand is holding at a world pose: the hand goes to the top grip
+        /// over that pose and the mug, its child since the pick-up, rides along under it.
+        /// </summary>
+        void PlaceHeldMug(Transform hand, Transform mug, Quaternion restRotation, Vector3 mugPosition, Quaternion mugRotation)
+        {
+            hand.SetPositionAndRotation(TopGripPosition(mugPosition, restRotation), TopGripRotation(restRotation));
+            mug.SetPositionAndRotation(mugPosition, mugRotation);
+        }
+
+        /// <summary>
+        /// The carrying hand's path from the waiter on the ring to a hand position over a
+        /// DrinkArea slot, as a smooth polyline: a low, direct service reach. Through a point
+        /// beside the recipient's LEFT shoulder (<see cref="leftClearance"/> out from their
+        /// centre line, in their own frame, so it works for every seat) at
+        /// <see cref="clearanceHeight"/>, then down onto the slot from
+        /// <see cref="setDownHeight"/> above it. It only lifts first when it starts below
+        /// that height. <paramref name="mugToHand"/> is how far the hand sits above the mug
+        /// it carries (zero for an empty hand).
+        /// </summary>
+        List<Vector3> CarryPath(int seat, Vector3 from, Vector3 to, Vector3 mugToHand)
+        {
+            float clearY = floorSurfaceHeight + clearanceHeight + mugToHand.y;
+
+            var points = new List<Vector3> { from };
+            if (from.y < clearY - 0.01f) points.Add(new Vector3(from.x, clearY, from.z));
+
+            PlayerCharacter player = tableLayout.GetPlayer(seat);
+            if (player != null)
+            {
+                Vector3 left = -player.transform.right;
+                left.y = 0f;
+                left.Normalize();
+                Vector3 beside = player.transform.position + left * leftClearance;
+                points.Add(new Vector3(beside.x, clearY, beside.z));
+            }
+
+            points.Add(to + Vector3.up * setDownHeight);
+            points.Add(to);
+            return SmoothPath(points, 10);
+        }
+
+        /// <summary>Catmull-Rom curve through every point, sampled into a polyline.</summary>
+        static List<Vector3> SmoothPath(List<Vector3> points, int samplesPerSegment)
+        {
+            var path = new List<Vector3>();
+            for (int i = 0; i < points.Count - 1; i++)
+            {
+                Vector3 p0 = points[Mathf.Max(0, i - 1)], p1 = points[i], p2 = points[i + 1], p3 = points[Mathf.Min(points.Count - 1, i + 2)];
+                for (int s = 0; s < samplesPerSegment; s++)
+                {
+                    float t = s / (float)samplesPerSegment, t2 = t * t, t3 = t2 * t;
+                    path.Add(0.5f * (2f * p1 + (p2 - p0) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (3f * p1 - p0 - 3f * p2 + p3) * t3));
+                }
+            }
+
+            path.Add(points[points.Count - 1]);
+            return path;
+        }
+
+        static float PathLength(List<Vector3> path)
+        {
+            float length = 0f;
+            for (int i = 1; i < path.Count; i++) length += Vector3.Distance(path[i - 1], path[i]);
+            return length;
         }
 
         /// <summary>
@@ -585,23 +632,42 @@ namespace Shields.Tavern
 
         // ------------------------------------------------------------------ movement
 
+        /// <summary>
+        /// Walks round the ring by angle to <paramref name="targetFromDoor"/> (degrees from
+        /// the door): first turning on the spot into the walking direction, then moving
+        /// along the true circle, centre + direction(angle) * radius, at an eased speed and
+        /// facing along the circle. Never a chord, never off the ring.
+        /// </summary>
         IEnumerator WalkRing(float door, float targetFromDoor)
         {
             float from = _ringAngle;
-            if (Mathf.Abs(targetFromDoor - from) < 0.01f) yield break;
+            float sweep = targetFromDoor - from;
+            if (Mathf.Abs(sweep) < 0.01f || _waiter == null) yield break;
 
-            _path.Clear();
-            float direction = Mathf.Sign(targetFromDoor - from);
-            const float stepDegrees = 6f;
+            float radius = RingRadius;
+            float sign = Mathf.Sign(sweep);
 
-            for (float a = from + direction * stepDegrees; direction > 0f ? a < targetFromDoor : a > targetFromDoor;
-                 a += direction * stepDegrees)
-                _path.Add(PointOnCircle(door + a, RingRadius));
+            yield return FaceDirection(RingTangent(door + from, sign));
 
-            _path.Add(PointOnCircle(door + targetFromDoor, RingRadius));
+            float length = Mathf.Abs(sweep) * Mathf.Deg2Rad * radius;
+            float travelled = 0f;
+            while (travelled < length)
+            {
+                float ease = Mathf.Min((travelled + 0.05f) / easeDistance, (length - travelled) / easeDistance);
+                float speed = walkSpeed * Mathf.Clamp(ease, 0.25f, 1f);
+                travelled = Mathf.Min(length, travelled + speed * Time.deltaTime);
+
+                float angle = from + sign * (travelled / radius) * Mathf.Rad2Deg;
+                _waiter.transform.position = PointOnCircle(door + angle, radius);
+                _waiter.transform.rotation = Quaternion.RotateTowards(_waiter.transform.rotation,
+                    Quaternion.LookRotation(RingTangent(door + angle, sign), Vector3.up), turnSpeed * Time.deltaTime);
+                _waiter.WalkWeight = speed / walkSpeed;
+                _ringAngle = angle;
+                yield return null;
+            }
+
             _ringAngle = targetFromDoor;
-
-            yield return Walk(_path);
+            _waiter.WalkWeight = 0f;
         }
 
         /// <summary>Walks a polyline at an eased constant speed, facing where it is going.</summary>
@@ -640,14 +706,22 @@ namespace Shields.Tavern
 
         IEnumerator FaceTowards(Vector3 point)
         {
-            Vector3 direction = Flat(point) - Flat(_waiter.transform.position);
-            if (direction.sqrMagnitude < 0.0001f) yield break;
+            yield return FaceDirection(Flat(point) - Flat(_waiter.transform.position));
+        }
+
+        /// <summary>Turns on the spot to face a direction, easing out over the last few degrees.</summary>
+        IEnumerator FaceDirection(Vector3 direction)
+        {
+            direction.y = 0f;
+            if (_waiter == null || direction.sqrMagnitude < 0.0001f) yield break;
 
             Quaternion target = Quaternion.LookRotation(direction, Vector3.up);
-            while (Quaternion.Angle(_waiter.transform.rotation, target) > 0.5f)
+            float angle;
+            while (_waiter != null && (angle = Quaternion.Angle(_waiter.transform.rotation, target)) > 0.5f)
             {
+                float speed = turnSpeed * Mathf.Clamp(angle / 40f, 0.2f, 1f);
                 _waiter.transform.rotation = Quaternion.RotateTowards(_waiter.transform.rotation, target,
-                    turnSpeed * Time.deltaTime);
+                    speed * Time.deltaTime);
                 yield return null;
             }
         }

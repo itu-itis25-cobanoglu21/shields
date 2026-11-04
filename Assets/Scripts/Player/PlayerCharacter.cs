@@ -25,7 +25,7 @@ namespace Shields.Players
         [Tooltip("Rotated by look input. Everything head mounted is parented under this.")]
         [SerializeField] Transform headPivot;
 
-        [Tooltip("Head visuals. Hidden for the local player to avoid first person clipping.")]
+        [Tooltip("Head visuals. Always present; for the local player they go on the LocalHead layer, which only this machine's gameplay camera skips.")]
         [SerializeField] Transform headVisual;
 
         [Tooltip("Where the single gameplay camera is attached for the local player.")]
@@ -54,6 +54,20 @@ namespace Shields.Players
         [Header("Body Tint")]
         [Tooltip("Renderers that take the per player placeholder colour.")]
         [SerializeField] Renderer[] tintedRenderers;
+
+        /// <summary>
+        /// The layer the local player's own head is drawn on. The first-person gameplay
+        /// camera leaves this one layer out, so the camera never looks out through the
+        /// inside of its own head, while the head stays a real, visible part of the
+        /// character everywhere else (Scene view, other cameras, other machines).
+        /// </summary>
+        public const string LocalHeadLayerName = "LocalHead";
+
+        /// <summary>The LocalHead layer index, or -1 when the project does not define it.</summary>
+        public static int LocalHeadLayer { get { return LayerMask.NameToLayer(LocalHeadLayerName); } }
+
+        // The head's own layer from the prefab, restored when this seat is not local.
+        int _headLayer = -1;
 
         public int PlayerIndex { get { return playerIndex; } }
         public bool IsLocalPlayer { get { return isLocalPlayer; } }
@@ -121,8 +135,36 @@ namespace Shields.Players
 
             name = string.Format("Player_{0:00}", index);
 
-            // The local player looks out through their own head, so hide it for them only.
-            if (headVisual != null) headVisual.gameObject.SetActive(!local);
+            ApplyHeadVisibility(local);
+        }
+
+        /// <summary>
+        /// Every player keeps their head. The local player's head goes on the LocalHead
+        /// layer so only their own first-person camera skips it; anyone else's head is on
+        /// its normal layer. Called on every identity change, so a seat that stops being
+        /// local (rematch, new seating) gets its normal head back.
+        /// </summary>
+        void ApplyHeadVisibility(bool local)
+        {
+            if (headVisual == null) return;
+            if (_headLayer < 0) _headLayer = headVisual.gameObject.layer;
+
+            int localLayer = LocalHeadLayer;
+            if (localLayer < 0)
+            {
+                // Without the layer the camera cannot skip the head: hide it on this machine instead.
+                headVisual.gameObject.SetActive(!local);
+                return;
+            }
+
+            headVisual.gameObject.SetActive(true);
+            SetLayerRecursively(headVisual, local ? localLayer : _headLayer);
+        }
+
+        static void SetLayerRecursively(Transform root, int layer)
+        {
+            root.gameObject.layer = layer;
+            for (int i = 0; i < root.childCount; i++) SetLayerRecursively(root.GetChild(i), layer);
         }
 
         /// <summary>Applies the placeholder colour that tells seats apart while testing.</summary>
