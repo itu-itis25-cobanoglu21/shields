@@ -559,7 +559,7 @@ namespace Shields.Network
 
                 Transform root = character.transform;
                 Bounds local = new Bounds(
-                    root.InverseTransformPoint(renderers[0].transform.TransformPoint(renderers[0].localBounds.center)),
+                    root.InverseTransformPoint(BoundsSpace(renderers[0]).TransformPoint(renderers[0].localBounds.center)),
                     Vector3.zero);
 
                 foreach (Renderer r in renderers)
@@ -569,7 +569,7 @@ namespace Shields.Network
                     {
                         Vector3 point = b.center + Vector3.Scale(b.extents, new Vector3(
                             (corner & 1) == 0 ? -1f : 1f, (corner & 2) == 0 ? -1f : 1f, (corner & 4) == 0 ? -1f : 1f));
-                        local.Encapsulate(root.InverseTransformPoint(r.transform.TransformPoint(point)));
+                        local.Encapsulate(root.InverseTransformPoint(BoundsSpace(r).TransformPoint(point)));
                     }
                 }
 
@@ -577,6 +577,13 @@ namespace Shields.Network
                 box.center = local.center;
                 box.size = local.size;
             }
+        }
+
+        /// <summary>The space a renderer's localBounds are in: a skinned mesh measures from its root bone.</summary>
+        static Transform BoundsSpace(Renderer r)
+        {
+            var skinned = r as SkinnedMeshRenderer;
+            return skinned != null && skinned.rootBone != null ? skinned.rootBone : r.transform;
         }
 
         static bool KeyPressed(int number)

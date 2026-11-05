@@ -80,6 +80,9 @@ namespace Shields.Tavern
         [Tooltip("Mouth position in the visual head's space, used when the prefab has no DrinkMouthAnchor.")]
         [SerializeField] Vector3 fallbackMouthLocal = new Vector3(0f, 0.022f, 0.104f);
 
+        [Tooltip("Where the local player sees their OWN mug while drinking, relative to the mouth pose, in their facing frame (x right, y up, z forward), metres. Keeps the whole mug in front of the first-person camera instead of cut by it. Other players always see it at the mouth.")]
+        [SerializeField] Vector3 ownViewOffset = new Vector3(0f, -0.05f, 0.18f);
+
         [Tooltip("How fast the shown fill settles onto an authoritative final fill, per second.")]
         [SerializeField] float reconcileSpeed = 2f;
 
@@ -409,6 +412,33 @@ namespace Shields.Tavern
                 m.FromPosition = m.Hand.localPosition;
                 m.FromRotation = m.Hand.localRotation;
             }
+
+            // How the fingers are posed in each phase: they shape toward the handle while
+            // reaching, close on it in the settle squeeze, hold through drinking and the
+            // return, and open back to the relaxed idle pose as the hand goes home.
+            HandRig fingers = Fingers(m);
+            if (fingers == null) return;
+            switch (phase)
+            {
+                case Phase.Reach: fingers.SetPose(HandPoseLayer.Grip, HandPoseId.MugReach, reachDuration); break;
+                case Phase.Settle: fingers.SetPose(HandPoseLayer.Grip, HandPoseId.MugGrip, gripSettleDuration); break;
+                case Phase.Home: fingers.ClearPose(HandPoseLayer.Grip, handHomeDuration); break;
+                case Phase.Emergency: fingers.ClearPose(HandPoseLayer.Grip, ReleaseBlend); break;
+            }
+        }
+
+        // Fingers opening off the mug when the drink is cut short or ended at once.
+        const float ReleaseBlend = 0.12f;
+
+        static HandRig Fingers(Motion m)
+        {
+            return m.Player != null ? m.Player.LeftHand : null;
+        }
+
+        static void ReleaseFingers(Motion m, float blend)
+        {
+            HandRig fingers = Fingers(m);
+            if (fingers != null) fingers.ClearPose(HandPoseLayer.Grip, blend);
         }
 
         /// <summary>Releases the hand to gameplay now; the mug glides home on its own.</summary>
@@ -452,6 +482,7 @@ namespace Shields.Tavern
         void Remove(Motion m)
         {
             SetLookLocked(m, false);
+            ReleaseFingers(m, ReleaseBlend);
 
             Motion current;
             if (_motions.TryGetValue(m.Seat, out current) && current == m) _motions.Remove(m.Seat);
@@ -729,6 +760,13 @@ namespace Shields.Tavern
 
             Vector3 rimNear = m.Mug.RimCenterLocal + Vector3.back * m.Mug.RimOuterRadius;
             position = mouth.position - rotation * Vector3.Scale(m.MugScale, rimNear) - face * lipOverlap;
+
+            // On the drinker's own screen the mug at the mouth would sit inside the first-person
+            // camera and be cut by its near plane. Only this machine's own player sees it held a
+            // little out in front instead; everyone else still sees it at the mouth. Presentation
+            // only: nothing about the drink itself changes.
+            if (m.IsLocal)
+                position += Quaternion.LookRotation(face, Vector3.up) * ownViewOffset;
         }
 
         /// <summary>

@@ -114,11 +114,20 @@ namespace Shields.Match
 
             public bool Fired;
             public float FiredAt;
+            public bool TriggerSqueezed;
             public float Recoil;
             public float HitStop;
         }
 
         readonly Dictionary<int, WeaponRig> _weapons = new Dictionary<int, WeaponRig>();
+
+        // How long the trigger finger stays squeezed after a shot before easing back onto the grip.
+        const float TriggerSqueezeHold = 0.16f;
+        const float TriggerSqueezeBlend = 0.05f;
+        const float TriggerReleaseBlend = 0.12f;
+
+        // Fingers closing on the grip as the weapon comes into the hand, or opening when it is put away at once.
+        const float GripCloseBlend = 0.1f;
 
         // ------------------------------------------------------------------ events
 
@@ -264,7 +273,7 @@ namespace Shields.Match
                 PlayHit(rig.LockTarget, rig.Player != null ? rig.Player.transform.position : Vector3.zero, rig.Damage, rig.Seed, Spot(rig));
             }
 
-            Holster(rig);
+            Holster(rig, GripCloseBlend);
             RestoreHand(rig);
             _weapons.Remove(seat);
         }
@@ -280,6 +289,10 @@ namespace Shields.Match
             // (a new targeting started while the last one was being put away).
             if (!carried)
             {
+                // The fingers start shaping for the grip on the way to the hip, not at contact.
+                HandRig fingers = Fingers(rig);
+                if (fingers != null) fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WeaponReach, drawReachDuration);
+
                 yield return MoveHandToGripPose(rig, () => HolsterPose(rig), drawReachDuration, true);
                 if (rig.Hand == null) yield break;
 
@@ -312,6 +325,14 @@ namespace Shields.Match
                     float k = 1f - Mathf.Exp(-aimSharpness * Time.deltaTime);
                     held = new Pose(Vector3.Lerp(held.position, aim.position, k),
                         Quaternion.Slerp(held.rotation, aim.rotation, k));
+                }
+
+                // The trigger finger eases back onto the grip once the shot has gone.
+                if (rig.TriggerSqueezed && Time.time - rig.FiredAt >= TriggerSqueezeHold)
+                {
+                    rig.TriggerSqueezed = false;
+                    HandRig fingers = Fingers(rig);
+                    if (fingers != null) fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WeaponGrip, TriggerReleaseBlend);
                 }
 
                 float kicked = rig.Fired ? RecoilEnvelope(Time.time - rig.FiredAt, rig.Recoil, rig.HitStop) : 0f;
@@ -357,7 +378,8 @@ namespace Shields.Match
             yield return MoveHandToGripPose(rig, () => HolsterPose(rig), holsterLowerDuration, false);
             if (rig.Hand == null) yield break;
 
-            Holster(rig);
+            // Released at the hip: the fingers relax back to idle over the hand's way home.
+            Holster(rig, holsterReturnDuration);
 
             Vector3 from = rig.Hand.localPosition;
             Quaternion fromRotation = rig.Hand.localRotation;
@@ -407,6 +429,14 @@ namespace Shields.Match
         /// </summary>
         void Fire(WeaponRig rig)
         {
+            // The trigger finger squeezes as the shot goes, damaging or not.
+            HandRig fingers = Fingers(rig);
+            if (fingers != null)
+            {
+                fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WeaponFire, TriggerSqueezeBlend);
+                rig.TriggerSqueezed = true;
+            }
+
             if (rig.Damage <= 0)
             {
                 // Zero damage: nothing hits. The failed-attack presentation belongs here.
@@ -445,11 +475,22 @@ namespace Shields.Match
             rig.Weapon.localPosition = Vector3.zero;
             rig.Weapon.localRotation = Quaternion.identity;
             rig.Weapon.localScale = Vector3.one;
+
+            HandRig fingers = Fingers(rig);
+            if (fingers != null) fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WeaponGrip, GripCloseBlend);
         }
 
         /// <summary>Puts the weapon back at the hip, exactly on the holster anchor.</summary>
-        static void Holster(WeaponRig rig)
+        static HandRig Fingers(WeaponRig rig)
         {
+            return rig.Player != null ? rig.Player.RightHand : null;
+        }
+
+        static void Holster(WeaponRig rig, float fingerRelease)
+        {
+            HandRig fingers = Fingers(rig);
+            if (fingers != null) fingers.ClearPose(HandPoseLayer.Grip, fingerRelease);
+
             if (rig.Weapon == null || rig.Holster == null) return;
 
             rig.Weapon.SetParent(rig.Holster, false);
@@ -546,7 +587,7 @@ namespace Shields.Match
 
         // ------------------------------------------------------------------ line of sight
 
-        static readonly List<MeshFilter> SightParts = new List<MeshFilter>();
+        static readonly List<Renderer> SightParts = new List<Renderer>();
 
         /// <summary>
         /// Where a ray first meets a player's body, head or hands. The character meshes are
@@ -574,16 +615,16 @@ namespace Shields.Match
             if (root == null || !root.gameObject.activeInHierarchy) return;
 
             root.GetComponentsInChildren(false, SightParts);
-            foreach (MeshFilter filter in SightParts)
+            foreach (Renderer renderer in SightParts)
             {
-                Mesh mesh = filter.sharedMesh;
+                if (!renderer.enabled) continue;
+                Mesh mesh = SightMesh(renderer);
                 if (mesh == null) continue;
-                if (victim.Weapon != null && filter.transform.IsChildOf(victim.Weapon)) continue;
+                if (victim.Weapon != null && renderer.transform.IsChildOf(victim.Weapon)) continue;
 
-                Renderer renderer = filter.GetComponent<Renderer>();
-                if (renderer == null || !renderer.enabled) continue;
-
-                Transform t = filter.transform;
+                // A skinned hand's mesh bounds are in its renderer's space at the bind pose,
+                // which is the neutral hand the bounds stand for.
+                Transform t = renderer.transform;
                 Vector3 origin = t.InverseTransformPoint(ray.origin);
                 Vector3 direction = t.InverseTransformVector(ray.direction).normalized;
 
@@ -599,6 +640,15 @@ namespace Shields.Match
                 part = t;
                 point = world;
             }
+        }
+
+        static Mesh SightMesh(Renderer renderer)
+        {
+            var skinned = renderer as SkinnedMeshRenderer;
+            if (skinned != null) return skinned.sharedMesh;
+            if (!(renderer is MeshRenderer)) return null;
+            MeshFilter filter = renderer.GetComponent<MeshFilter>();
+            return filter != null ? filter.sharedMesh : null;
         }
 
         /// <summary>First hit of a ray (unit direction) on the ellipsoid inscribed in a box.</summary>

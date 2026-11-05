@@ -96,6 +96,29 @@ namespace Shields.Players
             }
         }
 
+        /// <summary>Finger rig of the left hand visual (inside LeftHandAnchor/Hand_L), or null.</summary>
+        public HandRig LeftHand
+        {
+            get
+            {
+                if (_leftHand == null && LeftHandAnchor != null) _leftHand = LeftHandAnchor.GetComponentInChildren<HandRig>(true);
+                return _leftHand;
+            }
+        }
+
+        /// <summary>Finger rig of the right hand visual (inside RightHandAnchor/Hand_R), or null.</summary>
+        public HandRig RightHand
+        {
+            get
+            {
+                if (_rightHand == null && RightHandAnchor != null) _rightHand = RightHandAnchor.GetComponentInChildren<HandRig>(true);
+                return _rightHand;
+            }
+        }
+
+        HandRig _leftHand;
+        HandRig _rightHand;
+
         public Transform WeaponHolsterAnchor { get { return weaponHolsterAnchor; } }
         public Transform WeaponGripAnchor { get { return weaponGripAnchor; } }
         public Transform Weapon { get { return weapon; } }

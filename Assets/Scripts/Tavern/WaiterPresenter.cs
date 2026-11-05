@@ -87,23 +87,23 @@ namespace Shields.Tavern
         [SerializeField] float decisionTimeout = 6f;
 
         [Header("Hand")]
-        [Tooltip("The carrying hand's rotation in the waiter's facing frame: palm down flat over the mug like a lid, fingers forward, tipped about 8 degrees fingers-down.")]
-        [SerializeField] Vector3 gripEuler = new Vector3(301.33f, 278.92f, 56.82f);
+        [Tooltip("The carrying hand's rotation in the waiter's facing frame: palm flat and facing straight down over the mug, fingers pointing the way the waiter faces.")]
+        [SerializeField] Vector3 topCarryEuler = new Vector3(270f, 0f, 0f);
 
-        [Tooltip("Where the carrying hand sits relative to the centre of the mug's rim, in the waiter's facing frame (x right, y up, z forward), metres. Measured so the hand is centred over the cup and its lowest point over the opening just rests on the rim: never inside the cup.")]
-        [SerializeField] Vector3 gripOffset = new Vector3(0.0233f, 0.015f, -0.0585f);
+        [Tooltip("Where the carrying hand sits relative to the centre of the mug's rim, in the waiter's facing frame (x right, y up, z forward), metres. Measured on the rigged hand so its palm is centred over the cup about 6 mm above the rim: it guides the mug from above and never enters it.")]
+        [SerializeField] Vector3 topCarryOffset = new Vector3(-0.018f, 0.032f, -0.0525f);
 
         [Tooltip("How far the mug is lifted off the tray before the reach: just enough to clear the tray rim.")]
         [SerializeField] float liftHeight = 0.03f;
 
-        [Tooltip("The carry passes beside the recipient's shoulder this far out to their LEFT of their body centre line, so the hand and mug never go through the player.")]
+        [Tooltip("The reach never passes closer than this to the recipient's body centre line (it bends out past their left side only when a straight line would), so the hand and mug never go through the player or their chair.")]
         [SerializeField] float leftClearance = 0.40f;
 
-        [Tooltip("Height above the floor of the carried mug's bottom as it passes beside the recipient's shoulder: just above the table and armrests, so the reach stays low and direct. The path goes beside the chair, not over its back.")]
-        [SerializeField] float clearanceHeight = 0.90f;
+        [Tooltip("How far the reach bows up above the higher of its two ends: just enough to clear the tray and the table edge.")]
+        [SerializeField] float reachArc = 0.035f;
 
-        [Tooltip("The mug comes down onto its slot from this far above it, so it drops in beside the armrest rather than sweeping over it.")]
-        [SerializeField] float setDownHeight = 0.16f;
+        [Tooltip("The mug comes straight down onto its slot from this far above it.")]
+        [SerializeField] float placeDescent = 0.05f;
 
         [Tooltip("Speed of the long reach from the ring to a DrinkArea and back, in metres per second. Short reaches take at least the extend / return times.")]
         [SerializeField] float handSpeed = 2.2f;
@@ -451,6 +451,7 @@ namespace Shields.Tavern
             WaiterCharacter waiter = _waiter;
             Transform hand = waiter.DeliveryHand;
             Transform rest = waiter.DeliveryHandRest;
+            HandRig fingers = hand != null ? hand.GetComponentInChildren<HandRig>() : null;
             waiter.DeliveryHandBusy = true;
 
             // The next free drink slot, reserved now so a later order can never take it.
@@ -465,6 +466,8 @@ namespace Shields.Tavern
             slot.localRotation = slotRotationLocal;
 
             // 1. Reach to the mug on the tray and take it from the top, tilting into the grip.
+            //    The fingers open and shape for the rim on the way.
+            if (fingers != null) fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WaiterMugReach, reachTray);
             Vector3 from = hand.position;
             Quaternion fromRotation = hand.rotation;
             yield return Animate(reachTray, t =>
@@ -477,6 +480,7 @@ namespace Shields.Tavern
             if (TableLost(slot, mug)) yield break;
 
             // 2. Take it: the tray loses this mug, the hand carries it at the grip.
+            if (fingers != null) fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WaiterMugGrip, grabLift);
             waiter.ReleaseMug(mugIndex);
             Transform traySlot = mug.parent;
             mug.SetParent(hand, true);
@@ -492,11 +496,11 @@ namespace Shields.Tavern
 
             if (TableLost(slot, mug)) yield break;
 
-            // 3. Carry it from the ring to the player's DrinkArea: a low reach beside the
-            //    recipient's LEFT shoulder, down onto the slot. The path is the mug's own;
-            //    the hand follows it at the grip. The waiter stays on the ring.
+            // 3. Carry it from the ring to the player's DrinkArea: an almost straight reach that
+            //    only bends out round the recipient if it has to, then a short drop onto the slot.
+            //    The path is the mug's own; the hand follows it at the grip. The waiter stays on the ring.
             Vector3 mugStart = mug.position;
-            List<Vector3> carry = CarryPath(seat, mugStart, slot.position, Vector3.zero);
+            List<Vector3> carry = CarryPath(seat, mugStart, slot.position);
             float carryLength = PathLength(carry);
             yield return Animate(Mathf.Max(extendToPlayer, carryLength / handSpeed), t =>
             {
@@ -521,10 +525,11 @@ namespace Shields.Tavern
             yield return new WaitForSeconds(placePause);
 
             // 5. Hand back to the waiter the same way, letting go of the grip angle as it goes.
+            if (fingers != null) fingers.ClearPose(HandPoseLayer.Grip, returnHand);
             from = hand.position;
             fromRotation = hand.rotation;
             Vector3 restAtStart = rest.position;
-            List<Vector3> back = CarryPath(seat, restAtStart, from, Vector3.zero);
+            List<Vector3> back = CarryPath(seat, restAtStart, from);
             back.Reverse();
             float backLength = PathLength(back);
             yield return Animate(Mathf.Max(returnHand, backLength / handSpeed), t =>
@@ -543,12 +548,12 @@ namespace Shields.Tavern
         /// </summary>
         Vector3 TopGripPosition(Vector3 mugPosition, Quaternion restRotation)
         {
-            return mugPosition + Vector3.up * _mugHeight + restRotation * gripOffset;
+            return mugPosition + Vector3.up * _mugHeight + restRotation * topCarryOffset;
         }
 
         Quaternion TopGripRotation(Quaternion restRotation)
         {
-            return restRotation * Quaternion.Euler(gripEuler);
+            return restRotation * Quaternion.Euler(topCarryEuler);
         }
 
         /// <summary>
@@ -562,54 +567,55 @@ namespace Shields.Tavern
         }
 
         /// <summary>
-        /// The carrying hand's path from the waiter on the ring to a hand position over a
-        /// DrinkArea slot, as a smooth polyline: a low, direct service reach. Through a point
-        /// beside the recipient's LEFT shoulder (<see cref="leftClearance"/> out from their
-        /// centre line, in their own frame, so it works for every seat) at
-        /// <see cref="clearanceHeight"/>, then down onto the slot from
-        /// <see cref="setDownHeight"/> above it. It only lifts first when it starts below
-        /// that height. <paramref name="mugToHand"/> is how far the hand sits above the mug
-        /// it carries (zero for an empty hand).
+        /// The waiter's reach from <paramref name="from"/> to <paramref name="to"/> (a mug on
+        /// its DrinkArea slot, or the hand over it), as a polyline: one shallow curve almost
+        /// straight to <see cref="placeDescent"/> above the target, bowing up only
+        /// <see cref="reachArc"/> above the higher end (enough to clear the tray and table
+        /// edge), then straight down onto it. When a straight line would pass closer than
+        /// <see cref="leftClearance"/> to the recipient's body centre line, the curve bends out
+        /// just far enough to go round their side. Reversed, the same path brings the hand back.
         /// </summary>
-        List<Vector3> CarryPath(int seat, Vector3 from, Vector3 to, Vector3 mugToHand)
+        List<Vector3> CarryPath(int seat, Vector3 from, Vector3 to)
         {
-            float clearY = floorSurfaceHeight + clearanceHeight + mugToHand.y;
+            Vector3 above = to + Vector3.up * placeDescent;
 
-            var points = new List<Vector3> { from };
-            if (from.y < clearY - 0.01f) points.Add(new Vector3(from.x, clearY, from.z));
+            // Quadratic curve; its middle point is half-way to the control point.
+            Vector3 control = (from + above) * 0.5f;
+            control.y = Mathf.Max(from.y, above.y) + 2f * reachArc;
 
             PlayerCharacter player = tableLayout.GetPlayer(seat);
-            if (player != null)
-            {
-                Vector3 left = -player.transform.right;
-                left.y = 0f;
-                left.Normalize();
-                Vector3 beside = player.transform.position + left * leftClearance;
-                points.Add(new Vector3(beside.x, clearY, beside.z));
-            }
-
-            points.Add(to + Vector3.up * setDownHeight);
-            points.Add(to);
-            return SmoothPath(points, 10);
-        }
-
-        /// <summary>Catmull-Rom curve through every point, sampled into a polyline.</summary>
-        static List<Vector3> SmoothPath(List<Vector3> points, int samplesPerSegment)
-        {
             var path = new List<Vector3>();
-            for (int i = 0; i < points.Count - 1; i++)
+            for (int attempt = 0; attempt < 4; attempt++)
             {
-                Vector3 p0 = points[Mathf.Max(0, i - 1)], p1 = points[i], p2 = points[i + 1], p3 = points[Mathf.Min(points.Count - 1, i + 2)];
-                for (int s = 0; s < samplesPerSegment; s++)
+                path.Clear();
+                for (int i = 0; i <= ReachSamples; i++)
                 {
-                    float t = s / (float)samplesPerSegment, t2 = t * t, t3 = t2 * t;
-                    path.Add(0.5f * (2f * p1 + (p2 - p0) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (3f * p1 - p0 - 3f * p2 + p3) * t3));
+                    float t = i / (float)ReachSamples, u = 1f - t;
+                    path.Add(u * u * from + 2f * u * t * control + t * t * above);
                 }
+
+                if (player == null) break;
+
+                // Closest pass to the recipient, measured flat.
+                Vector3 centre = player.transform.position;
+                float nearest = float.MaxValue;
+                Vector3 away = Vector3.zero;
+                foreach (Vector3 p in path)
+                {
+                    Vector3 flat = p - centre;
+                    flat.y = 0f;
+                    if (flat.magnitude < nearest) { nearest = flat.magnitude; away = flat; }
+                }
+
+                if (nearest >= leftClearance - 0.005f || away.sqrMagnitude < 1e-6f) break;
+                control += away.normalized * (2f * (leftClearance - nearest));
             }
 
-            path.Add(points[points.Count - 1]);
+            path.Add(to);
             return path;
         }
+
+        const int ReachSamples = 16;
 
         static float PathLength(List<Vector3> path)
         {
@@ -626,7 +632,12 @@ namespace Shields.Tavern
         {
             if (slot != null && mug != null) return false;
 
-            if (_waiter != null) _waiter.DeliveryHandBusy = false;
+            if (_waiter != null)
+            {
+                _waiter.DeliveryHandBusy = false;
+                HandRig fingers = _waiter.DeliveryHand != null ? _waiter.DeliveryHand.GetComponentInChildren<HandRig>() : null;
+                if (fingers != null) fingers.ClearPose(HandPoseLayer.Grip, returnHand);
+            }
             return true;
         }
 

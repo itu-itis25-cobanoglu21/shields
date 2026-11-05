@@ -78,6 +78,8 @@ namespace Shields.Match
             public Vector3 RestPosition;
             public Quaternion RestRotation;
             public Quaternion GrabRotation;
+            public HandRig Fingers;
+            public Vector3 DeckShift;
             public Coroutine Routine;
             public bool Confirmed;
             public bool Cancelled;
@@ -232,9 +234,12 @@ namespace Shields.Match
                 Palm = hand.Find("PalmContact"),
                 RestPosition = rest.position,
                 RestRotation = rest.rotation,
+                Fingers = player.RightHand,
                 Confirmed = confirmed
             };
             motion.GrabRotation = FlatGrabRotation(motion, player);
+            motion.DeckShift = DeckShift(player);
+            SetFingers(motion.Fingers, HandPoseId.DeckReach, handReachDuration);
 
             _motions[seat] = motion;
             motion.Routine = StartCoroutine(FirstChargeRoutine(motion));
@@ -258,6 +263,7 @@ namespace Shields.Match
 
             // Hold: "grab card", the flat hand resting on the deck. Also waits here for the
             // host when the reach was anticipated.
+            SetFingers(m.Fingers, HandPoseId.ChargeGrab, DeckContactBlend);
             float held = 0f;
             while (held < deckHoldDuration || (!m.Confirmed && !m.Cancelled && held < deckHoldDuration + confirmTimeout))
             {
@@ -290,6 +296,7 @@ namespace Shields.Match
             Quaternion startRotation = _deck.transform.rotation;
 
             if (m.Card != null) m.Card.gameObject.SetActive(true);
+            SetFingers(m.Fingers, HandPoseId.ChargeCarry, DeckContactBlend);
 
             for (float elapsed = 0f; elapsed < cardPullDuration; elapsed += Time.deltaTime)
             {
@@ -309,7 +316,7 @@ namespace Shields.Match
                 Vector3 end = slot != null ? slot.position : start;
                 Vector3 carried = CardPath(start, end, Smooth(Mathf.Clamp01(t - handTrail)));
                 m.Hand.localRotation = m.GrabRotation;
-                m.Hand.localPosition = HandLocalForPalm(m, carried + Vector3.up * palmClearance, m.GrabRotation);
+                m.Hand.localPosition = HandLocalForPalm(m, carried + m.DeckShift * (1f - Smooth(t)) + Vector3.up * palmClearance, m.GrabRotation);
 
                 yield return null;
             }
@@ -324,6 +331,9 @@ namespace Shields.Match
 
             bool flameStarted = m.Card == null;
             float sinceSettled = 0f;
+
+            // The fingers relax back to idle over the way home.
+            if (m.Fingers != null) m.Fingers.ClearPose(HandPoseLayer.Action, handReturnDuration);
 
             Vector3 from = m.Hand.localPosition;
             Quaternion fromRotation = m.Hand.localRotation;
@@ -380,6 +390,7 @@ namespace Shields.Match
 
         static void RestoreRest(HandMotion m)
         {
+            if (m.Fingers != null) m.Fingers.ClearPose(HandPoseLayer.Action, InterruptBlend);
             if (m.Hand == null) return;
 
             m.Hand.localPosition = m.RestPosition;
@@ -464,10 +475,59 @@ namespace Shields.Match
         /// </summary>
         Quaternion FlatGrabRotation(HandMotion m, PlayerCharacter player)
         {
-            Quaternion world = FlatHandWorldRotation(player, handFingerAxis, handBackAxis);
+            Vector3 fingers, back;
+            RestAxesOf(m.Fingers, m.Hand, handFingerAxis, handBackAxis, out fingers, out back);
+
+            Quaternion world = FlatHandWorldRotation(player, fingers, back);
 
             Quaternion parent = m.Hand.parent != null ? m.Hand.parent.rotation : Quaternion.identity;
             return Quaternion.Inverse(parent) * world;
+        }
+
+        /// <summary>
+        /// The hand's own resting finger and back-of-hand directions in its anchor's space,
+        /// read from its rig so they match the actual hand model. The serialized axes are
+        /// only the fallback for a hand without a rig.
+        /// </summary>
+        static void RestAxesOf(HandRig rig, Transform hand, Vector3 fallbackFingers, Vector3 fallbackBack,
+            out Vector3 fingers, out Vector3 back)
+        {
+            if (rig == null || !rig.RestAxes(hand, out fingers, out back))
+            {
+                fingers = fallbackFingers;
+                back = fallbackBack;
+            }
+        }
+
+        // Distance from PalmContact to the knuckle line along the fingers, as the deck sees it:
+        // equal to the deck's half length, so a hand reaching down the long side still rests
+        // centred on it.
+        const float DeckKnuckleReach = 0.044f;
+
+        /// <summary>
+        /// How far a resting palm moves off the deck's centre, along the reach, so the knuckles
+        /// land on the far edge from every seat and the fingers drape over it the same way (the
+        /// deck does not turn to face anyone, so its edge is nearer from some seats than others).
+        /// </summary>
+        Vector3 DeckShift(PlayerCharacter player)
+        {
+            Vector3 forward = _deck.TopCenter - player.transform.position;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 1e-6f) return Vector3.zero;
+            forward.Normalize();
+            return forward * (_deck.TopReach(forward) - DeckKnuckleReach);
+        }
+
+        // ------------------------------------------------------------------ finger poses
+
+        // Fingers settling onto the deck or card, and opening when an action is cut short.
+        const float DeckContactBlend = 0.1f;
+        const float InterruptBlend = 0.1f;
+
+        /// <summary>Poses a hand for a gameplay action (the top pose layer: it overrides grips and emotes).</summary>
+        static void SetFingers(HandRig rig, HandPoseId pose, float blend)
+        {
+            if (rig != null) rig.SetPose(HandPoseLayer.Action, pose, blend);
         }
 
         /// <summary>
@@ -487,7 +547,7 @@ namespace Shields.Match
         /// <summary>Where the hand goes so its palm rests on the deck in the flat grab pose.</summary>
         Vector3 GrabLocal(HandMotion m)
         {
-            return HandLocalForPalm(m, _deck.TopCenter + Vector3.up * palmClearance, m.GrabRotation);
+            return HandLocalForPalm(m, _deck.TopCenter + m.DeckShift + Vector3.up * palmClearance, m.GrabRotation);
         }
 
         /// <summary>The hand's local position that puts its palm on a world point at a given rotation.</summary>

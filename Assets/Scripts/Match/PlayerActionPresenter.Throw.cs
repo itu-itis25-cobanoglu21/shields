@@ -83,6 +83,9 @@ namespace Shields.Match
             public Transform Palm;
             public Pose Rest;
             public Quaternion FlatWorld;
+            public HandRig Fingers;
+            public Vector3 DeckShift;
+            public bool Released;
             public float StartedAt;
             public Coroutine Routine;
             public Coroutine HandRoutine;
@@ -108,6 +111,12 @@ namespace Shields.Match
         }
 
         readonly Dictionary<int, ThrowMotion> _throws = new Dictionary<int, ThrowMotion>();
+
+        // Finger timing for the card: closing on it, flicking open at the release, and how
+        // long the open hand holds before relaxing on the way home.
+        const float CardPickupBlend = 0.08f;
+        const float CardReleaseBlend = 0.06f;
+        const float CardReleaseHold = 0.1f;
 
         /// <summary>
         /// Raised with the seat just before a targeted action takes that seat's left hand,
@@ -239,6 +248,9 @@ namespace Shields.Match
 
             Pose rest = RestPoseOf(hand);
 
+            Vector3 fingers, back;
+            RestAxesOf(player.LeftHand, hand, leftHandFingerAxis, leftHandBackAxis, out fingers, out back);
+
             ThrowMotion motion = new ThrowMotion
             {
                 Seat = seat,
@@ -246,9 +258,12 @@ namespace Shields.Match
                 Hand = hand,
                 Palm = hand.Find("PalmContact"),
                 Rest = rest,
-                FlatWorld = FlatHandWorldRotation(player, leftHandFingerAxis, leftHandBackAxis),
+                FlatWorld = FlatHandWorldRotation(player, fingers, back),
+                Fingers = player.LeftHand,
+                DeckShift = DeckShift(player),
                 StartedAt = Time.time
             };
+            SetFingers(motion.Fingers, HandPoseId.DeckReach, leftHandReachDuration);
 
             _throws[seat] = motion;
             motion.Routine = StartCoroutine(ThrowRoutine(motion));
@@ -272,6 +287,9 @@ namespace Shields.Match
                 m.Hand.localPosition = Vector3.LerpUnclamped(from, DeckLocal(m, flat), e);
                 yield return null;
             }
+
+            // Resting on the Draw Pile while the target is chosen.
+            SetFingers(m.Fingers, HandPoseId.DeckRest, DeckContactBlend);
 
             while (true)
             {
@@ -346,6 +364,9 @@ namespace Shields.Match
             Quaternion startRotation = _deck.transform.rotation;
             m.Card.transform.SetPositionAndRotation(start, startRotation);
 
+            // The fingers close on the card as it is lifted.
+            SetFingers(m.Fingers, HandPoseId.CardHold, CardPickupBlend);
+
             if (anchor == null)
             {
                 m.HandRoutine = StartCoroutine(ReturnLeftHand(m));
@@ -370,12 +391,14 @@ namespace Shields.Match
                         Vector3 carried = ThrowPath(start, anchor.position, Smooth(Mathf.Clamp01(t - handTrail)));
                         Quaternion flat = FlatLocal(m);
                         m.Hand.localRotation = flat;
-                        m.Hand.localPosition = HandLocalForPalm(m.Hand, m.Palm, carried + Vector3.up * palmClearance, flat);
+                        m.Hand.localPosition = HandLocalForPalm(m.Hand, m.Palm, carried + m.DeckShift * (1f - Smooth(t / throwHandFollow)) + Vector3.up * palmClearance, flat);
                     }
                     else
                     {
-                        // Let go: the card flies on, the hand heads home.
+                        // Let go: the card flies on, the fingers flick open and the hand heads home.
                         released = true;
+                        m.Released = true;
+                        SetFingers(m.Fingers, HandPoseId.CardRelease, CardReleaseBlend);
                         m.HandRoutine = StartCoroutine(ReturnLeftHand(m));
                     }
                 }
@@ -487,11 +510,22 @@ namespace Shields.Match
         {
             if (m.Hand == null) yield break;
 
+            // After a throw the open release pose shows for a moment before the fingers
+            // relax back to idle; otherwise they relax over the whole way home.
+            float releaseHold = m.Released ? CardReleaseHold : 0f;
+            bool relaxed = false;
+
             Vector3 from = m.Hand.localPosition;
             Quaternion fromRotation = m.Hand.localRotation;
             for (float elapsed = 0f; elapsed < leftHandReturnDuration; elapsed += Time.deltaTime)
             {
                 if (m.Hand == null) yield break;
+
+                if (!relaxed && elapsed >= releaseHold)
+                {
+                    relaxed = true;
+                    if (m.Fingers != null) m.Fingers.ClearPose(HandPoseLayer.Action, Mathf.Max(0.05f, leftHandReturnDuration - releaseHold));
+                }
 
                 float e = EaseInOutCubic(elapsed / leftHandReturnDuration);
                 m.Hand.localPosition = Vector3.LerpUnclamped(from, m.Rest.position, e);
@@ -562,6 +596,7 @@ namespace Shields.Match
 
         static void RestoreLeftHand(ThrowMotion m)
         {
+            if (m.Fingers != null) m.Fingers.ClearPose(HandPoseLayer.Action, InterruptBlend);
             if (m.Hand == null) return;
 
             m.Hand.localPosition = m.Rest.position;
@@ -589,7 +624,7 @@ namespace Shields.Match
         /// <summary>Where the hand goes so its palm rests on top of the Draw Pile.</summary>
         Vector3 DeckLocal(ThrowMotion m, Quaternion flat)
         {
-            return HandLocalForPalm(m.Hand, m.Palm, _deck.TopCenter + Vector3.up * palmClearance, flat);
+            return HandLocalForPalm(m.Hand, m.Palm, _deck.TopCenter + m.DeckShift + Vector3.up * palmClearance, flat);
         }
 
         Vector3 TowardTableCentre(PlayerCharacter player)

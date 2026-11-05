@@ -73,6 +73,7 @@
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Hit.cs" />
     <Compile Include="Assets\VFXPACK_IMPACT_WALLCOEUR_FreeVersion\Scripts\VfxController.cs" />
     <Compile Include="Assets\Scripts\Network\NetworkSeatRegistry.cs" />
+    <Compile Include="Assets\Scripts\Player\HandPoses.cs" />
     <Compile Include="Assets\Scripts\Presentation\FireLightFlicker.cs" />
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
     <Compile Include="Assets\Scripts\UI\Hud\GameHud.cs" />
@@ -113,6 +114,7 @@
     <Compile Include="Assets\Scripts\Network\NetworkBeerOrderService.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerDrinkCoordinator.cs" />
     <Compile Include="Assets\Scripts\Presentation\CardView.cs" />
+    <Compile Include="Assets\Scripts\Player\HandRig.cs" />
     <Compile Include="Assets\Scripts\UI\Hud\HudSprites.cs" />
     <Compile Include="Assets\UIConcept\HUD\Scripts\HudConceptDirector.cs" />
     <Compile Include="Assets\Scripts\Tavern\WaiterPresenter.cs" />

@@ -168,7 +168,8 @@ namespace Shields.Menu
             _headVisual = Find(previewCharacter, "HeadVisual");
             _headMesh = Find(previewCharacter, "HeadMesh")?.GetComponent<Renderer>();
             _bodyMesh = Find(previewCharacter, "BodyMesh")?.GetComponent<Renderer>();
-            _hands = new[] { Find(previewCharacter, "Hand_L")?.GetComponent<Renderer>(), Find(previewCharacter, "Hand_R")?.GetComponent<Renderer>() };
+            // The hand meshes are skinned renderers inside the rigged-hand visuals under Hand_L / Hand_R.
+            _hands = new[] { HandRenderer("Hand_L"), HandRenderer("Hand_R") };
 
             _cosmetics = previewCharacter.GetComponent<CharacterCosmetics>();
             if (_cosmetics == null) _cosmetics = previewCharacter.gameObject.AddComponent<CharacterCosmetics>();
@@ -228,10 +229,20 @@ namespace Shields.Menu
             return m;
         }
 
+        Renderer HandRenderer(string hand)
+        {
+            Transform t = Find(previewCharacter, hand);
+            return t != null ? t.GetComponentInChildren<Renderer>(true) : null;
+        }
+
+        /// <summary>The right hand for its thumbnail: the whole rigged visual (mesh and bones), posed as on the preview.</summary>
         GameObject HandModel(Material material)
         {
-            GameObject h = Stripped(_hands[1].gameObject);
-            if (material != null) h.GetComponent<Renderer>().sharedMaterial = material;
+            Transform handR = Find(previewCharacter, "Hand_R");
+            Transform visual = handR != null && handR.childCount > 0 ? handR.GetChild(0) : _hands[1].transform;
+            GameObject h = Stripped(visual.gameObject);
+            if (material != null)
+                foreach (Renderer r in h.GetComponentsInChildren<Renderer>()) r.sharedMaterial = material;
             return h;
         }
 

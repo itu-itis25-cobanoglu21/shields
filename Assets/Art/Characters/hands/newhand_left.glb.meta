@@ -1,7 +1,16 @@
 fileFormatVersion: 2
 guid: 3a536bd8b02b80f4faafd5284feb82df
-DefaultImporter:
+ScriptedImporter:
+  internalIDToNameTable: []
   externalObjects: {}
+  serializedVersion: 2
   userData: 
   assetBundleName: 
   assetBundleVariant: 
+  script: {fileID: 11500000, guid: 42f1a8486296af743b0d25e9470dc3ca, type: 3}
+  material: {fileID: 2100000, guid: f11fa0dbe988da942879ff0a0a609b91, type: 2}
+  fixInsideOutFaces: 1
+  smoothingAngle: 80
+  fingerCrossWeightCleanup: 1
+  fingerWeightSmoothing: 0.25
+  fingerWeightPasses: 1

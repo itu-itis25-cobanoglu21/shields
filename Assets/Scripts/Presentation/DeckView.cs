@@ -43,6 +43,25 @@ namespace Shields.Presentation
             }
         }
 
+        /// <summary>
+        /// How far the deck's top reaches from <see cref="TopCenter"/> in a horizontal direction:
+        /// half the deck's footprint seen along it (a hand reaching straight down the long side
+        /// meets the edge sooner than one reaching across a corner).
+        /// </summary>
+        public float TopReach(Vector3 direction)
+        {
+            if (deckProp == null) return 0f;
+            MeshFilter filter = deckProp.GetComponent<MeshFilter>();
+            Vector3 extents = filter != null && filter.sharedMesh != null ? filter.sharedMesh.bounds.extents : Vector3.one * 0.5f;
+            extents = Vector3.Scale(extents, deckProp.lossyScale);
+
+            Vector3 local = Quaternion.Inverse(deckProp.rotation) * direction;
+            local.y = 0f;
+            if (local.sqrMagnitude < 1e-8f) return 0f;
+            local.Normalize();
+            return Mathf.Abs(local.x) * extents.x + Mathf.Abs(local.z) * extents.z;
+        }
+
         /// <summary>Points the view at the deck it should report on.</summary>
         public void Bind(CardDeck deck)
         {

@@ -128,9 +128,10 @@ namespace Shields.Tavern
 
             localPosition = slots[index % slots.Count] + new Vector3(0f, 0f, lap * MugSpacing * 0.5f);
 
-            // Handle (mesh -X) toward the player, over the table edge: within easy reach,
-            // and only the round body faces the neighbouring cards.
-            localRotation = Quaternion.Euler(0f, 270f, 0f);
+            // Handle (mesh -X) to the player's left, where their left hand comes from: the
+            // hand takes it palm in, thumb on top, and keeps the very same grip all the way
+            // to the mouth (where the handle is on the left too).
+            localRotation = Quaternion.identity;
         }
     }
 }

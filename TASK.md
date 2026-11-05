@@ -1,113 +1,580 @@
-Read the current waiter implementation and make ONLY these targeted visual adjustments.
+# TASK 032 — Rigged Hand Contact, Grip & Rest-Pose Corrections
 
-Do not redesign the waiter, route, tray system, Beer Order, drinking, networking, or gameplay.
+Read `CLAUDE.md`, `SHIELDS_RULES.md`, inspect the CURRENT rigged-hand implementation and the provided reference screenshots, then execute this task.
 
-1. WAITER HEIGHT / HOVER
+TASK 030 integrated the new rigged hands.
+TASK 031 added the pose/blending system and existing interaction poses.
 
-The waiter is now proportionally correct, but visually too short.
+The architecture is now correct.
 
-Keep the NORMAL PlayerCharacter body/head/hand proportions exactly as they are.
+DO NOT redesign the hand system.
 
-Do NOT stretch the body again.
+DO NOT implement emotes yet.
 
-Instead, raise the entire waiter visual slightly above the grounded root so the waiter feels like a floating SHIELDS character that is standing/walking, not a tiny floor-level character.
+This task fixes FOUR specific visual problems visible in the current game:
 
-Important:
+1. Weapon hand intersects deeply through the gun.
+2. Deck-contact hand does not fully sit on the deck.
+3. Waiter delivery hand intersects the beer mug and follows an unnecessarily strange path.
+4. Idle hands are pitched too far forward even though their inward rotation is good.
 
-- preserve normal character proportions
-- keep the root / route architecture
-- keep the current bob behavior
-- do not return to the previous extremely tall waiter
-- do not make the waiter look fully airborne again
+These are visual pose/contact corrections only.
 
-Desired result:
+---
 
-- waiter floats only a LITTLE above the floor
-- still feels grounded / walking
-- noticeably taller than the current version
-- clearly shorter / lower than the old stretched 1.50 m-head version
+# 1. Use the supplied screenshots as the source of truth
 
-Find the best visual midpoint by tuning the waiter visual Y offset, not mesh scale.
+Inspect the four screenshots supplied with this task.
 
-Please test several small offsets and keep the one that looks most natural from seated player eye level.
+They show the actual current problems.
 
-I expect something roughly in the range of a modest 10–25 cm visual lift, but choose based on the actual scene rather than blindly using that number.
+Do not tune only from prefab/Scene view.
 
-The lowest point of the bob should still be close enough to the floor that it reads as grounded movement.
+Reproduce the relevant gameplay state in Play Mode and inspect the result from the same kinds of angles.
 
-2. DELIVERY HAND TRAJECTORY
+---
 
-The waiter body now correctly stays on the circular route.
+# PART A — WEAPON GRIP
 
-Keep that.
+# 2. Current weapon problem
 
-The problem is the delivery hand arc is far too exaggerated.
+The new rigged right hand currently passes deeply THROUGH the weapon.
 
-Currently the hand rises very high, almost like a catapult, before coming down to the table.
+The screenshot shows:
 
-Reduce this dramatically.
+- palm intersecting the weapon body
+- fingers penetrating the stock/trigger area
+- weapon visually embedded inside the hand
 
-Desired motion:
+This is not acceptable.
 
-tray
-→ small lift only if needed
-→ smooth forward/side reach
-→ DrinkArea on the table
-→ return along a similar path
+The hand should HOLD the outside of the weapon.
 
-The hand may rise enough to clear:
+---
 
-- tray
-- chair back
-- player shoulder/body
+# 3. Desired weapon relationship
 
-but it should NOT go above the waiter's head unless absolutely unavoidable.
+The weapon grip should look approximately like:
 
-Prefer a low, direct, natural service arc.
+weapon grip/stock
+→ palm resting against OUTSIDE surface
+→ fingers curling AROUND it
+→ thumb supporting/opposing grip
+→ index near trigger/trigger guard
 
-Use the floating-hand design: it can simply extend a long distance horizontally.
+The weapon must not occupy the centre of the palm volume.
 
-The hand should visually feel like a waiter reaching over and placing a mug, not throwing or launching it.
+---
 
-3. PRESERVE
+# 4. Fix position before over-curling fingers
+
+Do not try to solve the clipping only by curling fingers differently.
+
+First inspect the actual relation between:
+
+- weapon grip anchor
+- hand wrapper
+- rigged-hand visual
+- palm surface
+
+Move/rotate the HAND relative to the weapon so the palm sits externally against the grip.
+
+Then tune fingers around that relationship.
+
+---
+
+# 5. Weapon grip anchor
+
+If the current weapon attachment point was authored for the old hand geometry:
+
+retune the grip attachment/visual offset for the NEW hand.
+
+Do not change weapon aiming logic.
+
+Do not change muzzle position.
+
+Do not change target locking.
+
+Do not change firing trajectory.
+
+This is only how the hand visually holds the weapon.
+
+---
+
+# 6. Weapon fingers
+
+After the hand is correctly positioned:
+
+pose the fingers to read as a stylized grip.
+
+Desired:
+
+- Middle + Ring: wrap around grip without penetrating through it.
+- Index: near/on trigger or trigger guard.
+- Thumb: naturally opposing/supporting the grip.
+
+Do NOT force extreme >60° curls if they cause source-rig pinching.
+
+Moderate curls + proper hand placement are preferred.
+
+---
+
+# 7. Weapon validation
+
+Inspect from:
+
+- side
+- front/3⁄4
+- across-table
+- local player perspective
+
+Acceptance:
+
+- palm does not intersect weapon body
+- weapon does not pass through hand
+- fingers visibly wrap externally
+- index reads near trigger
+- no large air gap
+- firing animation still works
+- fire/index squeeze still works
+
+---
+
+# PART B — DECK CONTACT
+
+# 8. Current deck problem
+
+When the hand rests on the deck, one/more fingers — especially the middle region visible in the screenshot — remain above the deck.
+
+The pose looks like:
+
+some fingers contact
+while
+another finger floats.
+
+The hand should look physically placed on the deck.
+
+---
+
+# 9. Re-measure deck contact from the actual rigged hand
+
+Do not rely on the old `PalmContact` geometry.
+
+Inspect:
+
+- palm plane
+- fingertip positions
+- deck top plane
+- finger joint rotations
+
+Tune the contact pose so the hand actually follows the deck surface.
+
+---
+
+# 10. Desired deck pose
+
+When resting on the draw pile:
+
+- palm should sit just above/on the top card
+- all fingers intended to touch should visually contact the deck
+- no finger should obviously float several millimetres above
+- no finger should penetrate deeply through the deck
+
+Small stylized contact overlap is okay.
+
+---
+
+# 11. Finger-specific pose is allowed
+
+Do not force the same curl/value onto each digit.
+
+The middle/index/ring may require slightly different joint angles because:
+
+- finger lengths differ
+- the hand mesh is asymmetrical
+- deck surface is flat
+
+Tune each relevant finger individually.
+
+---
+
+# 12. Preserve deck animation
 
 Do not change:
 
-- constant-radius circular waiter route
-- no inward waiter-body movement
-- left-rear service position
-- left-side DrinkArea
-- same mug object tray → hand → DrinkArea
-- tray stability
-- palm-up tray hand
-- 3 / 6 / 8 player compatibility
-- targeting safety
-- multiplayer presentation
-- BeerLedger / drinking
+- reach timing
+- card draw timing
+- Charge timing
+- card throw trajectory
+- target-selection logic
 
-4. VALIDATE
+Only pose/contact geometry.
 
-Check from seated player viewpoints at 3, 6 and 8 players.
+---
 
-For waiter height:
-- no stretched body
-- no tiny/crouched appearance
-- no extreme floating
-- no floor clipping
+# PART C — WAITER MUG DELIVERY
 
-For delivery hand:
-- no catapult-like high arc
-- no hand through body/head/chair
-- mug reaches DrinkArea cleanly
-- motion looks restrained and service-like
+# 13. Current waiter mug problem
 
-Run the current relevant tests and report:
-- final visual Y offset
-- final head-top world height
-- final hand trajectory / maximum height
-- minimum clearances from body/head/chair
-- files modified
-- test result
-- console result
+The screenshot shows the delivery hand wrapped THROUGH/AROUND the mug in an unnatural way.
+
+The hand intersects deeply with the mug body/handle.
+
+The desired waiter delivery does NOT require a realistic closed grip.
+
+---
+
+# 14. Desired waiter delivery hand
+
+Return to the simpler readable presentation:
+
+waiter hand approaches mug from ABOVE
+→ hand remains relatively OPEN
+→ palm/fingers hover just above / lightly around the mug top
+→ mug moves with the hand
+→ hand places mug on table
+→ hand returns
+
+It should look like the waiter is guiding/carrying the mug from above.
+
+Do NOT close the puffy fingers around the mug body.
+
+---
+
+# 15. Waiter mug pose
+
+Create a waiter-specific top-carry pose.
+
+Suggested visual direction:
+
+- palm approximately facing down toward mug
+- fingers gently open
+- fingers may bend slightly around the mug's upper silhouette
+- no finger should pierce the mug
+- no deep handle interaction required
+
+This pose may intentionally differ from the PLAYER drinking grip.
+
+Do not reuse the player mug grip if it looks worse.
+
+---
+
+# 16. Same mug object
+
+Preserve:
+
+`Tray → Waiter Hand → DrinkArea`
+
+The actual same mug object still moves.
+
+Do not replace it with another object.
+
+---
+
+# 17. Simplify delivery-hand trajectory
+
+The current delivery-hand route is visually strange/overcomplicated.
+
+The waiter body already stays on the constant-radius circular route.
+
+Keep that.
+
+The DELIVERY HAND should now use a much simpler route.
+
+Desired:
+
+mug on tray
+→ small lift
+→ direct smooth reach toward target DrinkArea
+→ small controlled descent onto table
+→ release
+→ direct smooth return to its normal/rest position
+
+Do not make the hand:
+
+- rise dramatically
+- travel through unnecessary control points
+- swing around the player
+- perform a large arc
+- behave like a catapult
+
+---
+
+# 18. Direct but collision-conscious path
+
+The hand should move almost directly from tray to table.
+
+A small curve is allowed only to clear:
+
+- tray edge
+- chair back
+- player's left side
+
+Use the minimum necessary clearance.
+
+The movement should read as:
+
+"waiter reaches and places beer"
+
+not:
+
+"floating hand performs a complicated pathing maneuver."
+
+---
+
+# 19. Return position
+
+After placing the mug:
+
+the delivery hand must return to its correct waiter rest position.
+
+Do not leave it:
+
+- offset
+- partially extended
+- in mug grip
+- at a different height
+
+Pose and wrapper transform should both return cleanly.
+
+---
+
+# 20. Waiter validation
+
+Test:
+
+- 3 players
+- 6 players
+- 8 players
+
+and multiple delivery angles.
+
+Acceptance:
+
+- hand does not go inside mug
+- hand is visibly above/around mug
+- trajectory is simple and direct
+- no player/body/chair intersection
+- mug reaches correct DrinkArea
+- same mug object delivered
+- hand returns correctly
+
+---
+
+# PART D — IDLE / NEUTRAL HAND ORIENTATION
+
+# 21. Current idle problem
+
+The inward-facing angle of the hands is GOOD.
+
+Keep that character.
+
+The problem is the additional forward pitch.
+
+From the screenshot:
+
+the hand's top and bottom are at noticeably different front/back depth, so the hand looks excessively tilted forward.
+
+This is too much.
+
+---
+
+# 22. Desired idle orientation
+
+Keep:
+
+- palms rotated inward toward body
+- slight Left/Right asymmetry
+- relaxed finger curl
+
+Reduce:
+
+- forward/backward pitch
+
+The hand should be much more vertically neutral.
+
+Conceptually, when viewed from the side:
+
+top of hand
+and
+bottom/fingertips
+
+should be at approximately similar forward/back depth.
+
+Not mathematically exact, but visually close.
+
+---
+
+# 23. Preserve inward cant
+
+Do NOT simply zero all idle wrist rotations.
+
+The current inward orientation gives the hands personality and looks good.
+
+Only reduce the axis responsible for the excessive forward lean.
+
+---
+
+# 24. Natural relaxed pose
+
+Final idle should feel:
+
+- slightly inward
+- slightly relaxed
+- fingers softly curled
+- mostly vertical
+- not mechanically straight
+- not pitched dramatically forward
+
+Use Play Mode and visual judgement to find the best angle.
+
+Try multiple values.
+
+Do not keep the first number that technically works.
+
+---
+
+# PART E — POSE SYSTEM
+
+# 25. Preserve existing HandPoses architecture
+
+Keep:
+
+- HandRig
+- HandPoses
+- pose blending
+- Action > Grip > Emote > Rest priority
+- ResetToNeutral
+- smooth normals
+
+Do not rewrite these.
+
+Update the existing pose definitions/offsets cleanly.
+
+---
+
+# 26. State-specific poses are expected
+
+Do not try to make one universal pose handle everything.
+
+The following should remain distinct:
+
+- Idle
+- Deck contact
+- Card carry
+- Weapon grip
+- Player mug grip
+- Waiter tray support
+- Waiter mug top-carry
+
+This is intentional.
+
+---
+
+# 27. Do not regress existing interactions
+
+After these corrections verify:
+
+- First Charge
+- target-selection deck rest
+- card pickup
+- card throw
+- weapon draw
+- weapon aim
+- weapon fire
+- weapon holster
+- beer drinking
+- waiter tray
+- waiter delivery
+
+---
+
+# 28. First-person and remote visual checks
+
+Weapon and deck pose must look good from:
+
+- first person
+- another player's perspective
+
+Waiter delivery should be checked from seated players around the table.
+
+---
+
+# 29. No emotes yet
+
+Do NOT implement:
+
+- point
+- middle finger
+- handshake
+- wave
+- emote UI
+- emote network messages
+
+Finish these four defects first.
+
+---
+
+# 30. Tests
+
+Run the full CURRENT EditMode suite.
+
+Current known baseline:
+
+`355 / 355`
+
+Report the actual result.
+
+---
+
+# 31. Console
+
+Final clean gameplay validation should have:
+
+- 0 HandRig errors
+- 0 pose exceptions
+- 0 weapon-presentation errors
+- 0 waiter-delivery errors
+- 0 stuck hand poses
+
+Report unrelated existing warnings separately.
+
+---
+
+# 32. Final report
+
+Report:
+
+1. Weapon hand root/grip offset before and after
+2. Weapon wrist orientation change
+3. Final weapon finger pose
+4. Weapon/index trigger result
+5. Confirmation weapon no longer intersects palm
+6. Deck-contact offset changes
+7. Final per-finger deck pose
+8. Confirmation all intended fingers contact deck
+9. Waiter top-carry mug pose
+10. Waiter hand/mug relationship
+11. Old waiter hand trajectory
+12. New simplified trajectory
+13. Maximum hand lift during delivery
+14. Confirmation hand returns to original rest position
+15. Idle pitch before/after
+16. Idle inward angle preserved
+17. Final Left idle orientation
+18. Final Right idle orientation
+19. Charge regression
+20. Card throw regression
+21. Player beer-drinking regression
+22. Waiter tray regression
+23. 3-player result
+24. 6-player result
+25. 8-player result
+26. EditMode result
+27. Console result
+28. exact files modified
+29. anything still visually wrong before starting emotes
 
 Do not commit anything.
+
+Stop before implementing emotes.
