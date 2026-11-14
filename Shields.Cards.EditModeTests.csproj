@@ -54,6 +54,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Tests\EditMode\BeerOrderQueueTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\FinalHandAssetTests.cs" />
+    <Compile Include="Assets\Tests\EditMode\HandshakeMatcherTests.cs" />
     <Compile Include="Assets\Tests\EditMode\MatchGenerationGateTests.cs" />
     <Compile Include="Assets\Tests\EditMode\RandomBotPolicyTests.cs" />
     <Compile Include="Assets\Tests\EditMode\ClockwiseTurnTests.cs" />

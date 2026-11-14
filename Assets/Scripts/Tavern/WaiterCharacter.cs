@@ -73,6 +73,7 @@ namespace Shields.Tavern
         [SerializeField] float bobBlendSpeed = 6f;
 
         readonly List<Transform> _mugs = new List<Transform>();
+        int _loadedCount;
         Vector3 _bobBaseLocal;
         Quaternion _bobBaseRotation;
         float _phase;
@@ -194,6 +195,7 @@ namespace Shields.Tavern
             if (mugPrefab == null || mugSlots == null) return;
 
             count = Mathf.Clamp(count, 0, TrayMugLayout.MaxMugs);
+            _loadedCount = count;
             for (int i = 0; i < count; i++)
             {
                 Transform slot = new GameObject("MugSlot_" + i).transform;
@@ -212,6 +214,25 @@ namespace Shields.Tavern
 
                 _mugs.Add(mug.transform);
             }
+        }
+
+        /// <summary>
+        /// A new spot on the tray at the pose of loaded mug <paramref name="index"/> (whose own mug
+        /// has been served), for an empty mug the hand brings back. It leaves with the waiter.
+        /// </summary>
+        public Transform TraySpot(int index)
+        {
+            if (mugSlots == null) return null;
+
+            Transform spot = new GameObject("ReturnedMugSlot_" + index).transform;
+            spot.SetParent(mugSlots, false);
+
+            Vector3 position;
+            Quaternion rotation;
+            TrayMugLayout.Pose(index, Mathf.Max(1, _loadedCount), out position, out rotation);
+            spot.localPosition = position;
+            spot.localRotation = rotation;
+            return spot;
         }
 
         /// <summary>Takes a mug off the tray's books once the hand has it. The object itself moves on.</summary>

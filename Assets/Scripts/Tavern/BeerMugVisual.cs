@@ -17,10 +17,11 @@ namespace Shields.Tavern
     /// volume about right at any tilt.
     ///
     /// <see cref="Fill"/> is set from authoritative beer state by the drink presenter; this
-    /// component never decides how much beer is left. Geometry numbers are in the mug
-    /// mesh's own units (the prefab scales it by 0.4), measured from Mug.fbx: inner floor at
-    /// 0.049, rim at 0.288, inner wall radius about 0.088 at the bottom and 0.079 at the top,
-    /// handle on the mesh's -X side.
+    /// component never decides how much beer is left. Geometry numbers are in the mug's
+    /// own units (the prefab root is scaled by 0.4; the visual model sits under it with its
+    /// base at y 0, its axis at x = z = 0 and its handle on -X), measured from the wooden
+    /// barrel mug: inner floor at 0.017, rim at 0.259, rim outer radius 0.098, inner wall
+    /// radius 0.090 near the floor, bulging to 0.099 mid-height, 0.085 at the rim lip.
     /// </summary>
     [DisallowMultipleComponent]
     public class BeerMugVisual : MonoBehaviour
@@ -47,7 +48,10 @@ namespace Shields.Tavern
         [Tooltip("Corner radius at the top of the volume (inner wall about 0.0787 there).")]
         [SerializeField] float liquidRadiusTop = 0.0757f;
 
-        [Tooltip("The mug's inner wall is an octagon; the beer volume matches it so no wall pokes through the surface.")]
+        [Tooltip("Optional inner-wall profile, bottom to top: x = height, y = corner radius (mug mesh units). With two or more points it replaces the straight bottom/top shape, so the beer follows a bulging (barrel) wall.")]
+        [SerializeField] Vector2[] liquidProfile = new Vector2[0];
+
+        [Tooltip("Sides of the beer volume. Match the mug's inner wall so no wall pokes through the surface.")]
         [SerializeField] int liquidSides = 8;
 
         [Tooltip("Angle of the first inner-wall corner around the axis, from mesh +X toward +Z.")]
@@ -119,6 +123,16 @@ namespace Shields.Tavern
             Fill = 1f;
         }
 
+        /// <summary>
+        /// The waiter took this (empty) mug back: it is no one's beer at the table any more,
+        /// so drinking and table clean-up leave it alone. It leaves on the tray.
+        /// </summary>
+        public void MarkCollected()
+        {
+            IsDelivered = false;
+            HomeSlot = null;
+        }
+
         /// <summary>Puts the mug back exactly into its home slot, at its table scale.</summary>
         public void SettleHome(Vector3 tableScale)
         {
@@ -159,40 +173,52 @@ namespace Shields.Tavern
             List<Vector3> normals = new List<Vector3>();
             List<int> triangles = new List<int>();
 
-            float slope = (liquidRadiusBottom - liquidRadiusTop) / Mathf.Max(0.0001f, liquidTop - liquidBottom);
+            // Rings bottom to top: the profile when set, else the straight bottom/top shape.
+            Vector2[] rings = liquidProfile != null && liquidProfile.Length >= 2
+                ? liquidProfile
+                : new[] { new Vector2(liquidBottom, liquidRadiusBottom), new Vector2(liquidTop, liquidRadiusTop) };
+
             float start = liquidCornerAngle * Mathf.Deg2Rad;
-            Vector3 bottomCenter = new Vector3(axisXZ.x, liquidBottom, axisXZ.y);
-            Vector3 topCenter = new Vector3(axisXZ.x, liquidTop, axisXZ.y);
 
-            // Side wall: one flat face per inner-wall face, normals outward.
-            for (int i = 0; i < segments; i++)
+            // Side wall: one flat face per inner-wall face and ring band, normals outward.
+            for (int band = 0; band + 1 < rings.Length; band++)
             {
-                float a0 = start + i * Mathf.PI * 2f / segments;
-                float a1 = start + (i + 1) * Mathf.PI * 2f / segments;
-                Vector3 r0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0));
-                Vector3 r1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
-                Vector3 normal = ((r0 + r1).normalized + Vector3.up * slope).normalized;
+                Vector2 lower = rings[band], upper = rings[band + 1];
+                float slope = (lower.y - upper.y) / Mathf.Max(0.0001f, upper.x - lower.x);
+                Vector3 lowCenter = new Vector3(axisXZ.x, lower.x, axisXZ.y);
+                Vector3 highCenter = new Vector3(axisXZ.x, upper.x, axisXZ.y);
 
-                int b0 = vertices.Count;
-                vertices.Add(bottomCenter + r0 * liquidRadiusBottom);
-                vertices.Add(topCenter + r0 * liquidRadiusTop);
-                vertices.Add(bottomCenter + r1 * liquidRadiusBottom);
-                vertices.Add(topCenter + r1 * liquidRadiusTop);
-                for (int k = 0; k < 4; k++) normals.Add(normal);
+                for (int i = 0; i < segments; i++)
+                {
+                    float a0 = start + i * Mathf.PI * 2f / segments;
+                    float a1 = start + (i + 1) * Mathf.PI * 2f / segments;
+                    Vector3 r0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0));
+                    Vector3 r1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
+                    Vector3 normal = ((r0 + r1).normalized + Vector3.up * slope).normalized;
 
-                int t0 = b0 + 1, b1 = b0 + 2, t1 = b0 + 3;
-                triangles.Add(b0); triangles.Add(t0); triangles.Add(t1);
-                triangles.Add(b0); triangles.Add(t1); triangles.Add(b1);
+                    int b0 = vertices.Count;
+                    vertices.Add(lowCenter + r0 * lower.y);
+                    vertices.Add(highCenter + r0 * upper.y);
+                    vertices.Add(lowCenter + r1 * lower.y);
+                    vertices.Add(highCenter + r1 * upper.y);
+                    for (int k = 0; k < 4; k++) normals.Add(normal);
+
+                    int t0 = b0 + 1, b1 = b0 + 2, t1 = b0 + 3;
+                    triangles.Add(b0); triangles.Add(t0); triangles.Add(t1);
+                    triangles.Add(b0); triangles.Add(t1); triangles.Add(b1);
+                }
             }
 
             // Bottom cap, facing down. No top cap: the clipped inside is the surface.
+            Vector3 bottomCenter = new Vector3(axisXZ.x, rings[0].x, axisXZ.y);
+            float bottomRadius = rings[0].y;
             int center = vertices.Count;
             vertices.Add(bottomCenter);
             normals.Add(Vector3.down);
             for (int i = 0; i <= segments; i++)
             {
                 float a = start + i * Mathf.PI * 2f / segments;
-                vertices.Add(bottomCenter + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * liquidRadiusBottom);
+                vertices.Add(bottomCenter + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * bottomRadius);
                 normals.Add(Vector3.down);
             }
 

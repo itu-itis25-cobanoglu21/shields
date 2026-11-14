@@ -66,6 +66,7 @@
     <Compile Include="Assets\Scripts\UI\TavernUI.cs" />
     <Compile Include="Assets\UIConcept\HUD\Scripts\HudFlame.cs" />
     <Compile Include="Assets\Scripts\Match\PlayerActionPresenter.Throw.cs" />
+    <Compile Include="Assets\Scripts\Emotes\PlayerEmoteController.cs" />
     <Compile Include="Assets\Scripts\Menu\Customize\CharacterTurntable.cs" />
     <Compile Include="Assets\Scripts\Menu\MainMenuController.cs" />
     <Compile Include="Assets\Scripts\UI\Hud\GameHudView.cs" />
@@ -83,6 +84,7 @@
     <Compile Include="Assets\Scripts\UI\UiSprites.cs" />
     <Compile Include="Assets\UIConcept\HUD\Scripts\HudConcept.cs" />
     <Compile Include="Assets\Scripts\UI\Hud\HudModel.cs" />
+    <Compile Include="Assets\Scripts\Emotes\EmoteTargeting.cs" />
     <Compile Include="Assets\Scripts\Menu\Customize\CosmeticThumbnails.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerMugVisual.cs" />
     <Compile Include="Assets\UIConcept\Scripts\UIConceptDirector.cs" />
@@ -92,6 +94,7 @@
     <Compile Include="Assets\Scripts\Network\NetworkTestPresenter.cs" />
     <Compile Include="Assets\UIConcept\HUD\Scripts\HudInk.cs" />
     <Compile Include="Assets\Scripts\Settings\PlayerProfile.cs" />
+    <Compile Include="Assets\Scripts\Emotes\PlayerEmotePresenter.cs" />
     <Compile Include="Assets\Scripts\Menu\MainMenuView.cs" />
     <Compile Include="Assets\Laterns and candles\scripts\CameraFacing.cs" />
     <Compile Include="Assets\VFXPACK_IMPACT_WALLCOEUR_FreeVersion\Scripts\DropdownController.cs" />
@@ -119,6 +122,7 @@
     <Compile Include="Assets\UIConcept\HUD\Scripts\HudConceptDirector.cs" />
     <Compile Include="Assets\Scripts\Tavern\WaiterPresenter.cs" />
     <Compile Include="Assets\Scripts\Presentation\DeckView.cs" />
+    <Compile Include="Assets\Scripts\Network\NetworkEmoteService.cs" />
     <Compile Include="Assets\Scripts\Match\MatchTurnController.cs" />
     <Compile Include="Assets\Scripts\Tavern\WaiterDeliveryCoordinator.cs" />
     <Compile Include="Assets\Scripts\Player\BotController.cs" />

@@ -7,13 +7,23 @@ namespace Shields.Tavern
     /// <summary>
     /// Where mugs sit on the waiter's tray, for 1 to 8 mugs. Tuned to the real tray
     /// (Plate.fbx: round, inner floor about 0.015 m up, usable radius about 0.19 m) and the
-    /// real mug at its 0.4 scale (body radius about 0.045 m, handle out to about 0.061 m
-    /// on the mesh's -X side). Handles point outward so they never poke a neighbour.
+    /// real mug at its 0.4 scale (body radius about 0.046 m, handle out to about 0.079 m
+    /// on the mesh's -X side). Every handle points the same way, toward the waiter's
+    /// right-front (<see cref="MugYaw"/>), so the serving hand always takes a mug from the
+    /// side away from its handle; the rings are laid out so no handle reaches a neighbour.
     /// </summary>
     public static class TrayMugLayout
     {
         public const int MaxMugs = 8;
         public const float FloorHeight = 0.015f;
+
+        /// <summary>
+        /// Mug yaw in the waiter's (and tray's) frame: the handle (mesh -X) points 35 degrees
+        /// right of the waiter's forward. The serving hand's fingers hook the rim on the other
+        /// side, and a mug keeps this yaw while it is carried, so it lands on a player's table
+        /// with its handle facing away from them (<see cref="DrinkAreaLayout.MugYaw"/>).
+        /// </summary>
+        public const float MugYaw = 125f;
 
         /// <summary>Local pose of mug <paramref name="index"/> of <paramref name="count"/> on the tray.</summary>
         public static void Pose(int index, int count, out Vector3 localPosition, out Quaternion localRotation)
@@ -25,17 +35,19 @@ namespace Shields.Tavern
             int ringCount;
             bool center;
 
+            // With every handle pointing the same way, each ring is turned (and sized) so no
+            // handle reaches a neighbour: measured against the mug's real outline, at least
+            // 12 mm clear for 2 to 7 mugs and 3 mm for 8 (that ring is at the usable edge).
             switch (count)
             {
                 case 1: center = true; ringCount = 0; radius = 0f; startDegrees = 0f; break;
-                case 2: center = false; ringCount = 2; radius = 0.055f; startDegrees = 0f; break;
-                case 3: center = false; ringCount = 3; radius = 0.068f; startDegrees = 90f; break;
-                case 4: center = false; ringCount = 4; radius = 0.078f; startDegrees = 45f; break;
-                case 5: center = false; ringCount = 5; radius = 0.095f; startDegrees = 90f; break;
-                case 6: center = false; ringCount = 6; radius = 0.11f; startDegrees = 0f; break;
-                // With a centre mug the ring is offset so the centre handle points into a gap.
-                case 7: center = true; ringCount = 6; radius = 0.11f; startDegrees = 30f; break;
-                default: center = true; ringCount = 7; radius = 0.12f; startDegrees = 360f / 14f; break;
+                case 2: center = false; ringCount = 2; radius = 0.052f; startDegrees = 4f; break;
+                case 3: center = false; ringCount = 3; radius = 0.070f; startDegrees = 53f; break;
+                case 4: center = false; ringCount = 4; radius = 0.074f; startDegrees = 50f; break;
+                case 5: center = false; ringCount = 5; radius = 0.112f; startDegrees = 18f; break;
+                case 6: center = false; ringCount = 6; radius = 0.120f; startDegrees = 24f; break;
+                case 7: center = true; ringCount = 6; radius = 0.120f; startDegrees = 24f; break;
+                default: center = true; ringCount = 7; radius = 0.144f; startDegrees = 3f; break;
             }
 
             float phi;
@@ -52,8 +64,7 @@ namespace Shields.Tavern
                 localPosition = new Vector3(Mathf.Cos(rad) * radius, FloorHeight, Mathf.Sin(rad) * radius);
             }
 
-            // The mesh's handle is on -X; this yaw points it along phi, outward.
-            localRotation = Quaternion.Euler(0f, 180f - phi, 0f);
+            localRotation = Quaternion.Euler(0f, MugYaw, 0f);
         }
     }
 
@@ -79,6 +90,15 @@ namespace Shields.Tavern
         const float CardClearance = 0.18f;
 
         const int MaxSlots = 10;
+
+        /// <summary>
+        /// Mug yaw on the table, in the DrinkArea's frame: the handle (mesh -X) faces away from
+        /// the player, 55 degrees round to their right, so the left hand takes the mug by its
+        /// barrel without meeting the handle. It is also the yaw relative to the face while
+        /// drinking. Matches <see cref="TrayMugLayout.MugYaw"/> plus the waiter's ~20 degree
+        /// turn toward the slot, so a carried mug barely turns as it is set down.
+        /// </summary>
+        public const float MugYaw = 145f;
 
         /// <summary>
         /// Slot positions in DrinkArea local space: meters, origin at the card area origin,
@@ -128,10 +148,28 @@ namespace Shields.Tavern
 
             localPosition = slots[index % slots.Count] + new Vector3(0f, 0f, lap * MugSpacing * 0.5f);
 
-            // Handle (mesh -X) to the player's left, where their left hand comes from: the
-            // hand takes it palm in, thumb on top, and keeps the very same grip all the way
-            // to the mouth (where the handle is on the left too).
-            localRotation = Quaternion.identity;
+            // Handle away from the player (see MugYaw): the left hand wraps the barrel and keeps
+            // the very same grip all the way to the mouth.
+            localRotation = Quaternion.Euler(0f, MugYaw, 0f);
+        }
+
+        /// <summary>
+        /// The first slot index whose spot no mug in <paramref name="drinkArea"/> occupies. Slots
+        /// free up when the waiter takes an empty mug back, so this is not simply the child count.
+        /// </summary>
+        public static int FreeSlotIndex(Transform drinkArea, TableLayoutMetrics metrics)
+        {
+            for (int index = 0; ; index++)
+            {
+                Vector3 position;
+                Quaternion rotation;
+                Pose(index, metrics, out position, out rotation);
+
+                bool taken = false;
+                for (int i = 0; i < drinkArea.childCount && !taken; i++)
+                    taken = (drinkArea.GetChild(i).localPosition - position).sqrMagnitude < 0.0004f;
+                if (!taken) return index;
+            }
         }
     }
 }

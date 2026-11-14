@@ -423,6 +423,12 @@ namespace Shields.Match
             if (part != null && !_restPoses.ContainsKey(part)) _restPoses[part] = localRest;
         }
 
+        /// <summary>True while a first Charge or the weapon (draw, aim, fire, holster) owns the seat's right hand.</summary>
+        public bool IsRightHandBusy(int seat)
+        {
+            return _motions.ContainsKey(seat) || _weapons.ContainsKey(seat);
+        }
+
         // ------------------------------------------------------------------ cards and flame
 
         CardView TakePending(int seat)
@@ -499,15 +505,22 @@ namespace Shields.Match
             }
         }
 
-        // Distance from PalmContact to the knuckle line along the fingers, as the deck sees it:
-        // equal to the deck's half length, so a hand reaching down the long side still rests
-        // centred on it.
-        const float DeckKnuckleReach = 0.044f;
+        // How far PalmContact sits behind the knuckle line, along the fingers of the flat hand
+        // on the deck (measured on the final hand).
+        const float DeckPalmToKnuckle = 0.037f;
+
+        // The knuckle line lands this far in from the deck's near edge: the fingers lie along the
+        // top card and the palm stays off the deck, toward its own player.
+        const float DeckKnuckleInset = 0.005f;
+
+        // With the palm off the deck nothing holds it at its clearance height, so the hand comes
+        // down this much until the fingers rest on the top card instead of hovering over it.
+        const float DeckFingerDrop = 0.007f;
 
         /// <summary>
-        /// How far a resting palm moves off the deck's centre, along the reach, so the knuckles
-        /// land on the far edge from every seat and the fingers drape over it the same way (the
-        /// deck does not turn to face anyone, so its edge is nearer from some seats than others).
+        /// How far a resting palm moves off the deck's centre so the knuckle line lands just
+        /// inside the near edge from every seat and the fingers lie on the cards the same way
+        /// (the deck does not turn to face anyone, so its edge is nearer from some seats than others).
         /// </summary>
         Vector3 DeckShift(PlayerCharacter player)
         {
@@ -515,7 +528,7 @@ namespace Shields.Match
             forward.y = 0f;
             if (forward.sqrMagnitude < 1e-6f) return Vector3.zero;
             forward.Normalize();
-            return forward * (_deck.TopReach(forward) - DeckKnuckleReach);
+            return forward * (DeckKnuckleInset - _deck.TopReach(-forward) - DeckPalmToKnuckle) + Vector3.down * DeckFingerDrop;
         }
 
         // ------------------------------------------------------------------ finger poses

@@ -133,6 +133,7 @@ GameObject:
   - component: {fileID: 23963201}
   - component: {fileID: 23963203}
   - component: {fileID: 23963204}
+  - component: {fileID: 23963205}
   m_Layer: 0
   m_Name: NetworkSession
   m_TagString: Untagged
@@ -247,6 +248,21 @@ MonoBehaviour:
   orderCooldownSeconds: 20
   maxQueuedOrders: 5
   secondsPerBeer: 5
+--- !u!114 &23963205
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 23963198}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70e4e78bf0bd4dd43be79d843a77f80f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Network.NetworkEmoteService
+  ShowTopMostFoldoutHeaderGroup: 1
+  seatRegistry: {fileID: 23963202}
+  matchController: {fileID: 23963203}
 --- !u!1001 &32624105
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10329,11 +10345,12 @@ MonoBehaviour:
   returnHand: 0.25
   skipPause: 0.35
   decisionTimeout: 6
-  gripAboveRim: 0.035
+  topCarryEuler: {x: 270, y: -25, z: 0}
+  topCarryOffset: {x: -0.0014, y: 0.0382, z: -0.053}
   liftHeight: 0.03
   leftClearance: 0.4
-  clearanceHeight: 0.9
-  setDownHeight: 0.16
+  reachArc: 0.035
+  placeDescent: 0.05
   handSpeed: 2.2
 --- !u!1001 &1028394207
 PrefabInstance:
@@ -11295,6 +11312,92 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7980499473549957911, guid: 55950e8fd9760f0488b64073fdf74021, type: 3}
   m_PrefabInstance: {fileID: 1208728082}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1226910703
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1226910706}
+  - component: {fileID: 1226910705}
+  - component: {fileID: 1226910704}
+  m_Layer: 0
+  m_Name: PlayerEmotes
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1226910704
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1226910703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 277911053d3e5164292e236c39a4c559, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Emotes.PlayerEmoteController
+  matchContext: {fileID: 1011184222}
+  onlineEmotes: {fileID: 23963205}
+  reachPerNotch: 0.2
+  reachSendInterval: 0.12
+  handshakeTargetCone: 12
+--- !u!114 &1226910705
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1226910703}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf9cacc0217a28a4896f4511394aafd2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Emotes.PlayerEmotePresenter
+  raiseDuration: 0.24
+  lowerDuration: 0.26
+  fingerBlend: 0.16
+  yieldBlend: 0.08
+  middleFingerPalm: {x: -0.14, y: 1.13, z: 0.32}
+  middleFingerLean: 0
+  middleFingerTurn: 0
+  pointShoulder: {x: 0.17, y: 1.1, z: 0.06}
+  pointBaseReach: 0.36
+  pointExtraReach: 0.28
+  pointRoll: 0
+  pointIndexCorrection: {x: 2, y: 0}
+  pointAimSmoothing: 14
+  reachSmoothing: 12
+  offerPalm: {x: 0.1, y: 1, z: 0.5}
+  offerDip: 12
+  offerRoll: 10
+  claspHeight: 0.14
+  claspPalmOffset: 0.022
+  claspPullBack: 0.03
+  claspRoll: 12
+  claspDip: 8
+  shakeAmplitude: 0.04
+  shakeCycles: 2.5
+--- !u!4 &1226910706
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1226910703}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1228291980
 GameObject:
   m_ObjectHideFlags: 0
@@ -24818,6 +24921,7 @@ SceneRoots:
   - {fileID: 3755714401052017993}
   - {fileID: 37073081}
   - {fileID: 1011184221}
+  - {fileID: 1226910706}
   - {fileID: 1574094757}
   - {fileID: 898693193}
   - {fileID: 437829614}

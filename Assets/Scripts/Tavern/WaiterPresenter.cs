@@ -87,11 +87,11 @@ namespace Shields.Tavern
         [SerializeField] float decisionTimeout = 6f;
 
         [Header("Hand")]
-        [Tooltip("The carrying hand's rotation in the waiter's facing frame: palm flat and facing straight down over the mug, fingers pointing the way the waiter faces.")]
-        [SerializeField] Vector3 topCarryEuler = new Vector3(270f, 0f, 0f);
+        [Tooltip("The carrying hand's rotation in the waiter's facing frame: palm flat and down over the mug, turned 25 degrees to the left so the fingers drape over the rim on the side away from the handle (TrayMugLayout.MugYaw).")]
+        [SerializeField] Vector3 topCarryEuler = new Vector3(270f, -25f, 0f);
 
-        [Tooltip("Where the carrying hand sits relative to the centre of the mug's rim, in the waiter's facing frame (x right, y up, z forward), metres. Measured on the rigged hand so its palm is centred over the cup about 6 mm above the rim: it guides the mug from above and never enters it.")]
-        [SerializeField] Vector3 topCarryOffset = new Vector3(-0.018f, 0.032f, -0.0525f);
+        [Tooltip("Where the carrying hand sits relative to the centre of the mug's rim, in the waiter's facing frame (x right, y up, z forward), metres. Solved on the final hand in WaiterMugGrip: the palm 12 mm over the rim, and every finger and the thumb touching the mug.")]
+        [SerializeField] Vector3 topCarryOffset = new Vector3(-0.0014f, 0.0382f, -0.0530f);
 
         [Tooltip("How far the mug is lifted off the tray before the reach: just enough to clear the tray rim.")]
         [SerializeField] float liftHeight = 0.03f;
@@ -118,6 +118,9 @@ namespace Shields.Tavern
         readonly List<int> _delivered = new List<int>();
         readonly List<int> _skipped = new List<int>();
         readonly List<Vector3> _path = new List<Vector3>();
+
+        // Tray spots whose own mug has been served: where an empty mug taken back can go.
+        readonly List<int> _freeTraySpots = new List<int>();
 
         WaiterCharacter _waiter;
         Coroutine _run;
@@ -340,6 +343,7 @@ namespace Shields.Tavern
 
             // One real mug per recipient: mug i belongs to VisitSeats[i].
             _waiter.LoadMugs(beerMugPrefab, plan.VisitSeats.Length);
+            _freeTraySpots.Clear();
             CacheMugHeight();
 
             float door = DoorAngle;
@@ -399,7 +403,7 @@ namespace Shields.Tavern
             Transform drinkArea = area.DrinkArea;
             Vector3 nextSlotLocal;
             Quaternion nextSlotRotation;
-            DrinkAreaLayout.Pose(drinkArea.childCount, Metrics, out nextSlotLocal, out nextSlotRotation);
+            DrinkAreaLayout.Pose(DrinkAreaLayout.FreeSlotIndex(drinkArea, Metrics), Metrics, out nextSlotLocal, out nextSlotRotation);
             yield return FaceTowards(drinkArea.TransformPoint(nextSlotLocal));
             yield return new WaitForSeconds(stopSettle);
 
@@ -455,7 +459,7 @@ namespace Shields.Tavern
             waiter.DeliveryHandBusy = true;
 
             // The next free drink slot, reserved now so a later order can never take it.
-            int slotIndex = drinkArea.childCount;
+            int slotIndex = DrinkAreaLayout.FreeSlotIndex(drinkArea, Metrics);
             Vector3 slotLocal;
             Quaternion slotRotationLocal;
             DrinkAreaLayout.Pose(slotIndex, Metrics, out slotLocal, out slotRotationLocal);
@@ -485,6 +489,7 @@ namespace Shields.Tavern
             Transform traySlot = mug.parent;
             mug.SetParent(hand, true);
             if (traySlot != null && traySlot != hand) Destroy(traySlot.gameObject);
+            _freeTraySpots.Add(mugIndex);
 
             Vector3 mugFromPosition = mug.position;
             Quaternion mugFrom = mug.rotation;
@@ -502,10 +507,13 @@ namespace Shields.Tavern
             Vector3 mugStart = mug.position;
             List<Vector3> carry = CarryPath(seat, mugStart, slot.position);
             float carryLength = PathLength(carry);
+            // The mug keeps its tray yaw in the hand (handle clear of the fingers) and only turns
+            // the last few degrees onto its slot's yaw as it comes down.
             yield return Animate(Mathf.Max(extendToPlayer, carryLength / handSpeed), t =>
             {
                 if (slot == null || mug == null) return;
-                PlaceHeldMug(hand, mug, rest.rotation, PointAlong(carry, carryLength * t), Quaternion.Slerp(mugFrom, slot.rotation, t));
+                PlaceHeldMug(hand, mug, rest.rotation, PointAlong(carry, carryLength * t),
+                    Quaternion.Slerp(mugFrom, slot.rotation, Smooth01(Mathf.InverseLerp(0.75f, 1f, t))));
             });
 
             if (TableLost(slot, mug)) yield break;
@@ -523,6 +531,9 @@ namespace Shields.Tavern
             if (visual != null) visual.MarkDelivered(new BeerId(_plan.OrderId, seat), slot);
 
             yield return new WaitForSeconds(placePause);
+
+            // 4b. Clear the table: any beer this player has finished goes back on the tray.
+            yield return CollectEmpties(seat, drinkArea, hand, rest, fingers);
 
             // 5. Hand back to the waiter the same way, letting go of the grip angle as it goes.
             if (fingers != null) fingers.ClearPose(HandPoseLayer.Grip, returnHand);
@@ -735,6 +746,108 @@ namespace Shields.Tavern
                     speed * Time.deltaTime);
                 yield return null;
             }
+        }
+
+        static float Smooth01(float t)
+        {
+            return Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t));
+        }
+
+        // ------------------------------------------------------------------ empties
+
+        /// <summary>
+        /// Every beer <paramref name="seat"/> has finished (an empty mug resting in its slot)
+        /// goes back on the tray, one at a time, onto spots freed by mugs already served. A mug
+        /// someone is drinking from, or one with beer left, is never touched. Presentation only:
+        /// each machine sees the same empty mugs from the shared beer state.
+        /// </summary>
+        IEnumerator CollectEmpties(int seat, Transform drinkArea, Transform hand, Transform rest, HandRig fingers)
+        {
+            var empties = new List<BeerMugVisual>();
+            IReadOnlyList<BeerMugVisual> mugs = BeerMugVisual.Active;
+            for (int i = 0; i < mugs.Count; i++)
+            {
+                BeerMugVisual m = mugs[i];
+                if (m != null && m.IsDelivered && m.IsHome && m.Beer.Seat == seat && m.Fill <= 0.001f &&
+                    m.HomeSlot != null && m.HomeSlot.parent == drinkArea)
+                    empties.Add(m);
+            }
+
+            foreach (BeerMugVisual empty in empties)
+            {
+                if (_freeTraySpots.Count == 0 || _waiter == null) yield break;
+                if (empty == null || !empty.IsHome || empty.Fill > 0.001f) continue;
+
+                int spotIndex = _freeTraySpots[0];
+                _freeTraySpots.RemoveAt(0);
+                yield return TakeBack(seat, empty, hand, rest, fingers, spotIndex);
+            }
+        }
+
+        /// <summary>Over to an empty mug, take it from the top like a full one, and set it on the tray.</summary>
+        IEnumerator TakeBack(int seat, BeerMugVisual empty, Transform hand, Transform rest, HandRig fingers, int spotIndex)
+        {
+            Transform mug = empty.transform;
+
+            // 1. Across to the empty mug and down onto it from above, the claw opening on the way.
+            if (fingers != null) fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WaiterMugReach, reachTray);
+            Vector3 from = hand.position;
+            Quaternion fromRotation = hand.rotation;
+            List<Vector3> over = CarryPath(seat, from, TopGripPosition(mug.position, rest.rotation));
+            float overLength = PathLength(over);
+            yield return Animate(Mathf.Max(reachTray, overLength / handSpeed), t =>
+            {
+                hand.SetPositionAndRotation(PointAlong(over, overLength * t), Quaternion.Slerp(fromRotation, TopGripRotation(rest.rotation), t));
+            });
+
+            if (mug == null || _waiter == null) yield break;
+
+            // 2. Take it: it is no one's beer any more, and its table slot is free again.
+            if (fingers != null) fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WaiterMugGrip, grabLift);
+            Transform tableSlot = empty.HomeSlot;
+            empty.MarkCollected();
+            mug.SetParent(hand, true);
+            if (tableSlot != null)
+            {
+                // Detached first: Destroy is deferred, and the free-slot search reads the children.
+                tableSlot.SetParent(null, false);
+                Destroy(tableSlot.gameObject);
+            }
+
+            Vector3 mugFrom = mug.position;
+            Quaternion mugRotation = mug.rotation;
+            yield return Animate(grabLift, t =>
+            {
+                if (mug == null) return;
+                PlaceHeldMug(hand, mug, rest.rotation, mugFrom + Vector3.up * (liftHeight * t), mugRotation);
+            });
+
+            if (mug == null || _waiter == null) yield break;
+
+            // 3. Back over the player's left side to the tray spot (it bobs with the waiter).
+            Transform spot = _waiter.TraySpot(spotIndex);
+            if (spot == null) yield break;
+            Vector3 spotStart = spot.position;
+            List<Vector3> back = CarryPath(seat, spotStart, mug.position);
+            back.Reverse();
+            float backLength = PathLength(back);
+            yield return Animate(Mathf.Max(extendToPlayer, backLength / handSpeed), t =>
+            {
+                if (mug == null || spot == null) return;
+                PlaceHeldMug(hand, mug, rest.rotation, PointAlong(back, backLength * t) + (spot.position - spotStart) * t,
+                    Quaternion.Slerp(mugRotation, spot.rotation, Smooth01(t)));
+            });
+
+            if (mug == null || spot == null) yield break;
+
+            // 4. On the tray; the claw opens.
+            Vector3 scale = beerMugPrefab.transform.localScale;
+            mug.SetParent(spot, false);
+            mug.localPosition = Vector3.zero;
+            mug.localRotation = Quaternion.identity;
+            mug.localScale = scale;
+            if (fingers != null) fingers.SetPose(HandPoseLayer.Grip, HandPoseId.WaiterMugReach, grabLift);
+            yield return new WaitForSeconds(placePause);
         }
 
         static IEnumerator Animate(float duration, Action<float> step)

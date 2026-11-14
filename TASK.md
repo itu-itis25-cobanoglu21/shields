@@ -1,543 +1,663 @@
-# TASK 032 — Rigged Hand Contact, Grip & Rest-Pose Corrections
+# TASK 036 — Final FBX Hand Replacement & Emote Animation Integration
 
-Read `CLAUDE.md`, `SHIELDS_RULES.md`, inspect the CURRENT rigged-hand implementation and the provided reference screenshots, then execute this task.
+Read `CLAUDE.md`, `SHIELDS_RULES.md`, inspect the CURRENT project, and inspect the NEW final hand FBX before modifying anything.
 
-TASK 030 integrated the new rigged hands.
-TASK 031 added the pose/blending system and existing interaction poses.
+The user has now manually finalized the hand in Blender.
 
-The architecture is now correct.
+Only the FINAL RIGHT-hand FBX has been added to Unity.
 
-DO NOT redesign the hand system.
+This FBX is now intended to become the authoritative hand visual/rig source for SHIELDS.
 
-DO NOT implement emotes yet.
+It also contains Blender-authored poses/actions. Their names/descriptions indicate what each pose represents.
 
-This task fixes FOUR specific visual problems visible in the current game:
+Your task is to:
 
-1. Weapon hand intersects deeply through the gun.
-2. Deck-contact hand does not fully sit on the deck.
-3. Waiter delivery hand intersects the beer mug and follows an unnecessarily strange path.
-4. Idle hands are pitched too far forward even though their inward rotation is good.
+1. inspect the final Right-hand FBX
+2. create a proper mirrored LEFT-hand asset from it
+3. replace ALL currently used old hand visuals/rigs throughout the project
+4. use the Blender-authored poses/actions as the new source of truth
+5. connect/blend those poses into the existing gameplay and emote systems
+6. preserve the existing gameplay/network architecture
 
-These are visual pose/contact corrections only.
-
----
-
-# 1. Use the supplied screenshots as the source of truth
-
-Inspect the four screenshots supplied with this task.
-
-They show the actual current problems.
-
-Do not tune only from prefab/Scene view.
-
-Reproduce the relevant gameplay state in Play Mode and inspect the result from the same kinds of angles.
+Do not commit anything.
 
 ---
 
-# PART A — WEAPON GRIP
+# 1. Inspect the new final FBX first
 
-# 2. Current weapon problem
+Locate the newly added final hand FBX.
 
-The new rigged right hand currently passes deeply THROUGH the weapon.
+Before changing prefabs, inspect:
 
-The screenshot shows:
+- exact FBX path
+- mesh hierarchy
+- armature hierarchy
+- bone names
+- skin weights
+- bind/rest pose
+- materials
+- normals
+- triangle count
+- scale
+- axes/orientation
+- thumb side
+- wrist/root convention
+- all imported animation clips / Blender Actions
 
-- palm intersecting the weapon body
-- fingers penetrating the stock/trigger area
-- weapon visually embedded inside the hand
+List every Action/clip found.
 
-This is not acceptable.
+The Action names/descriptions should make their purpose clear.
 
-The hand should HOLD the outside of the weapon.
+Use those names as the primary guide for mapping poses.
 
----
-
-# 3. Desired weapon relationship
-
-The weapon grip should look approximately like:
-
-weapon grip/stock
-→ palm resting against OUTSIDE surface
-→ fingers curling AROUND it
-→ thumb supporting/opposing grip
-→ index near trigger/trigger guard
-
-The weapon must not occupy the centre of the palm volume.
-
----
-
-# 4. Fix position before over-curling fingers
-
-Do not try to solve the clipping only by curling fingers differently.
-
-First inspect the actual relation between:
-
-- weapon grip anchor
-- hand wrapper
-- rigged-hand visual
-- palm surface
-
-Move/rotate the HAND relative to the weapon so the palm sits externally against the grip.
-
-Then tune fingers around that relationship.
+Do not assume the old Meshy bone hierarchy still applies.
 
 ---
 
-# 5. Weapon grip anchor
+# 2. Final hand source
 
-If the current weapon attachment point was authored for the old hand geometry:
+Treat the new FBX as the new FINAL hand source.
 
-retune the grip attachment/visual offset for the NEW hand.
+The previous GLB/Meshy hand system was useful for development but should no longer be the active visual source once this integration is validated.
 
-Do not change weapon aiming logic.
+Keep old assets/code for rollback where harmless.
 
-Do not change muzzle position.
-
-Do not change target locking.
-
-Do not change firing trajectory.
-
-This is only how the hand visually holds the weapon.
+Do not delete old source GLBs yet.
 
 ---
 
-# 6. Weapon fingers
+# 3. Create the LEFT hand from the final RIGHT hand
 
-After the hand is correctly positioned:
+Only the final RIGHT hand was supplied.
 
-pose the fingers to read as a stylized grip.
+Create a proper mirrored LEFT-hand version.
 
-Desired:
+Preferred:
 
-- Middle + Ring: wrap around grip without penetrating through it.
-- Index: near/on trigger or trigger guard.
-- Thumb: naturally opposing/supporting the grip.
+use Blender or another proper asset-authoring step to mirror:
 
-Do NOT force extreme >60° curls if they cause source-rig pinching.
+- mesh
+- armature
+- bind pose
+- skin weights
+- animation Actions
 
-Moderate curls + proper hand placement are preferred.
+together.
 
----
+Do NOT use permanent runtime:
 
-# 7. Weapon validation
+`scale.x = -1`
 
-Inspect from:
+as the final solution.
 
-- side
-- front/3⁄4
-- across-table
-- local player perspective
+The final Left asset must have:
 
-Acceptance:
+- correct normals
+- correct winding
+- correct skinning
+- positive final transform scale
+- equivalent rig hierarchy
+- mirrored thumb position
+- equivalent Actions/poses
 
-- palm does not intersect weapon body
-- weapon does not pass through hand
-- fingers visibly wrap externally
-- index reads near trigger
-- no large air gap
-- firing animation still works
-- fire/index squeeze still works
+Keep the original Right FBX unchanged.
 
----
-
-# PART B — DECK CONTACT
-
-# 8. Current deck problem
-
-When the hand rests on the deck, one/more fingers — especially the middle region visible in the screenshot — remain above the deck.
-
-The pose looks like:
-
-some fingers contact
-while
-another finger floats.
-
-The hand should look physically placed on the deck.
+Create a derived Left asset with a clear project path/name.
 
 ---
 
-# 9. Re-measure deck contact from the actual rigged hand
+# 4. Mirror the authored Actions too
 
-Do not rely on the old `PalmContact` geometry.
+The supplied Right-hand FBX contains final Blender-authored hand poses/actions.
 
-Inspect:
+The generated Left hand must have correctly mirrored versions of the relevant poses.
 
-- palm plane
-- fingertip positions
-- deck top plane
-- finger joint rotations
+Do not simply mirror the mesh while leaving animations oriented as Right-hand poses.
 
-Tune the contact pose so the hand actually follows the deck surface.
+Verify each pose visually on the Left hand.
 
 ---
 
-# 10. Desired deck pose
+# 5. Inspect Action names and map them semantically
 
-When resting on the draw pile:
+Read every imported Blender Action/clip.
 
-- palm should sit just above/on the top card
-- all fingers intended to touch should visually contact the deck
-- no finger should obviously float several millimetres above
-- no finger should penetrate deeply through the deck
+Their names should describe their intended purpose.
 
-Small stylized contact overlap is okay.
+Examples may include concepts such as:
 
----
+- Idle / Neutral
+- Point
+- Middle Finger
+- Handshake Offer
+- Handshake Grip
+- Weapon Grip
+- Beer Grip
+- Deck/Card pose
+- Charge pose
+- Waiter poses
 
-# 11. Finger-specific pose is allowed
+Do not require these exact names.
 
-Do not force the same curl/value onto each digit.
+Use the actual names in the asset.
 
-The middle/index/ring may require slightly different joint angles because:
+Build a clear mapping from:
 
-- finger lengths differ
-- the hand mesh is asymmetrical
-- deck surface is flat
+`FBX Action`
+→
+`SHIELDS gameplay/emote state`
 
-Tune each relevant finger individually.
-
----
-
-# 12. Preserve deck animation
-
-Do not change:
-
-- reach timing
-- card draw timing
-- Charge timing
-- card throw trajectory
-- target-selection logic
-
-Only pose/contact geometry.
+Report that mapping.
 
 ---
 
-# PART C — WAITER MUG DELIVERY
+# 6. Blender-authored poses are source of truth
 
-# 13. Current waiter mug problem
+Where the FBX provides a specific authored pose:
 
-The screenshot shows the delivery hand wrapped THROUGH/AROUND the mug in an unnatural way.
+use that authored pose.
 
-The hand intersects deeply with the mug body/handle.
+Do NOT keep old guessed Unity curl values simply because they already exist.
 
-The desired waiter delivery does NOT require a realistic closed grip.
+The manually authored Blender poses should replace the old approximations.
 
----
+The existing Unity hand system should become responsible mainly for:
 
-# 14. Desired waiter delivery hand
+- selecting a pose
+- blending between poses
+- moving the floating hand through space
+- networking emote state
 
-Return to the simpler readable presentation:
-
-waiter hand approaches mug from ABOVE
-→ hand remains relatively OPEN
-→ palm/fingers hover just above / lightly around the mug top
-→ mug moves with the hand
-→ hand places mug on table
-→ hand returns
-
-It should look like the waiter is guiding/carrying the mug from above.
-
-Do NOT close the puffy fingers around the mug body.
+not re-inventing the finger pose.
 
 ---
 
-# 15. Waiter mug pose
+# 7. Preserve outer procedural architecture
 
-Create a waiter-specific top-carry pose.
-
-Suggested visual direction:
-
-- palm approximately facing down toward mug
-- fingers gently open
-- fingers may bend slightly around the mug's upper silhouette
-- no finger should pierce the mug
-- no deep handle interaction required
-
-This pose may intentionally differ from the PLAYER drinking grip.
-
-Do not reuse the player mug grip if it looks worse.
-
----
-
-# 16. Same mug object
+Do NOT rewrite the existing floating-hand movement system.
 
 Preserve:
 
-`Tray → Waiter Hand → DrinkArea`
+- `LeftShoulderAnchor`
+- `RightShoulderAnchor`
+- `LeftHandAnchor`
+- `RightHandAnchor`
+- `Hand_L`
+- `Hand_R`
+- `PalmContact`
+- existing procedural movement trajectories
 
-The actual same mug object still moves.
+The new FBX rig sits INSIDE the existing hand wrapper.
 
-Do not replace it with another object.
+Conceptually:
+
+`Hand_R`
+→ FinalRiggedHand_R
+
+`Hand_L`
+→ FinalRiggedHand_L
+
+Outer transforms continue controlling WHERE the hand moves.
+
+The FBX pose/action controls HOW the hand/fingers are posed.
 
 ---
 
-# 17. Simplify delivery-hand trajectory
+# 8. Replace all active old hands
 
-The current delivery-hand route is visually strange/overcomplicated.
+Audit the project for old-hand visual references.
 
-The waiter body already stays on the constant-radius circular route.
+Replace them wherever they are actively used.
 
-Keep that.
+At minimum inspect:
 
-The DELIVERY HAND should now use a much simpler route.
+- `PlayerCharacter.prefab`
+- `Waiter.prefab`
+- production Customize character preview
+- Main Menu character preview if one exists
+- any current UI/wardrobe preview character
+- any gameplay test/presentation prefab that is actually used
 
-Desired:
+Do not leave obvious active characters using the previous hands.
 
-mug on tray
-→ small lift
-→ direct smooth reach toward target DrinkArea
-→ small controlled descent onto table
+Do not blindly modify obsolete/disposable concept scenes unless they are still actively used.
+
+Report what you changed and what intentionally remained old.
+
+---
+
+# 9. Update semantic rig mapping
+
+The project currently has `HandRig` / semantic hand support.
+
+Adapt it to the FINAL FBX skeleton.
+
+Map at minimum:
+
+- Wrist / root
+- Thumb
+- Index
+- Middle
+- Ring
+
+There are only four digits.
+
+Do not keep old `Bone_00X` assumptions if the final FBX uses different names.
+
+Prefer explicit semantic references based on the new final skeleton.
+
+---
+
+# 10. Preserve pose priority
+
+Keep the existing priority architecture:
+
+`Action > Grip > Emote > Rest`
+
+This remains important.
+
+Gameplay always wins over emotes.
+
+Do not allow an emote pose to overwrite:
+
+- weapon
+- beer
+- card/deck
+- Charge
+- required waiter interaction
+
+---
+
+# 11. Pose blending
+
+Connect the authored FBX poses with smooth transitions.
+
+The hand should not snap between poses.
+
+Examples:
+
+Idle
+→ Point
+
+Idle
+→ Middle Finger
+
+Idle
+→ Handshake Offer
+
+Handshake Offer
+→ Handshake Grip
+
+Idle
+→ Weapon Grip
+
+Idle
+→ Beer Grip
+
+Use the existing pose-blending architecture if possible.
+
+Do not introduce a giant Animator Controller if lightweight procedural clip/pose sampling fits better.
+
+---
+
+# 12. Pose implementation strategy
+
+If the Blender Actions are short static pose clips:
+
+extract/sample their target bone rotations and feed them into the existing pose system.
+
+If they contain actual multi-frame authored animation:
+
+preserve useful authored timing where appropriate.
+
+Do not force every Action into one frame if it clearly contains intentional motion.
+
+Choose the simplest robust integration after inspecting the real FBX.
+
+---
+
+# 13. Neutral / Idle
+
+Use the authored final Neutral/Idle pose if one exists.
+
+This becomes the actual gameplay rest pose.
+
+`ResetToNeutral()`
+
+should return to this final authored pose.
+
+Do not return to the old Meshy bind pose.
+
+---
+
+# 14. Pointing
+
+Use the final authored Point pose if present.
+
+Preserve the existing Point emote behavior:
+
+- RIGHT hand
+- Hold `W`
+- free look direction
+- NO player target lock
+- palm/down orientation established by the final pose
+- scroll-based small reach adjustment if currently working
+
+Do not reintroduce target snapping.
+
+The FBX determines the final wrist/finger pose.
+
+The existing emote presenter determines the floating-hand direction/position.
+
+---
+
+# 15. Middle Finger
+
+Use the final authored Middle Finger pose if present.
+
+Preserve:
+
+- LEFT hand
+- Hold `Q`
+
+The authored pose should determine:
+
+- straight Middle finger
+- closed neighbouring fingers
+- sideways/inward Thumb
+- wrist orientation
+
+Do not approximate it again with old Unity curl values.
+
+---
+
+# 16. Handshake
+
+Use authored:
+
+- Handshake Offer
+- Handshake Grip
+
+poses if present.
+
+Preserve the current handshake state/network architecture.
+
+Offer:
+→ open hand toward table
+
+Matched:
+→ both hands move to shared handshake position
+→ blend into authored Grip pose
+→ perform existing short shake
 → release
-→ direct smooth return to its normal/rest position
+→ return
 
-Do not make the hand:
-
-- rise dramatically
-- travel through unnecessary control points
-- swing around the player
-- perform a large arc
-- behave like a catapult
+Do not bake table/world movement into finger animation.
 
 ---
 
-# 18. Direct but collision-conscious path
+# 17. Existing gameplay poses
 
-The hand should move almost directly from tray to table.
+Inspect whether the FBX contains authored poses for current gameplay states.
 
-A small curve is allowed only to clear:
+Where available, use them.
 
-- tray edge
-- chair back
-- player's left side
+Validate:
 
-Use the minimum necessary clearance.
+- deck rest
+- Charge draw
+- card pickup
+- card carry
+- card throw
+- weapon grip
+- beer grip
+- waiter tray support
+- waiter mug delivery
 
-The movement should read as:
+If an exact authored pose does NOT exist:
 
-"waiter reaches and places beer"
-
-not:
-
-"floating hand performs a complicated pathing maneuver."
-
----
-
-# 19. Return position
-
-After placing the mug:
-
-the delivery hand must return to its correct waiter rest position.
-
-Do not leave it:
-
-- offset
-- partially extended
-- in mug grip
-- at a different height
-
-Pose and wrapper transform should both return cleanly.
+preserve the best current pose rather than inventing unnecessary new behavior.
 
 ---
 
-# 20. Waiter validation
+# 18. Weapon
 
-Test:
+Ensure the new final hand still visually holds the weapon from the OUTSIDE.
+
+No deep palm/weapon intersection.
+
+Preserve:
+
+- draw
+- aim
+- lock
+- fire
+- holster
+
+If an authored weapon pose exists, prefer it.
+
+---
+
+# 19. Beer
+
+Ensure the final hand works with:
+
+- pickup
+- drinking
+- return
+- partial beer
+- empty beer
+
+If an authored Beer Grip exists, use it.
+
+Retune only grip anchor/alignment if necessary.
+
+Do not change BeerLedger/networking.
+
+---
+
+# 20. Deck/card interactions
+
+Validate the final hand against the physical deck/card geometry.
+
+No floating fingers.
+
+No excessive overlap.
+
+Keep existing action timing and trajectories.
+
+Use authored poses where provided.
+
+---
+
+# 21. Waiter
+
+Update the waiter to the new final hands.
+
+Preserve:
+
+- tray
+- circular route
+- mug delivery
+- bob/height
+- delivery trajectory
+
+Use final authored waiter/tray/delivery pose if present.
+
+---
+
+# 22. Remove dependency on GLB-specific fixes for final hands
+
+The FINAL FBX hands should not require the custom GLB importer.
+
+Do not run GLB-specific:
+
+- winding correction
+- GLB weight cleanup
+- GLB smooth-normal generation
+
+on the new FBX.
+
+Those systems may remain for legacy assets/rollback.
+
+Do not delete them yet.
+
+Report whether any current runtime system still depends on them.
+
+---
+
+# 23. Validate rig deformation
+
+Because the final Blender asset was manually prepared:
+
+test the authored poses for:
+
+- no tearing
+- no spike vertices
+- no knuckle collapse
+- no neighbour finger dragging
+- no palm collapse
+
+If a final FBX pose itself has a visible defect, report it rather than silently replacing the authored pose.
+
+---
+
+# 24. Networking
+
+Do not redesign networking.
+
+Preserve current:
+
+- Point emote synchronization
+- Middle Finger synchronization
+- Handshake mutual intent / host pairing
+- MatchGeneration safety
+- participant → seat mapping
+
+Only change how the hands visually pose.
+
+Never assume:
+
+`clientId == seat`
+
+---
+
+# 25. Re-seat/rematch
+
+Verify final hands survive:
+
+- initial seating
+- randomized seating
+- rematch
+- player rebuild/rebind
+
+No old hands left behind.
+
+No duplicate hand rigs.
+
+---
+
+# 26. 3 / 6 / 8 players
+
+Validate at:
 
 - 3 players
 - 6 players
 - 8 players
 
-and multiple delivery angles.
+Check:
 
-Acceptance:
-
-- hand does not go inside mug
-- hand is visibly above/around mug
-- trajectory is simple and direct
-- no player/body/chair intersection
-- mug reaches correct DrinkArea
-- same mug object delivered
-- hand returns correctly
+- correct Left/Right hands
+- correct scale
+- no missing materials
+- no old hands
+- no duplicate renderers
 
 ---
 
-# PART D — IDLE / NEUTRAL HAND ORIENTATION
+# 27. Emote validation
 
-# 21. Current idle problem
+Explicitly test:
 
-The inward-facing angle of the hands is GOOD.
+### Point
+- hold W
+- look around freely
+- scroll reach
+- release
+- returns cleanly
 
-Keep that character.
+### Middle Finger
+- hold Q
+- authored pose clearly visible
+- release
+- returns cleanly
 
-The problem is the additional forward pitch.
+### Handshake
+- offer pose
+- matched grip pose
+- shake
+- return
 
-From the screenshot:
-
-the hand's top and bottom are at noticeably different front/back depth, so the hand looks excessively tilted forward.
-
-This is too much.
-
----
-
-# 22. Desired idle orientation
-
-Keep:
-
-- palms rotated inward toward body
-- slight Left/Right asymmetry
-- relaxed finger curl
-
-Reduce:
-
-- forward/backward pitch
-
-The hand should be much more vertically neutral.
-
-Conceptually, when viewed from the side:
-
-top of hand
-and
-bottom/fingertips
-
-should be at approximately similar forward/back depth.
-
-Not mathematically exact, but visually close.
+If a real second client cannot be run, clearly report that handshake network visuals still need manual 2-client validation.
 
 ---
 
-# 23. Preserve inward cant
+# 28. Gameplay conflict validation
 
-Do NOT simply zero all idle wrist rotations.
+Verify:
 
-The current inward orientation gives the hands personality and looks good.
+Point
+→ weapon begins
+→ Point yields
 
-Only reduce the axis responsible for the excessive forward lean.
+Middle Finger
+→ beer/deck action begins
+→ Middle yields
 
----
+Handshake
+→ right-hand gameplay action begins
+→ handshake cancels/yields safely
 
-# 24. Natural relaxed pose
-
-Final idle should feel:
-
-- slightly inward
-- slightly relaxed
-- fingers softly curled
-- mostly vertical
-- not mechanically straight
-- not pitched dramatically forward
-
-Use Play Mode and visual judgement to find the best angle.
-
-Try multiple values.
-
-Do not keep the first number that technically works.
+Do not break pose priority.
 
 ---
 
-# PART E — POSE SYSTEM
+# 29. Performance
 
-# 25. Preserve existing HandPoses architecture
+Report:
 
-Keep:
+- triangles per hand
+- bone count
+- SkinnedMeshRenderer count
+- approximate total hand triangles at 8 players
 
-- HandRig
-- HandPoses
-- pose blending
-- Action > Grip > Emote > Rest priority
-- ResetToNeutral
-- smooth normals
-
-Do not rewrite these.
-
-Update the existing pose definitions/offsets cleanly.
-
----
-
-# 26. State-specific poses are expected
-
-Do not try to make one universal pose handle everything.
-
-The following should remain distinct:
-
-- Idle
-- Deck contact
-- Card carry
-- Weapon grip
-- Player mug grip
-- Waiter tray support
-- Waiter mug top-carry
-
-This is intentional.
-
----
-
-# 27. Do not regress existing interactions
-
-After these corrections verify:
-
-- First Charge
-- target-selection deck rest
-- card pickup
-- card throw
-- weapon draw
-- weapon aim
-- weapon fire
-- weapon holster
-- beer drinking
-- waiter tray
-- waiter delivery
-
----
-
-# 28. First-person and remote visual checks
-
-Weapon and deck pose must look good from:
-
-- first person
-- another player's perspective
-
-Waiter delivery should be checked from seated players around the table.
-
----
-
-# 29. No emotes yet
-
-Do NOT implement:
-
-- point
-- middle finger
-- handshake
-- wave
-- emote UI
-- emote network messages
-
-Finish these four defects first.
+Do not unnecessarily optimize the final asset if performance is already acceptable.
 
 ---
 
 # 30. Tests
 
-Run the full CURRENT EditMode suite.
+Run the complete CURRENT EditMode suite.
 
-Current known baseline:
+Do not assume an old count.
 
-`355 / 355`
+Report exact result.
 
-Report the actual result.
+Do not weaken tests.
 
 ---
 
 # 31. Console
 
-Final clean gameplay validation should have:
+Final validation:
 
-- 0 HandRig errors
-- 0 pose exceptions
-- 0 weapon-presentation errors
-- 0 waiter-delivery errors
-- 0 stuck hand poses
+- 0 missing bone errors
+- 0 FBX animation errors
+- 0 pose mapping errors
+- 0 stuck hand state
+- 0 gameplay presentation exceptions
 
-Report unrelated existing warnings separately.
+Report unrelated warnings separately.
 
 ---
 
@@ -545,36 +665,39 @@ Report unrelated existing warnings separately.
 
 Report:
 
-1. Weapon hand root/grip offset before and after
-2. Weapon wrist orientation change
-3. Final weapon finger pose
-4. Weapon/index trigger result
-5. Confirmation weapon no longer intersects palm
-6. Deck-contact offset changes
-7. Final per-finger deck pose
-8. Confirmation all intended fingers contact deck
-9. Waiter top-carry mug pose
-10. Waiter hand/mug relationship
-11. Old waiter hand trajectory
-12. New simplified trajectory
-13. Maximum hand lift during delivery
-14. Confirmation hand returns to original rest position
-15. Idle pitch before/after
-16. Idle inward angle preserved
-17. Final Left idle orientation
-18. Final Right idle orientation
-19. Charge regression
-20. Card throw regression
-21. Player beer-drinking regression
-22. Waiter tray regression
+1. Exact final Right FBX path
+2. Right-hand mesh/rig structure
+3. All Actions/clips found
+4. How the Left hand was generated
+5. Exact Left-hand asset path
+6. Confirmation no permanent negative scale
+7. Confirmation Actions were mirrored correctly
+8. New semantic bone mapping
+9. Action → SHIELDS state mapping
+10. Final Neutral/Idle integration
+11. Point integration
+12. Middle Finger integration
+13. Handshake Offer integration
+14. Handshake Grip integration
+15. Weapon result
+16. Beer result
+17. Deck/card result
+18. Charge result
+19. Waiter result
+20. Customize/Main Menu preview hand result
+21. Old active hand references removed/replaced
+22. What old GLB/importer system remains only for rollback
 23. 3-player result
 24. 6-player result
 25. 8-player result
-26. EditMode result
-27. Console result
-28. exact files modified
-29. anything still visually wrong before starting emotes
+26. rematch/reseat result
+27. online validation status
+28. performance summary
+29. full EditMode result
+30. Console result
+31. exact files created/modified
+32. any Blender re-export still required
 
 Do not commit anything.
 
-Stop before implementing emotes.
+Stop when the FINAL FBX HANDS and their authored poses are fully integrated.

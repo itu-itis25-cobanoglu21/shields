@@ -74,8 +74,8 @@ namespace Shields.Tavern
         [Tooltip("The rim sits this far into the lips, so it reads as touching the mouth.")]
         [SerializeField] float lipOverlap = 0.006f;
 
-        [Tooltip("Inward squeeze of the hand while it settles on the mug.")]
-        [SerializeField] float gripSqueeze = 0.004f;
+        [Tooltip("Inward squeeze of the hand while it settles on the mug. 0: the grip is measured to touch the barrel exactly, any squeeze would push the palm into it.")]
+        [SerializeField] float gripSqueeze = 0f;
 
         [Tooltip("Mouth position in the visual head's space, used when the prefab has no DrinkMouthAnchor.")]
         [SerializeField] Vector3 fallbackMouthLocal = new Vector3(0f, 0.022f, 0.104f);
@@ -168,6 +168,16 @@ namespace Shields.Tavern
 
         /// <summary>True while any part of a drink (reach to hand home) is playing for the seat.</summary>
         public bool IsBusy(int seat) { return _motions.ContainsKey(seat); }
+
+        /// <summary>
+        /// Tells this presenter a left hand's true rest pose (local) if it has not captured one
+        /// yet. Cosmetic animations that move the hand (emotes) call it first, so a drink that
+        /// starts while the hand is raised never mistakes that pose for the rest pose.
+        /// </summary>
+        public void SeedHandRest(Transform hand, Pose localRest)
+        {
+            if (hand != null && !_handRest.ContainsKey(hand)) _handRest[hand] = localRest;
+        }
 
         /// <summary>True while the seat's mug is at, or on its way to, the mouth.</summary>
         public bool IsDrinking(int seat)
@@ -746,7 +756,8 @@ namespace Shields.Tavern
 
         /// <summary>
         /// Where the mug goes to drink: tilted toward the face around the drinker's own
-        /// left-right axis, handle to their left, with the rim's near edge at the mouth.
+        /// left-right axis, turned as it stands on the table (handle away from the face, see
+        /// <see cref="DrinkAreaLayout.MugYaw"/>), with the rim's near edge at the mouth.
         /// </summary>
         void MouthPose(Motion m, out Vector3 position, out Quaternion rotation)
         {
@@ -756,9 +767,11 @@ namespace Shields.Tavern
             face.Normalize();
 
             float tilt = Mathf.Lerp(mugTiltFull, mugTiltEmpty, TiltAmount(m.Mug.Fill));
-            rotation = Quaternion.LookRotation(face, Vector3.up) * Quaternion.Euler(-tilt, 0f, 0f);
+            Quaternion yaw = Quaternion.Euler(0f, DrinkAreaLayout.MugYaw, 0f);
+            rotation = Quaternion.LookRotation(face, Vector3.up) * Quaternion.Euler(-tilt, 0f, 0f) * yaw;
 
-            Vector3 rimNear = m.Mug.RimCenterLocal + Vector3.back * m.Mug.RimOuterRadius;
+            // The rim point facing the drinker, in the mug's own (turned) frame.
+            Vector3 rimNear = m.Mug.RimCenterLocal + Quaternion.Inverse(yaw) * Vector3.back * m.Mug.RimOuterRadius;
             position = mouth.position - rotation * Vector3.Scale(m.MugScale, rimNear) - face * lipOverlap;
 
             // On the drinker's own screen the mug at the mouth would sit inside the first-person
