@@ -1,5 +1,7 @@
 using System.Collections;
+using Shields.Players;
 using Shields.Settings;
+using Shields.Social;
 using Shields.UI;
 using TMPro;
 using UnityEngine;
@@ -52,6 +54,11 @@ namespace Shields.Menu
         // straight at it, the character's resting turn, aim height and field of view.
         const float PreviewYaw = -17.5f, PreviewTurn = -18f, PreviewLookHeight = 0.84f, PreviewFov = 44f;
 
+        // FACE close-up: camera distance from the head centre, its height over it, how far
+        // below the head centre it aims (lifts the head clear of the name plate), field of
+        // view, and the seconds the camera takes to move in or out.
+        const float FaceDistance = 1.2f, FaceRise = 0.0f, FaceAimDrop = 0.07f, FaceFov = 40f, FaceBlendSeconds = 0.38f;
+
         static readonly Color TavernSky = new Color(0.11f, 0.115f, 0.15f), TavernEq = new Color(0.12f, 0.095f, 0.08f), TavernGround = new Color(0.08f, 0.06f, 0.045f);
 
         public MainMenuState State { get; private set; }
@@ -62,6 +69,12 @@ namespace Shields.Menu
         Transform _headVisual;
         Renderer _headMesh, _bodyMesh;
         Renderer[] _hands;
+        CharacterFace _face;
+
+        // The Customize camera's normal framing, and how far it is blended toward the FACE close-up.
+        Vector3 _camRestPosition;
+        Quaternion _camRestRotation;
+        float _faceYaw, _faceBlend, _faceBlendVelocity;
 
         Color _menuSky, _menuEq, _menuGround;
         bool _customizeEnvironment, _wantCustomizeEnvironment;
@@ -145,6 +158,20 @@ namespace Shields.Menu
             Add("hands_blue", "BLUE GLOVES", WardrobeSlot.Hands, ItemRarity.Common, false, false, null, Tint(skinMaterial, "Blue", new Color(0.2f, 0.28f, 0.55f)));
             Add("hands_white", "WHITE GLOVES", WardrobeSlot.Hands, ItemRarity.Rare, false, false, null, Tint(skinMaterial, "White", new Color(0.88f, 0.86f, 0.8f)));
             Add("hands_bronze", "BRONZE GAUNTLETS", WardrobeSlot.Hands, ItemRarity.Rare, false, true, null, Tint(metalMaterial, "BronzeHands", new Color(0.62f, 0.38f, 0.18f)));
+
+            // The face parts live on the character (FaceAnchor); the item is just its id.
+            foreach (FaceCosmetic f in FaceCatalog.All)
+                Add(f.Id, f.Name, FaceWardrobeSlot(f.Slot), f.IsFacialHair ? ItemRarity.Rare : ItemRarity.Common, f.IsDefault, false, null, null);
+        }
+
+        static WardrobeSlot FaceWardrobeSlot(FaceSlot slot)
+        {
+            switch (slot)
+            {
+                case FaceSlot.Eyes: return WardrobeSlot.Eyes;
+                case FaceSlot.Eyebrows: return WardrobeSlot.Eyebrows;
+                default: return WardrobeSlot.Mouth;
+            }
         }
 
         void Add(string id, string name, WardrobeSlot slot, ItemRarity rarity, bool isDefault, bool locked, GameObject prefab, Material material)
@@ -170,10 +197,11 @@ namespace Shields.Menu
             _bodyMesh = Find(previewCharacter, "BodyMesh")?.GetComponent<Renderer>();
             // The hand meshes are skinned renderers inside the rigged-hand visuals under Hand_L / Hand_R.
             _hands = new[] { HandRenderer("Hand_L"), HandRenderer("Hand_R") };
+            _face = _headVisual != null ? _headVisual.GetComponentInChildren<CharacterFace>(true) : null;
 
             _cosmetics = previewCharacter.GetComponent<CharacterCosmetics>();
             if (_cosmetics == null) _cosmetics = previewCharacter.gameObject.AddComponent<CharacterCosmetics>();
-            _cosmetics.Configure(_headVisual, _headMesh, _bodyMesh, _hands);
+            _cosmetics.Configure(_headVisual, _headMesh, _bodyMesh, _hands, _face);
             if (turntable != null) turntable.SetBreathingTarget(previewCharacter);
         }
 
@@ -204,6 +232,11 @@ namespace Shields.Menu
                     case WardrobeSlot.Body:
                         item.Thumbnail = studio.Render(Mannequin(item.Material), 192, 205f, 8f, 1.08f);
                         break;
+                    case WardrobeSlot.Eyes:
+                    case WardrobeSlot.Eyebrows:
+                    case WardrobeSlot.Mouth:
+                        item.Thumbnail = studio.Render(FaceModel(item), 192, 0f, 3f, 1.5f);
+                        break;
                     default:
                         item.Thumbnail = studio.Render(HandModel(item.Material), 192, 150f, 18f, 1.0f);
                         break;
@@ -227,6 +260,19 @@ namespace Shields.Menu
             Transform bodyMesh = Find(m.transform, "BodyMesh");
             if (body != null && bodyMesh != null) bodyMesh.GetComponent<Renderer>().sharedMaterial = body;
             return m;
+        }
+
+        /// <summary>
+        /// The bare head wearing only this face part, like the authoring catalog. Turned
+        /// around so the face looks into the studio's key light, toward a yaw-0 camera.
+        /// </summary>
+        GameObject FaceModel(CosmeticItem item)
+        {
+            GameObject head = Stripped(_headVisual.gameObject);
+            head.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            FaceSlot slot = item.Slot == WardrobeSlot.Eyes ? FaceSlot.Eyes : item.Slot == WardrobeSlot.Eyebrows ? FaceSlot.Eyebrows : FaceSlot.Mouth;
+            CharacterFace.ShowOnly(Find(head.transform, CharacterFace.AnchorName), slot, item.Id);
+            return head;
         }
 
         Renderer HandRenderer(string hand)
@@ -258,9 +304,40 @@ namespace Shields.Menu
 
             Vector3 toCam = cam.position - pivot;
             toCam.y = 0f;
-            float facing = Quaternion.LookRotation(toCam).eulerAngles.y + PreviewTurn;
+            float facing = Quaternion.LookRotation(toCam).eulerAngles.y;
             if (turntable.transform.parent != null) facing -= turntable.transform.parent.eulerAngles.y;
-            turntable.SetRestYaw(facing, true);
+            _faceYaw = facing;
+            turntable.SetRestYaw(facing + PreviewTurn, true);
+
+            _camRestPosition = cam.position;
+            _camRestRotation = cam.rotation;
+        }
+
+        /// <summary>
+        /// Blends the Customize camera between its normal framing and a FACE close-up: the
+        /// same line toward the character, much closer, aimed at the head and turned by the
+        /// same yaw offset so the face sits in the open area right of the list.
+        /// </summary>
+        void UpdateFaceCamera()
+        {
+            if (customizeCamera == null || _headMesh == null) return;
+            float target = State.FaceFocus ? 1f : 0f;
+            if (_faceBlend == target && _faceBlendVelocity == 0f) return;
+
+            _faceBlend = Mathf.SmoothDamp(_faceBlend, target, ref _faceBlendVelocity, FaceBlendSeconds, Mathf.Infinity, Time.unscaledDeltaTime);
+            if (Mathf.Abs(_faceBlend - target) < 0.0005f) { _faceBlend = target; _faceBlendVelocity = 0f; }
+
+            Vector3 head = _headMesh.bounds.center;
+            Vector3 away = _camRestPosition - head;
+            away.y = 0f;
+            Vector3 facePosition = head + away.normalized * FaceDistance + Vector3.up * FaceRise;
+            Quaternion faceRotation = Quaternion.AngleAxis(PreviewYaw, Vector3.up) * Quaternion.LookRotation(head + Vector3.down * FaceAimDrop - facePosition);
+
+            float k = Mathf.SmoothStep(0f, 1f, _faceBlend);
+            Transform cam = customizeCamera.transform;
+            cam.position = Vector3.Lerp(_camRestPosition, facePosition, k);
+            cam.rotation = Quaternion.Slerp(_camRestRotation, faceRotation, k);
+            customizeCamera.fieldOfView = Mathf.Lerp(PreviewFov, FaceFov, k);
         }
 
         void RefreshPreview()
@@ -270,6 +347,7 @@ namespace Shields.Menu
             bool tryOn = State.Screen == MenuScreen.Customize && State.Tab == CustomizeTab.Wardrobe;
             CosmeticItem Pick(WardrobeSlot slot) { return tryOn ? State.SelectedItem(slot) : State.EquippedItem(slot); }
             _cosmetics.Show(Pick(WardrobeSlot.Head), Pick(WardrobeSlot.Body), Pick(WardrobeSlot.Hands));
+            _cosmetics.ShowFace(Pick(WardrobeSlot.Eyes), Pick(WardrobeSlot.Eyebrows), Pick(WardrobeSlot.Mouth));
         }
 
         // ------------------------------------------------------------------ state
@@ -279,6 +357,7 @@ namespace Shields.Menu
             _wantCustomizeEnvironment = State.Screen == MenuScreen.Customize;
             if (_wantCustomizeEnvironment != _customizeEnvironment && _fadePhase == 0) _fadePhase = 1;
             RefreshPreview();
+            if (turntable != null) turntable.Focus(State.FaceFocus, _faceYaw);
             _view.Refresh();
         }
 
@@ -294,7 +373,24 @@ namespace Shields.Menu
         }
 
         public void SetTab(CustomizeTab tab) { State.Tab = tab; State.Notify(); }
-        public void SetSlot(WardrobeSlot slot) { State.Slot = slot; State.Notify(); }
+        public void SetSlot(WardrobeSlot slot)
+        {
+            State.Slot = slot;
+            if (MainMenuState.IsFace(slot)) State.FaceSlot = slot;
+            State.Notify();
+        }
+
+        /// <summary>A top-level wardrobe entry; FACE reopens the face subcategory last used.</summary>
+        public void SetCategory(WardrobeCategory category)
+        {
+            switch (category)
+            {
+                case WardrobeCategory.Head: SetSlot(WardrobeSlot.Head); break;
+                case WardrobeCategory.Face: SetSlot(State.FaceSlot); break;
+                case WardrobeCategory.Body: SetSlot(WardrobeSlot.Body); break;
+                default: SetSlot(WardrobeSlot.Hands); break;
+            }
+        }
 
         public void OpenPanel(MenuPanel panel)
         {
@@ -410,6 +506,8 @@ namespace Shields.Menu
             if (kb != null && kb.escapeKey.wasPressedThisFrame) Back();
             if (!State.Busy) UpdateFade();
         }
+
+        void LateUpdate() { UpdateFaceCamera(); }
 
         void UpdateFade()
         {

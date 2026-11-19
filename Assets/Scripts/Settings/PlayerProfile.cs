@@ -1,11 +1,12 @@
+using Shields.Social;
 using UnityEngine;
 
 namespace Shields.Settings
 {
     /// <summary>
     /// The local player's nickname and equipped cosmetics, saved on this machine.
-    /// Not used in matches yet: names and cosmetics are not part of the match or the
-    /// network state.
+    /// In matches only the local player's own character shows the saved face: names and
+    /// cosmetics are not part of the match or the network state.
     /// </summary>
     public static class PlayerProfile
     {
@@ -41,6 +42,15 @@ namespace Shields.Settings
         {
             PlayerPrefs.SetString(Prefix + "equipped." + slot, id);
             PlayerPrefs.Save();
+        }
+
+        /// <summary>The saved face. The wardrobe saves it under the same slot names (Eyes, Eyebrows, Mouth).</summary>
+        public static FaceLoadout EquippedFace()
+        {
+            return new FaceLoadout(
+                GetEquipped(FaceSlot.Eyes.ToString(), null),
+                GetEquipped(FaceSlot.Eyebrows.ToString(), null),
+                GetEquipped(FaceSlot.Mouth.ToString(), null));
         }
     }
 }

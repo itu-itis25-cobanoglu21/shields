@@ -1,3 +1,5 @@
+using Shields.Settings;
+using Shields.Social;
 using UnityEngine;
 
 namespace Shields.Players
@@ -159,7 +161,20 @@ namespace Shields.Players
             name = string.Format("Player_{0:00}", index);
 
             ApplyHeadVisibility(local);
+
+            // The local participant wears the face saved on this machine wherever they sit.
+            // Face cosmetics are not networked, so everyone else shows the default face.
+            ShowFace(local ? PlayerProfile.EquippedFace() : FaceLoadout.Default);
         }
+
+        /// <summary>Shows a face on this character (FaceAnchor under the head visual). Presentation only.</summary>
+        public void ShowFace(FaceLoadout face)
+        {
+            if (_face == null && headVisual != null) _face = headVisual.GetComponentInChildren<CharacterFace>(true);
+            if (_face != null) _face.Show(face);
+        }
+
+        CharacterFace _face;
 
         /// <summary>
         /// Every player keeps their head. The local player's head goes on the LocalHead

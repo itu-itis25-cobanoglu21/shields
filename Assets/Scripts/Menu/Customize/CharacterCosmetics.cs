@@ -1,10 +1,13 @@
+using Shields.Players;
+using Shields.Social;
 using UnityEngine;
 
 namespace Shields.Menu
 {
     /// <summary>
     /// Shows cosmetics on the visual-only Customize preview character: a head prop fitted
-    /// to the head, and material swaps for body and hands. Presentation only.
+    /// to the head, the face parts under its FaceAnchor, and material swaps for body and
+    /// hands. Presentation only.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class CharacterCosmetics : MonoBehaviour
@@ -13,6 +16,7 @@ namespace Shields.Menu
         [SerializeField] Renderer headRenderer;
         [SerializeField] Renderer bodyRenderer;
         [SerializeField] Renderer[] handRenderers;
+        [SerializeField] CharacterFace face;
 
         [Tooltip("Head-prop width relative to the head mesh width.")]
         [SerializeField] float headFit = 1.14f;
@@ -22,12 +26,13 @@ namespace Shields.Menu
         GameObject _headProp;
         string _headId;
 
-        public void Configure(Transform head, Renderer headMesh, Renderer body, Renderer[] hands)
+        public void Configure(Transform head, Renderer headMesh, Renderer body, Renderer[] hands, CharacterFace faceAnchor)
         {
             headVisual = head;
             headRenderer = headMesh;
             bodyRenderer = body;
             handRenderers = hands;
+            face = faceAnchor;
             CaptureDefaults();
         }
 
@@ -50,6 +55,12 @@ namespace Shields.Menu
             if (handRenderers != null)
                 foreach (Renderer r in handRenderers)
                     if (r != null) r.sharedMaterial = hands != null && hands.Material != null ? hands.Material : _defaultHands;
+        }
+
+        /// <summary>One part per face slot; a missing item shows that slot's default.</summary>
+        public void ShowFace(CosmeticItem eyes, CosmeticItem eyebrows, CosmeticItem mouth)
+        {
+            if (face != null) face.Show(new FaceLoadout(eyes?.Id, eyebrows?.Id, mouth?.Id));
         }
 
         void ShowHead(CosmeticItem item)

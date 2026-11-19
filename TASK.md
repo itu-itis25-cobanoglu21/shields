@@ -1,540 +1,371 @@
-# TASK 036 — Final FBX Hand Replacement & Emote Animation Integration
+# TASK — Integrate Final 16 Body Outfits into SHIELDS Customization
 
-Read `CLAUDE.md`, `SHIELDS_RULES.md`, inspect the CURRENT project, and inspect the NEW final hand FBX before modifying anything.
+Read `CLAUDE.md`, `SHIELDS_RULES.md`, and inspect the CURRENT customization/cosmetic architecture before modifying anything.
 
-The user has now manually finalized the hand in Blender.
+The 16 finished Blender-authored torso cosmetics have now been exported into the Unity project.
 
-Only the FINAL RIGHT-hand FBX has been added to Unity.
+This task is to integrate them into the existing production customization system.
 
-This FBX is now intended to become the authoritative hand visual/rig source for SHIELDS.
+Do NOT create a parallel cosmetic framework.
 
-It also contains Blender-authored poses/actions. Their names/descriptions indicate what each pose represents.
+Do NOT modify the final hand system.
 
-Your task is to:
+Do NOT redesign the outfits.
 
-1. inspect the final Right-hand FBX
-2. create a proper mirrored LEFT-hand asset from it
-3. replace ALL currently used old hand visuals/rigs throughout the project
-4. use the Blender-authored poses/actions as the new source of truth
-5. connect/blend those poses into the existing gameplay and emote systems
-6. preserve the existing gameplay/network architecture
-
-Do not commit anything.
+Do NOT commit anything.
 
 ---
 
-# 1. Inspect the new final FBX first
+# 1. Inspect the exported outfit assets first
 
-Locate the newly added final hand FBX.
+Locate all newly exported body-cosmetic FBX/assets inside the Unity project.
 
-Before changing prefabs, inspect:
+Inspect:
 
-- exact FBX path
-- mesh hierarchy
-- armature hierarchy
-- bone names
-- skin weights
-- bind/rest pose
+- exact asset paths
+- mesh/object names
+- hierarchy
 - materials
-- normals
-- triangle count
-- scale
-- axes/orientation
-- thumb side
-- wrist/root convention
-- all imported animation clips / Blender Actions
+- scale/orientation
+- common BodyCosmeticAnchor convention
+- pivots/origins
+- child meshes
+- triangle counts
+- whether any outfit contains special separately-authored pieces such as a hood
 
-List every Action/clip found.
+Do not assume naming if the exported files use slightly different names.
 
-The Action names/descriptions should make their purpose clear.
+Expected outfit set conceptually contains these 16 designs:
 
-Use those names as the primary guide for mapping poses.
+1. Tavern Vest
+2. Gambler’s Longcoat
+3. Hooded Wrap / final hooded-wrap equivalent
+4. Merchant Robe Shell
+5. Guard Chestpiece
+6. Noble Doublet
+7. Barkeep Apron
+8. Occult Cardseer Garment
+9. Patchwork Rogue Jerkin
+10. Traveling Minstrel Wrap
+11. Brewer’s Leather Harness
+12. Monk’s Shoulder Mantle
+13. Duelist’s Short Jacket
+14. Ragged Outcast Wrap
+15. Winter Fur Collar Outfit
+16. Tavern Champion Outfit
 
-Do not assume the old Meshy bone hierarchy still applies.
-
----
-
-# 2. Final hand source
-
-Treat the new FBX as the new FINAL hand source.
-
-The previous GLB/Meshy hand system was useful for development but should no longer be the active visual source once this integration is validated.
-
-Keep old assets/code for rollback where harmless.
-
-Do not delete old source GLBs yet.
-
----
-
-# 3. Create the LEFT hand from the final RIGHT hand
-
-Only the final RIGHT hand was supplied.
-
-Create a proper mirrored LEFT-hand version.
-
-Preferred:
-
-use Blender or another proper asset-authoring step to mirror:
-
-- mesh
-- armature
-- bind pose
-- skin weights
-- animation Actions
-
-together.
-
-Do NOT use permanent runtime:
-
-`scale.x = -1`
-
-as the final solution.
-
-The final Left asset must have:
-
-- correct normals
-- correct winding
-- correct skinning
-- positive final transform scale
-- equivalent rig hierarchy
-- mirrored thumb position
-- equivalent Actions/poses
-
-Keep the original Right FBX unchanged.
-
-Create a derived Left asset with a clear project path/name.
+Use the ACTUAL exported asset names as source of truth.
 
 ---
 
-# 4. Mirror the authored Actions too
+# 2. Preserve the current cosmetic architecture
 
-The supplied Right-hand FBX contains final Blender-authored hand poses/actions.
+The game already has working customization for things such as:
 
-The generated Left hand must have correctly mirrored versions of the relevant poses.
+- HEAD
+- FACE
+- BODY
+- HANDS
 
-Do not simply mirror the mesh while leaving animations oriented as Right-hand poses.
+and existing:
 
-Verify each pose visually on the Left hand.
+- preview
+- selection
+- equip
+- persistence
+- thumbnails/item cards
+- PlayerCharacter application
+- online cosmetic handling if already implemented
 
----
+Extend that system.
 
-# 5. Inspect Action names and map them semantically
-
-Read every imported Blender Action/clip.
-
-Their names should describe their intended purpose.
-
-Examples may include concepts such as:
-
-- Idle / Neutral
-- Point
-- Middle Finger
-- Handshake Offer
-- Handshake Grip
-- Weapon Grip
-- Beer Grip
-- Deck/Card pose
-- Charge pose
-- Waiter poses
-
-Do not require these exact names.
-
-Use the actual names in the asset.
-
-Build a clear mapping from:
-
-`FBX Action`
-→
-`SHIELDS gameplay/emote state`
-
-Report that mapping.
+Do not build a second wardrobe/customization implementation.
 
 ---
 
-# 6. Blender-authored poses are source of truth
+# 3. BODY category changes completely
 
-Where the FBX provides a specific authored pose:
+Previously, BODY mainly contained different body-color cosmetics.
 
-use that authored pose.
+That should now change.
 
-Do NOT keep old guessed Unity curl values simply because they already exist.
+BODY should become the category for the new actual torso outfits.
 
-The manually authored Blender poses should replace the old approximations.
+When BODY is selected, the item grid should show:
 
-The existing Unity hand system should become responsible mainly for:
+- Bare / No Outfit / Default
+- the 16 new body outfits
 
-- selecting a pose
-- blending between poses
-- moving the floating hand through space
-- networking emote state
+Use the same existing Wardrobe card style as HEAD/FACE.
 
-not re-inventing the finger pose.
+The old body-color choices must NOT continue appearing as individual BODY item cards.
 
 ---
 
-# 7. Preserve outer procedural architecture
+# 4. Preserve body colors as a separate Color Bar
 
-Do NOT rewrite the existing floating-hand movement system.
+Do NOT remove the existing body-color customization.
 
-Preserve:
+Instead, move it out of the BODY item grid.
 
-- `LeftShoulderAnchor`
-- `RightShoulderAnchor`
-- `LeftHandAnchor`
-- `RightHandAnchor`
-- `Hand_L`
-- `Hand_R`
-- `PalmContact`
-- existing procedural movement trajectories
+When BODY is selected, show a compact **Body Color Bar / Palette** underneath the character preview.
 
-The new FBX rig sits INSIDE the existing hand wrapper.
+This bar should contain the existing body colors that were previously represented as BODY cosmetic cards.
+
+Requirements:
+
+- preserve all currently supported body colors
+- reuse their existing color values/material logic
+- no need to redesign the actual palette
+- display them as compact color swatches
+- clearly indicate current selected color
+- hover/selection should match the current SHIELDS UI language
+- clicking a color should immediately preview it on the character
+
+The color bar should only be visible while BODY is the active major category.
+
+When switching to HEAD / FACE / HANDS:
+- hide the Body Color Bar
+
+---
+
+# 5. Body Color and Outfit are independent choices
+
+This is important.
+
+A player now has TWO separate body-related customization values:
+
+1. Body Outfit
+2. Base Body Color
+
+They are independent.
+
+Example:
+
+`Tavern Vest + Burgundy Body`
+
+or
+
+`Winter Fur Collar + Green Body`
+
+The outfit should NOT replace or reset the selected base body color.
+
+The selected body color should continue affecting the original PlayerCharacter body exactly as it did before.
+
+Do not tint the authored outfit meshes with the body color unless the current outfit/material architecture explicitly requires that.
+
+The outfits should keep their authored clothing colors/materials.
+
+The lower/exposed PlayerCharacter body remains controlled by Body Color.
+
+---
+
+# 6. Bare / No Outfit option
+
+Add a clear default BODY option:
+
+- `Bare`
+or
+- `No Outfit`
+
+Use whichever naming fits the existing UI better.
+
+When equipped:
+
+- no torso cosmetic mesh is active
+- the original PlayerCharacter body remains visible
+- selected Body Color still applies
+
+This should be a valid persistent outfit choice.
+
+---
+
+# 7. Outfit attachment hierarchy
+
+Create/reuse a clean body cosmetic attachment point.
 
 Conceptually:
 
-`Hand_R`
-→ FinalRiggedHand_R
+`PlayerCharacter`
+- `Body`
+  - `BodyMesh`
+  - `BodyCosmeticAnchor`
+    - active outfit
 
-`Hand_L`
-→ FinalRiggedHand_L
+Adapt to the actual existing hierarchy rather than blindly creating duplicates.
 
-Outer transforms continue controlling WHERE the hand moves.
+The Blender assets were authored against a shared body reference and anchor.
 
-The FBX pose/action controls HOW the hand/fingers are posed.
+Prefer:
 
----
+- localPosition = 0
+- localRotation = 0
+- localScale = 1
 
-# 8. Replace all active old hands
+for outfit roots.
 
-Audit the project for old-hand visual references.
-
-Replace them wherever they are actively used.
-
-At minimum inspect:
-
-- `PlayerCharacter.prefab`
-- `Waiter.prefab`
-- production Customize character preview
-- Main Menu character preview if one exists
-- any current UI/wardrobe preview character
-- any gameplay test/presentation prefab that is actually used
-
-Do not leave obvious active characters using the previous hands.
-
-Do not blindly modify obsolete/disposable concept scenes unless they are still actively used.
-
-Report what you changed and what intentionally remained old.
+Do not manually invent different offsets for every outfit unless a verified FBX import issue requires it.
 
 ---
 
-# 9. Update semantic rig mapping
+# 8. Only the equipped outfit should render
 
-The project currently has `HandRig` / semantic hand support.
+Do NOT instantiate/render all 16 outfits on every PlayerCharacter.
 
-Adapt it to the FINAL FBX skeleton.
+Each gameplay character should have only its currently equipped body cosmetic active.
 
-Map at minimum:
+On outfit change:
 
-- Wrist / root
-- Thumb
-- Index
-- Middle
-- Ring
+- cleanly remove/disable previous cosmetic
+- apply selected cosmetic
+- no duplicates
+- no stale child meshes
 
-There are only four digits.
-
-Do not keep old `Bone_00X` assumptions if the final FBX uses different names.
-
-Prefer explicit semantic references based on the new final skeleton.
+Keep runtime overhead small.
 
 ---
 
-# 10. Preserve pose priority
+# 9. Outfit materials
 
-Keep the existing priority architecture:
+Preserve the authored colors and material separation.
 
-`Action > Grip > Emote > Rest`
+Where possible:
 
-This remains important.
+- reuse shared project-owned materials
+- avoid unnecessary duplicated material instances
+- keep cloth/leather/metal appearance compatible with SHIELDS lighting
 
-Gameplay always wins over emotes.
+Do not perform a major recoloring pass in this task.
 
-Do not allow an emote pose to overwrite:
-
-- weapon
-- beer
-- card/deck
-- Charge
-- required waiter interaction
+If an imported material is visibly incompatible with URP/current shaders, create project-owned compatible material copies rather than modifying third-party/source data destructively.
 
 ---
 
-# 11. Pose blending
+# 10. Special multi-part outfits
 
-Connect the authored FBX poses with smooth transitions.
+Inspect every outfit hierarchy.
 
-The hand should not snap between poses.
+If an outfit contains intentionally separate functional pieces, preserve them.
 
-Examples:
+Especially inspect the final Hooded Wrap / hooded outfit.
 
-Idle
-→ Point
+If its hood was authored as a separate head-following mesh:
 
-Idle
-→ Middle Finger
+- torso/wrap portion remains attached to Body
+- face-framing Hood portion should attach/follow the appropriate HeadVisual/HeadPivot
+- the hood should rotate with head look
+- the lower neck/shoulder connection should remain visually coherent
 
-Idle
-→ Handshake Offer
+Do NOT merge such intentionally separate pieces merely for convenience.
 
-Handshake Offer
-→ Handshake Grip
+If no separate hood was actually exported, do not invent one.
 
-Idle
-→ Weapon Grip
-
-Idle
-→ Beer Grip
-
-Use the existing pose-blending architecture if possible.
-
-Do not introduce a giant Animator Controller if lightweight procedural clip/pose sampling fits better.
+Report the real exported structure.
 
 ---
 
-# 12. Pose implementation strategy
+# 11. Hooded outfit vs HEAD cosmetics
 
-If the Blender Actions are short static pose clips:
+If the final Hooded Wrap includes a real head-covering hood:
 
-extract/sample their target bone rotations and feed them into the existing pose system.
+treat it as incompatible with ordinary headwear.
 
-If they contain actual multi-frame authored animation:
+When that BODY outfit is equipped:
 
-preserve useful authored timing where appropriate.
+- suppress/hide the currently equipped HEAD cosmetic visually while the hood is active
 
-Do not force every Action into one frame if it clearly contains intentional motion.
+Do NOT delete/change the player's saved HEAD selection.
 
-Choose the simplest robust integration after inspecting the real FBX.
+When changing away from the hooded BODY outfit:
 
----
+- restore the player's equipped HEAD cosmetic automatically
 
-# 13. Neutral / Idle
+This is a visual compatibility rule only.
 
-Use the authored final Neutral/Idle pose if one exists.
+Do not create two overlapping hat/hood meshes.
 
-This becomes the actual gameplay rest pose.
-
-`ResetToNeutral()`
-
-should return to this final authored pose.
-
-Do not return to the old Meshy bind pose.
+Only implement this if the actual final exported outfit contains the hood.
 
 ---
 
-# 14. Pointing
+# 12. Customize BODY presentation
 
-Use the final authored Point pose if present.
+When BODY is selected:
 
-Preserve the existing Point emote behavior:
+show:
 
-- RIGHT hand
-- Hold `W`
-- free look direction
-- NO player target lock
-- palm/down orientation established by the final pose
-- scroll-based small reach adjustment if currently working
+- outfit cards in the existing left-side/body item area
+- Body Color Bar underneath the character preview
 
-Do not reintroduce target snapping.
+The preview should remain large enough to inspect the entire torso outfit.
 
-The FBX determines the final wrist/finger pose.
+Do not use the FACE close-up camera.
 
-The existing emote presenter determines the floating-hand direction/position.
+Use the normal BODY/full-character wardrobe framing.
 
----
+The current drag-to-rotate preview should remain available so we can inspect:
 
-# 15. Middle Finger
+- front
+- sides
+- back
 
-Use the final authored Middle Finger pose if present.
-
-Preserve:
-
-- LEFT hand
-- Hold `Q`
-
-The authored pose should determine:
-
-- straight Middle finger
-- closed neighbouring fingers
-- sideways/inward Thumb
-- wrist orientation
-
-Do not approximate it again with old Unity curl values.
+of the outfits.
 
 ---
 
-# 16. Handshake
+# 13. Live outfit preview
 
-Use authored:
+Clicking an outfit card should immediately preview that outfit on the Customize character.
 
-- Handshake Offer
-- Handshake Grip
+Preserve the current distinction between:
 
-poses if present.
+- selected/previewing
+- equipped
 
-Preserve the current handshake state/network architecture.
+if the existing wardrobe already uses this.
 
-Offer:
-→ open hand toward table
-
-Matched:
-→ both hands move to shared handshake position
-→ blend into authored Grip pose
-→ perform existing short shake
-→ release
-→ return
-
-Do not bake table/world movement into finger animation.
+Do not silently auto-equip if current UX requires an Equip action.
 
 ---
 
-# 17. Existing gameplay poses
+# 14. Live body-color preview
 
-Inspect whether the FBX contains authored poses for current gameplay states.
+Clicking a Body Color swatch should immediately update the preview body color.
 
-Where available, use them.
+Use the existing BODY color behavior/persistence semantics if possible.
 
-Validate:
+Do not rebuild the material system unnecessarily.
 
-- deck rest
-- Charge draw
-- card pickup
-- card carry
-- card throw
-- weapon grip
-- beer grip
-- waiter tray support
-- waiter mug delivery
-
-If an exact authored pose does NOT exist:
-
-preserve the best current pose rather than inventing unnecessary new behavior.
+The color change must remain visible on exposed body areas while an outfit is worn.
 
 ---
 
-# 18. Weapon
+# 15. Thumbnails
 
-Ensure the new final hand still visually holds the weapon from the OUTSIDE.
+Create/update actual wardrobe thumbnails for all 16 outfits plus Bare/Default.
 
-No deep palm/weapon intersection.
+Reuse the existing thumbnail pipeline if one exists.
 
-Preserve:
+Thumbnail should clearly show the outfit silhouette, not just a tiny generic torso.
 
-- draw
-- aim
-- lock
-- fire
-- holster
-
-If an authored weapon pose exists, prefer it.
+Do not manually maintain screenshots if the current system already renders cosmetic thumbnails.
 
 ---
 
-# 19. Beer
+# 16. Actual PlayerCharacter integration
 
-Ensure the final hand works with:
+This must not be Customize-only.
 
-- pickup
-- drinking
-- return
-- partial beer
-- empty beer
+The equipped outfit must appear on actual gameplay PlayerCharacters.
 
-If an authored Beer Grip exists, use it.
+Apply:
 
-Retune only grip anchor/alignment if necessary.
+- Body Outfit ID
+- Body Color ID/value
 
-Do not change BeerLedger/networking.
+through the existing participant cosmetic state.
 
----
-
-# 20. Deck/card interactions
-
-Validate the final hand against the physical deck/card geometry.
-
-No floating fingers.
-
-No excessive overlap.
-
-Keep existing action timing and trajectories.
-
-Use authored poses where provided.
-
----
-
-# 21. Waiter
-
-Update the waiter to the new final hands.
-
-Preserve:
-
-- tray
-- circular route
-- mug delivery
-- bob/height
-- delivery trajectory
-
-Use final authored waiter/tray/delivery pose if present.
-
----
-
-# 22. Remove dependency on GLB-specific fixes for final hands
-
-The FINAL FBX hands should not require the custom GLB importer.
-
-Do not run GLB-specific:
-
-- winding correction
-- GLB weight cleanup
-- GLB smooth-normal generation
-
-on the new FBX.
-
-Those systems may remain for legacy assets/rollback.
-
-Do not delete them yet.
-
-Report whether any current runtime system still depends on them.
-
----
-
-# 23. Validate rig deformation
-
-Because the final Blender asset was manually prepared:
-
-test the authored poses for:
-
-- no tearing
-- no spike vertices
-- no knuckle collapse
-- no neighbour finger dragging
-- no palm collapse
-
-If a final FBX pose itself has a visible defect, report it rather than silently replacing the authored pose.
-
----
-
-# 24. Networking
-
-Do not redesign networking.
-
-Preserve current:
-
-- Point emote synchronization
-- Middle Finger synchronization
-- Handshake mutual intent / host pairing
-- MatchGeneration safety
-- participant → seat mapping
-
-Only change how the hands visually pose.
+Cosmetics belong to the PLAYER/PARTICIPANT, not the seat.
 
 Never assume:
 
@@ -542,162 +373,261 @@ Never assume:
 
 ---
 
-# 25. Re-seat/rematch
+# 17. Rematch / random seating
 
-Verify final hands survive:
-
-- initial seating
-- randomized seating
-- rematch
-- player rebuild/rebind
-
-No old hands left behind.
-
-No duplicate hand rigs.
-
----
-
-# 26. 3 / 6 / 8 players
-
-Validate at:
-
-- 3 players
-- 6 players
-- 8 players
-
-Check:
-
-- correct Left/Right hands
-- correct scale
-- no missing materials
-- no old hands
-- no duplicate renderers
-
----
-
-# 27. Emote validation
-
-Explicitly test:
-
-### Point
-- hold W
-- look around freely
-- scroll reach
-- release
-- returns cleanly
-
-### Middle Finger
-- hold Q
-- authored pose clearly visible
-- release
-- returns cleanly
-
-### Handshake
-- offer pose
-- matched grip pose
-- shake
-- return
-
-If a real second client cannot be run, clearly report that handshake network visuals still need manual 2-client validation.
-
----
-
-# 28. Gameplay conflict validation
+The project supports rematches and randomized seats.
 
 Verify:
 
-Point
-→ weapon begins
-→ Point yields
-
-Middle Finger
-→ beer/deck action begins
-→ Middle yields
-
-Handshake
-→ right-hand gameplay action begins
-→ handshake cancels/yields safely
-
-Do not break pose priority.
+- outfit follows the participant after re-seat
+- body color follows the participant
+- no cosmetic remains attached to the previous seat character
+- no duplicate outfit objects remain after PlayerCharacter rebuild/rebind
 
 ---
 
-# 29. Performance
+# 18. Online synchronization
+
+Inspect the CURRENT cosmetic networking architecture.
+
+If HEAD/FACE/etc already synchronize through cosmetic IDs:
+
+extend that SAME system with:
+
+- `BodyOutfitId`
+- existing/new `BodyColorId`
+
+Send identifiers only.
+
+Do not send meshes/materials over the network.
+
+Do not create a second cosmetic RPC framework.
+
+If general cosmetic networking is not currently implemented, preserve the current architecture and clearly report the limitation instead of inventing unrelated networking.
+
+---
+
+# 19. Bots
+
+Do not create a complicated bot-fashion system.
+
+Preserve current bot cosmetic behavior.
+
+If bots currently use defaults:
+- keep default body color
+- use Bare/Default outfit unless there is already a defined cosmetic policy
+
+Do not randomly distribute all 16 outfits unless existing game design already supports random bot cosmetics.
+
+---
+
+# 20. Gameplay behavior
+
+Outfits are VISUAL ONLY.
+
+They must not affect:
+
+- hit detection
+- targeting
+- crosshair
+- card interactions
+- Charge
+- weapon
+- beer
+- waiter
+- hand movement
+- player seating
+
+Do not add colliders to clothing.
+
+Do not make outfits targetable gameplay geometry.
+
+---
+
+# 21. Floating hands
+
+Preserve the finalized floating hands exactly.
+
+The torso cosmetics were designed without actual arms.
+
+Verify outfits do not introduce:
+
+- arm meshes
+- sleeves extending toward hands
+- hand rig changes
+- hand anchor changes
+
+All existing hand animations/emotes must remain unchanged.
+
+---
+
+# 22. Visual validation of all 16
+
+Inspect every outfit on the actual Customize character.
+
+Check:
+
+- front
+- 3/4
+- side
+- back
+
+Look for:
+
+- clipping
+- floating
+- wrong scale
+- wrong orientation
+- missing materials
+- malformed normals
+- exposed unintended interior faces
+- headwear conflicts
+- hand conflicts
+
+Do not silently remodel Blender source meshes inside Unity.
+
+If an outfit genuinely requires a Blender correction, report exactly which asset needs re-export instead.
+
+---
+
+# 23. Performance
 
 Report:
 
-- triangles per hand
-- bone count
-- SkinnedMeshRenderer count
-- approximate total hand triangles at 8 players
+- triangle count of each outfit
+- material/submesh count
+- approximate active outfit cost at 8 players
 
-Do not unnecessarily optimize the final asset if performance is already acceptable.
+Only ONE body outfit per player should be active.
+
+These meshes being approximately several thousand triangles each should be completely reasonable, but validate that no accidental duplicate instances/material explosion occurs.
 
 ---
 
-# 30. Tests
+# 24. Customize UI validation
+
+Validate at 1920×1080.
+
+Check:
+
+- BODY category
+- 17 outfit entries including Bare/Default
+- scrolling/grid behavior
+- color bar location
+- color swatch readability
+- currently selected swatch
+- outfit preview
+- outfit equip
+- normal character rotation
+- no overlap with existing UI
+
+Also check 2560×1440 if practical.
+
+---
+
+# 25. Persistence
+
+Verify both selections persist correctly:
+
+- equipped Body Outfit
+- selected Body Color
+
+Test:
+
+Customize
+→ leave screen
+→ return
+
+and if existing system supports saved customization across scene load:
+
+Main Menu
+→ gameplay
+→ return
+
+Do not reset body color when changing outfit.
+
+Do not reset outfit when changing body color.
+
+---
+
+# 26. Regression validation
+
+Verify existing customization still works:
+
+- HEAD
+- FACE
+  - Eyes
+  - Eyebrows
+  - Mouth
+- HANDS
+- nickname
+- Shop Coming Soon
+- preview rotation
+
+Do not break previously completed FACE integration.
+
+---
+
+# 27. Tests
 
 Run the complete CURRENT EditMode suite.
 
-Do not assume an old count.
+Do not assume an old test count.
 
-Report exact result.
+Add focused tests where appropriate for:
 
-Do not weaken tests.
+- outfit and body-color independence
+- Bare outfit
+- participant → cosmetic persistence
+- re-seat/rematch
+- hood/headwear compatibility rule if implemented
 
----
-
-# 31. Console
-
-Final validation:
-
-- 0 missing bone errors
-- 0 FBX animation errors
-- 0 pose mapping errors
-- 0 stuck hand state
-- 0 gameplay presentation exceptions
-
-Report unrelated warnings separately.
+Do not weaken existing tests.
 
 ---
 
-# 32. Final report
+# 28. Console
+
+Final clean validation should show no project-code:
+
+- missing mesh errors
+- missing material errors
+- invalid cosmetic ID errors
+- duplicate outfit warnings
+- preview errors
+- gameplay presentation exceptions
+
+Report unrelated third-party warnings separately.
+
+---
+
+# 29. Final report
 
 Report:
 
-1. Exact final Right FBX path
-2. Right-hand mesh/rig structure
-3. All Actions/clips found
-4. How the Left hand was generated
-5. Exact Left-hand asset path
-6. Confirmation no permanent negative scale
-7. Confirmation Actions were mirrored correctly
-8. New semantic bone mapping
-9. Action → SHIELDS state mapping
-10. Final Neutral/Idle integration
-11. Point integration
-12. Middle Finger integration
-13. Handshake Offer integration
-14. Handshake Grip integration
-15. Weapon result
-16. Beer result
-17. Deck/card result
-18. Charge result
-19. Waiter result
-20. Customize/Main Menu preview hand result
-21. Old active hand references removed/replaced
-22. What old GLB/importer system remains only for rollback
-23. 3-player result
-24. 6-player result
-25. 8-player result
-26. rematch/reseat result
-27. online validation status
-28. performance summary
-29. full EditMode result
-30. Console result
-31. exact files created/modified
-32. any Blender re-export still required
+1. exact exported outfit asset paths discovered
+2. all 16 outfits discovered
+3. final outfit IDs/names
+4. Bare/Default implementation
+5. BodyCosmeticAnchor hierarchy
+6. BODY item-grid changes
+7. old body-color cards removal
+8. Body Color Bar implementation
+9. outfit/color independence
+10. preview/equip behavior
+11. thumbnail implementation
+12. PlayerCharacter integration
+13. hooded outfit special handling
+14. HEAD compatibility behavior
+15. online synchronization status
+16. rematch/reseat result
+17. performance / triangle summary
+18. 1920×1080 UI result
+19. tests
+20. console
+21. exact files created/modified
+22. any outfit that needs a Blender re-export
 
 Do not commit anything.
 
-Stop when the FINAL FBX HANDS and their authored poses are fully integrated.
+Stop when all 16 outfits and the new BODY color-bar workflow are integrated and ready for manual visual testing.

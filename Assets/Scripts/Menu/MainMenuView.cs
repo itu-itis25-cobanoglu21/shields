@@ -308,17 +308,22 @@ namespace Shields.Menu
         const int GridCols = 3, VisibleRows = 3;
         const float GridW = GridCols * Box + (GridCols - 1) * BoxGap;
         const float ActionH = 64;                              // the equip line under the grid
+        const float SubX = 210, SubSize = 22, SubGap = 30;     // FACE subcategories, beside the FACE entry
 
         void BuildCustomize()
         {
             RectTransform scr = _customize;
 
             Graphic hintIcon = null, hint = null;
-            DragZone(scr, dragging =>
+            // The hint goes while dragging, and in the FACE close-up, which does not turn.
+            bool dragging = false;
+            void Hint()
             {
-                if (hint != null) hint.CrossFadeAlpha(dragging ? 0f : 1f, 0.2f, true);
-                if (hintIcon != null) hintIcon.CrossFadeAlpha(dragging ? 0f : 1f, 0.2f, true);
-            }, 960, 960);
+                float a = dragging || S.FaceFocus ? 0f : 1f;
+                if (hint != null) hint.CrossFadeAlpha(a, 0.2f, true);
+                if (hintIcon != null) hintIcon.CrossFadeAlpha(a, 0.2f, true);
+            }
+            DragZone(scr, d => { dragging = d; Hint(); }, 960, 960);
 
             // Dark on the left for the list, open on the right for the character.
             Shade(scr, 1250, 0.92f);
@@ -327,6 +332,7 @@ namespace Shields.Menu
             _ui.BackLink(scr, _c.GoMenu);
             Nickname(scr, 1382, 82, 48);
             DragHint(scr, 1382, 40, out hintIcon, out hint);
+            Bind(Hint);
 
             var tabs = new UiFx[2];
             tabs[0] = _ui.TabWord(scr, "WARDROBE", 142, 140, 24, () => _c.SetTab(CustomizeTab.Wardrobe));
@@ -407,17 +413,32 @@ namespace Shields.Menu
 
         void BuildWardrobe(RectTransform root)
         {
-            // ---- Categories: the main menu's own entries.
-            var cats = new RectTransform[3];
-            var catY = new float[3];
-            for (int i = 0; i < 3; i++)
+            // ---- Categories: the main menu's own entries. HEAD, FACE, BODY, HANDS.
+            int catCount = Enum.GetValues(typeof(WardrobeCategory)).Length;
+            var cats = new RectTransform[catCount];
+            var catY = new float[catCount];
+            for (int i = 0; i < catCount; i++)
             {
-                var slot = (WardrobeSlot)i;
-                Button b = _ui.MenuWord(root, MainMenuState.SlotName(slot), 46, () => _c.SetSlot(slot), () => S.Slot == slot, out _);
-                b.name = "Cat_" + slot;
+                var cat = (WardrobeCategory)i;
+                Button b = _ui.MenuWord(root, MainMenuState.CategoryName(cat), 46, () => _c.SetCategory(cat), () => MainMenuState.CategoryOf(S.Slot) == cat, out _);
+                b.name = "Cat_" + cat;
                 cats[i] = b.GetComponent<RectTransform>().TL(ListX, CatTop + i * CatStep, 500, 62);
                 catY[i] = CatTop + i * CatStep;
             }
+
+            // ---- FACE subcategories: tabs on the FACE entry's line, shown while FACE is open.
+            RectTransform faceTabs = UiKit.Node(root, "FaceTabs").TL(ListX + SubX, CatTop + CatStep, 600, 62);
+            var faceGroup = faceTabs.gameObject.AddComponent<CanvasGroup>();
+            float tabX = 0;
+            foreach (WardrobeSlot sub in new[] { WardrobeSlot.Eyes, WardrobeSlot.Eyebrows, WardrobeSlot.Mouth })
+            {
+                UiFx tab = _ui.TabWord(faceTabs, MainMenuState.SlotName(sub), tabX, (62 - SubSize * 1.6f) * 0.5f + 3, SubSize, () => _c.SetSlot(sub));
+                tab.name = "Sub_" + sub;
+                tabX += tab.GetComponent<RectTransform>().sizeDelta.x + SubGap;
+                Bind(() => tab.Selected = S.Slot == sub);
+            }
+            faceGroup.alpha = 0f;
+            Bind(() => faceGroup.interactable = faceGroup.blocksRaycasts = MainMenuState.IsFace(S.Slot));
 
             // ---- The unfolded box grid, with the Join Room's red rule.
             RectTransform block = UiKit.Node(root, "Items").TL(ListX, 0, GridX + GridW + 40, VisibleRows * BoxStep + ActionH);
@@ -455,17 +476,21 @@ namespace Shields.Menu
                 float k = 1f - Mathf.Exp(-Time.unscaledDeltaTime * 14f);
                 float y = CatTop;
                 float target = 0;
-                for (int i = 0; i < 3; i++)
+                int open = (int)MainMenuState.CategoryOf(S.Slot);
+                for (int i = 0; i < catCount; i++)
                 {
                     catY[i] = Mathf.Lerp(catY[i], y, k);
                     cats[i].anchoredPosition = new Vector2(ListX, -catY[i]);
                     y += CatStep;
-                    if (i == (int)S.Slot)
+                    if (i == open)
                     {
                         target = y + 2;
                         y += gridH + ActionH + 18;
                     }
                 }
+                int face = (int)WardrobeCategory.Face;
+                faceTabs.anchoredPosition = new Vector2(ListX + SubX, -catY[face]);
+                faceGroup.alpha = Mathf.MoveTowards(faceGroup.alpha, open == face ? 1f : 0f, Time.unscaledDeltaTime * 6f);
                 if (shownSlot != S.Slot)
                 {
                     shownSlot = S.Slot;

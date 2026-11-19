@@ -6,7 +6,8 @@ namespace Shields.Menu
     /// <summary>
     /// Spins the Customize preview character around its vertical axis while the mouse
     /// drags across the preview area, with a short smoothing tail. Letting go stops it;
-    /// there is no free spin. Adds a very small idle breath. Presentation only.
+    /// there is no free spin. Adds a very small idle breath. While focused (FACE) it turns
+    /// the face to the camera, slower, and ignores drags. Presentation only.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class CharacterTurntable : MonoBehaviour
@@ -17,6 +18,9 @@ namespace Shields.Menu
         [Tooltip("Seconds the yaw takes to catch up with the drag.")]
         [SerializeField] float smoothing = 0.07f;
 
+        [Tooltip("Seconds the yaw takes to turn into and out of face focus.")]
+        [SerializeField] float focusSmoothing = 0.32f;
+
         [SerializeField] Transform breathingTarget;
         [SerializeField] float breathAmount = 0.012f;
         [SerializeField] float breathSeconds = 3.6f;
@@ -26,6 +30,8 @@ namespace Shields.Menu
         float _yaw;
         float _velocity;
         bool _hasRest;
+        bool _focused;
+        bool _turning;   // a focus turn is under way: use focusSmoothing until it settles
         Vector3 _breathRest = Vector3.one;
 
         void Awake()
@@ -50,16 +56,39 @@ namespace Shields.Menu
         {
             _hasRest = true;
             _restYaw = yaw;
+            if (_focused) return;
             _targetYaw = yaw;
             if (snap) { _yaw = yaw; _velocity = 0f; }
         }
 
-        public void Drag(float pixels) { _targetYaw -= pixels * degreesPerPixel; }
-        public void ResetView() { _targetYaw = _restYaw + Mathf.Round((_yaw - _restYaw) / 360f) * 360f; }
+        public void Drag(float pixels)
+        {
+            if (_focused) return;
+            _targetYaw -= pixels * degreesPerPixel;
+            _turning = false;
+        }
+
+        public void ResetView() { if (!_focused) _targetYaw = Nearest(_restYaw); }
+
+        /// <summary>
+        /// Face focus on: turn smoothly to <paramref name="faceYaw"/> (the face toward the
+        /// camera) by the shortest way and hold there. Off: turn back to the resting facing.
+        /// </summary>
+        public void Focus(bool on, float faceYaw)
+        {
+            if (on == _focused) return;
+            _focused = on;
+            _targetYaw = Nearest(on ? faceYaw : _restYaw);
+            _turning = true;
+        }
+
+        // The equivalent of yaw closest to where the character is facing now.
+        float Nearest(float yaw) { return yaw + Mathf.Round((_yaw - yaw) / 360f) * 360f; }
 
         void LateUpdate()
         {
-            _yaw = Mathf.SmoothDamp(_yaw, _targetYaw, ref _velocity, smoothing, Mathf.Infinity, Time.unscaledDeltaTime);
+            _yaw = Mathf.SmoothDamp(_yaw, _targetYaw, ref _velocity, _turning ? focusSmoothing : smoothing, Mathf.Infinity, Time.unscaledDeltaTime);
+            if (_turning && Mathf.Abs(_targetYaw - _yaw) < 0.05f) _turning = false;
             Vector3 e = transform.localEulerAngles;
             transform.localEulerAngles = new Vector3(e.x, _yaw, e.z);
 

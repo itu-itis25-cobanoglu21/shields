@@ -10,7 +10,10 @@ namespace Shields.Menu
     public enum MenuScreen { MainMenu, Customize, Settings }
     public enum MenuPanel { None, Offline, Join, Create }
     public enum CustomizeTab { Wardrobe, Shop }
-    public enum WardrobeSlot { Head, Body, Hands }
+    // The face slots are named like FaceSlot: their saved ids are read back by name in matches.
+    public enum WardrobeSlot { Head, Body, Hands, Eyes, Eyebrows, Mouth }
+    // The wardrobe's top-level list; FACE opens onto the Eyes / Eyebrows / Mouth slots.
+    public enum WardrobeCategory { Head, Face, Body, Hands }
     public enum ItemRarity { Common, Rare, Legendary }
 
     /// <summary>One wardrobe entry. Placeholder cosmetics built from existing props and materials.</summary>
@@ -24,7 +27,8 @@ namespace Shields.Menu
         public bool Locked;
 
         // Preview data: a head prop prefab, or a material for body / hands.
-        // A head item with both is the prop recoloured.
+        // A head item with both is the prop recoloured. Face items need neither: their
+        // id names the mesh under the character's FaceAnchor.
         public GameObject HeadPrefab;
         public Material Material;
 
@@ -59,6 +63,10 @@ namespace Shields.Menu
 
         public CustomizeTab Tab = CustomizeTab.Wardrobe;
         public WardrobeSlot Slot = WardrobeSlot.Head;
+        public WardrobeSlot FaceSlot = WardrobeSlot.Eyes;   // the FACE subcategory last open
+
+        /// <summary>The wardrobe has FACE open: the preview turns the face to a close camera.</summary>
+        public bool FaceFocus { get { return Screen == MenuScreen.Customize && Tab == CustomizeTab.Wardrobe && IsFace(Slot); } }
 
         public readonly List<CosmeticItem> Items = new List<CosmeticItem>();
         readonly Dictionary<WardrobeSlot, string> _equipped = new Dictionary<WardrobeSlot, string>();
@@ -144,6 +152,24 @@ namespace Shields.Menu
             foreach (WardrobeSlot slot in Enum.GetValues(typeof(WardrobeSlot))) _selected[slot] = _equipped[slot];
         }
 
+        // ------------------------------------------------------------------ categories
+
+        public static bool IsFace(WardrobeSlot slot)
+        {
+            return slot == WardrobeSlot.Eyes || slot == WardrobeSlot.Eyebrows || slot == WardrobeSlot.Mouth;
+        }
+
+        public static WardrobeCategory CategoryOf(WardrobeSlot slot)
+        {
+            switch (slot)
+            {
+                case WardrobeSlot.Head: return WardrobeCategory.Head;
+                case WardrobeSlot.Body: return WardrobeCategory.Body;
+                case WardrobeSlot.Hands: return WardrobeCategory.Hands;
+                default: return WardrobeCategory.Face;
+            }
+        }
+
         // ------------------------------------------------------------------ text
 
         public static string SlotName(WardrobeSlot slot)
@@ -152,6 +178,20 @@ namespace Shields.Menu
             {
                 case WardrobeSlot.Head: return "HEAD";
                 case WardrobeSlot.Body: return "BODY";
+                case WardrobeSlot.Hands: return "HANDS";
+                case WardrobeSlot.Eyes: return "EYES";
+                case WardrobeSlot.Eyebrows: return "EYEBROWS";
+                default: return "MOUTH";
+            }
+        }
+
+        public static string CategoryName(WardrobeCategory category)
+        {
+            switch (category)
+            {
+                case WardrobeCategory.Head: return "HEAD";
+                case WardrobeCategory.Face: return "FACE";
+                case WardrobeCategory.Body: return "BODY";
                 default: return "HANDS";
             }
         }
