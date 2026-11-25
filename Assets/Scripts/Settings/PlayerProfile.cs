@@ -38,6 +38,12 @@ namespace Shields.Settings
             return PlayerPrefs.GetString(Prefix + "equipped." + slot, fallback);
         }
 
+        /// <summary>Whether anything was ever saved for a slot.</summary>
+        public static bool HasEquipped(string slot)
+        {
+            return PlayerPrefs.HasKey(Prefix + "equipped." + slot);
+        }
+
         public static void SetEquipped(string slot, string id)
         {
             PlayerPrefs.SetString(Prefix + "equipped." + slot, id);
@@ -51,6 +57,19 @@ namespace Shields.Settings
                 GetEquipped(FaceSlot.Eyes.ToString(), null),
                 GetEquipped(FaceSlot.Eyebrows.ToString(), null),
                 GetEquipped(FaceSlot.Mouth.ToString(), null));
+        }
+
+        /// <summary>Wardrobe slot names the body is saved under: the outfit, and its own base colour.</summary>
+        public const string BodyOutfitSlot = "Body", BodyColorSlot = "BodyColor";
+
+        /// <summary>
+        /// The saved body outfit and base colour. Before outfits existed the "Body" slot held
+        /// the colour, so a profile with no colour of its own still finds it there.
+        /// </summary>
+        public static BodyLoadout EquippedBody()
+        {
+            string outfit = GetEquipped(BodyOutfitSlot, null);
+            return new BodyLoadout(outfit, GetEquipped(BodyColorSlot, outfit));
         }
     }
 }

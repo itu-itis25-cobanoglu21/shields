@@ -159,6 +159,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3443870283377869952}
+  - {fileID: 3670093904993520018}
   m_Father: {fileID: 3034042394088591337}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1302164672026217917
@@ -686,6 +687,50 @@ Transform:
   m_Children: []
   m_Father: {fileID: 8717489509487800965}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &6964440955750698786
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3670093904993520018}
+  - component: {fileID: 9103289149479938935}
+  m_Layer: 0
+  m_Name: BodyCosmeticAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3670093904993520018
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6964440955750698786}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5987942413751094724}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &9103289149479938935
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6964440955750698786}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07be43844e26ef745aa186128c896174, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Players.BodyCosmeticAnchor
 --- !u!1 &7964896676314311893
 GameObject:
   m_ObjectHideFlags: 0
@@ -787,6 +832,7 @@ MonoBehaviour:
   hitReactionPivot: {fileID: 6511806081713714751}
   tintedRenderers:
   - {fileID: 8192321046732506404}
+  bodyOutfits: {fileID: 11400000, guid: 58ae0e284f63b494fabf79c6beb78306, type: 2}
 --- !u!114 &997209576048072071
 MonoBehaviour:
   m_ObjectHideFlags: 0

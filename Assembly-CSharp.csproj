@@ -75,12 +75,14 @@
     <Compile Include="Assets\Scripts\Network\NetworkSeatRegistry.cs" />
     <Compile Include="Assets\Scripts\Player\HandPoses.cs" />
     <Compile Include="Assets\Scripts\Presentation\FireLightFlicker.cs" />
+    <Compile Include="Assets\Scripts\Player\BodyCosmeticAnchor.cs" />
     <Compile Include="Assets\Scripts\Table\SeatLayout.cs" />
     <Compile Include="Assets\Scripts\UI\Hud\GameHud.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerOrderCoordinator.cs" />
     <Compile Include="Assets\Scripts\Player\CharacterFace.cs" />
     <Compile Include="Assets\Scripts\Tavern\BeerLayouts.cs" />
     <Compile Include="Assets\UIConcept\Scripts\ConceptFx.cs" />
+    <Compile Include="Assets\Scripts\Player\BodyOutfitLibrary.cs" />
     <Compile Include="Assets\Scripts\UI\UiSprites.cs" />
     <Compile Include="Assets\UIConcept\HUD\Scripts\HudConcept.cs" />
     <Compile Include="Assets\Scripts\UI\Hud\HudModel.cs" />

@@ -52,6 +52,7 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\6000.6.4f1\Editor\Data\BCLExtensions\TargetingPacks\netstandard2.1\analyzers\dotnet\roslyn4.0\cs\System.Text.Json.SourceGeneration.dll" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\Social\BodyCatalog.cs" />
     <Compile Include="Assets\Scripts\Social\EmoteAuthority.cs" />
     <Compile Include="Assets\Scripts\Social\BeerOrder.cs" />
     <Compile Include="Assets\Scripts\Social\WaiterDeliveryScheduler.cs" />

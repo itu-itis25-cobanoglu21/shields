@@ -621,6 +621,8 @@ namespace Shields.Match
                 Mesh mesh = SightMesh(renderer);
                 if (mesh == null) continue;
                 if (victim.Weapon != null && renderer.transform.IsChildOf(victim.Weapon)) continue;
+                // Outfits are visual only: the body's own mesh stands for the torso.
+                if (renderer.GetComponentInParent<BodyCosmeticAnchor>() != null) continue;
 
                 // A skinned hand's mesh bounds are in its renderer's space at the bind pose,
                 // which is the neutral hand the bounds stand for.

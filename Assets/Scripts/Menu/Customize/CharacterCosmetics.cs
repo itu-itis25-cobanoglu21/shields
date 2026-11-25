@@ -6,8 +6,8 @@ namespace Shields.Menu
 {
     /// <summary>
     /// Shows cosmetics on the visual-only Customize preview character: a head prop fitted
-    /// to the head, the face parts under its FaceAnchor, and material swaps for body and
-    /// hands. Presentation only.
+    /// to the head, the face parts under its FaceAnchor, the torso outfit under the body's
+    /// cosmetic anchor, and material swaps for the body colour and hands. Presentation only.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class CharacterCosmetics : MonoBehaviour
@@ -17,6 +17,7 @@ namespace Shields.Menu
         [SerializeField] Renderer bodyRenderer;
         [SerializeField] Renderer[] handRenderers;
         [SerializeField] CharacterFace face;
+        [SerializeField] BodyCosmeticAnchor bodyCosmetics;
 
         [Tooltip("Head-prop width relative to the head mesh width.")]
         [SerializeField] float headFit = 1.14f;
@@ -26,15 +27,19 @@ namespace Shields.Menu
         GameObject _headProp;
         string _headId;
 
-        public void Configure(Transform head, Renderer headMesh, Renderer body, Renderer[] hands, CharacterFace faceAnchor)
+        public void Configure(Transform head, Renderer headMesh, Renderer body, Renderer[] hands, CharacterFace faceAnchor, BodyCosmeticAnchor outfitAnchor)
         {
             headVisual = head;
             headRenderer = headMesh;
             bodyRenderer = body;
             handRenderers = hands;
             face = faceAnchor;
+            bodyCosmetics = outfitAnchor;
             CaptureDefaults();
         }
+
+        /// <summary>The body mesh's own material: what the default (seat) body colour shows.</summary>
+        public Material DefaultBody { get { CaptureDefaults(); return _defaultBody; } }
 
         void Awake() { CaptureDefaults(); }
 
@@ -45,12 +50,19 @@ namespace Shields.Menu
             if (_defaultHands == null && handRenderers != null && handRenderers.Length > 0 && handRenderers[0] != null) _defaultHands = handRenderers[0].sharedMaterial;
         }
 
-        public void Show(CosmeticItem head, CosmeticItem body, CosmeticItem hands)
+        /// <summary>
+        /// Outfit and body colour are independent: the outfit goes on the cosmetic anchor
+        /// (Bare removes it) and keeps its own materials; the colour only tints the body mesh.
+        /// </summary>
+        public void Show(CosmeticItem head, CosmeticItem outfit, CosmeticItem bodyColor, CosmeticItem hands)
         {
             ShowHead(head);
 
+            if (bodyCosmetics != null)
+                bodyCosmetics.Show(outfit != null ? outfit.Id : null, outfit != null ? outfit.Outfit : null);
+
             if (bodyRenderer != null)
-                bodyRenderer.sharedMaterial = body != null && body.Material != null ? body.Material : _defaultBody;
+                bodyRenderer.sharedMaterial = bodyColor != null && bodyColor.Material != null ? bodyColor.Material : _defaultBody;
 
             if (handRenderers != null)
                 foreach (Renderer r in handRenderers)

@@ -10,8 +10,10 @@ namespace Shields.Menu
     public enum MenuScreen { MainMenu, Customize, Settings }
     public enum MenuPanel { None, Offline, Join, Create }
     public enum CustomizeTab { Wardrobe, Shop }
-    // The face slots are named like FaceSlot: their saved ids are read back by name in matches.
-    public enum WardrobeSlot { Head, Body, Hands, Eyes, Eyebrows, Mouth }
+    // The face slots are named like FaceSlot, and Body / BodyColor like PlayerProfile's body
+    // slots: their saved ids are read back by name in matches. BodyColor is chosen on the
+    // BODY page's colour bar, independently of the Body outfit.
+    public enum WardrobeSlot { Head, Body, Hands, Eyes, Eyebrows, Mouth, BodyColor }
     // The wardrobe's top-level list; FACE opens onto the Eyes / Eyebrows / Mouth slots.
     public enum WardrobeCategory { Head, Face, Body, Hands }
     public enum ItemRarity { Common, Rare, Legendary }
@@ -26,11 +28,15 @@ namespace Shields.Menu
         public bool IsDefault;
         public bool Locked;
 
-        // Preview data: a head prop prefab, or a material for body / hands.
-        // A head item with both is the prop recoloured. Face items need neither: their
-        // id names the mesh under the character's FaceAnchor.
+        // Preview data: a head prop prefab, an outfit model, or a material for body colour /
+        // hands. A head item with both is the prop recoloured. Face items need neither: their
+        // id names the mesh under the character's FaceAnchor. Bare has neither.
         public GameObject HeadPrefab;
+        public GameObject Outfit;
         public Material Material;
+
+        // Body colours: the colour their swatch shows.
+        public Color Swatch;
 
         // Rendered at startup by the thumbnail studio.
         public Texture2D Thumbnail;
@@ -88,6 +94,19 @@ namespace Shields.Menu
                 _equipped[slot] = id;
                 _selected[slot] = id;
             }
+
+            // Profiles from before outfits kept the body colour under "Body": carry it over
+            // to its own slot once, so equipping an outfit later cannot lose it.
+            if (!PlayerProfile.HasEquipped(PlayerProfile.BodyColorSlot))
+            {
+                CosmeticItem legacy = Find(PlayerProfile.GetEquipped(PlayerProfile.BodyOutfitSlot, null));
+                if (legacy != null && legacy.Slot == WardrobeSlot.BodyColor && !legacy.Locked)
+                {
+                    _equipped[WardrobeSlot.BodyColor] = _selected[WardrobeSlot.BodyColor] = legacy.Id;
+                }
+                if (_equipped[WardrobeSlot.BodyColor].Length > 0)
+                    PlayerProfile.SetEquipped(PlayerProfile.BodyColorSlot, _equipped[WardrobeSlot.BodyColor]);
+            }
         }
 
         public List<CosmeticItem> ItemsIn(WardrobeSlot slot)
@@ -122,17 +141,34 @@ namespace Shields.Menu
             Notify();
         }
 
-        public bool CanEquipSelected()
+        /// <summary>The slots EQUIP commits on the open page: BODY commits its outfit and its colour.</summary>
+        WardrobeSlot[] EquipSlots()
         {
-            CosmeticItem item = SelectedItem(Slot);
+            return Slot == WardrobeSlot.Body ? new[] { WardrobeSlot.Body, WardrobeSlot.BodyColor } : new[] { Slot };
+        }
+
+        bool CanEquip(WardrobeSlot slot)
+        {
+            CosmeticItem item = SelectedItem(slot);
             return item != null && !item.Locked && !IsEquipped(item);
         }
 
+        public bool CanEquipSelected()
+        {
+            foreach (WardrobeSlot slot in EquipSlots()) if (CanEquip(slot)) return true;
+            return false;
+        }
+
+        /// <summary>Equips what the preview shows on the open page. A locked try-on stays a try-on.</summary>
         public void EquipSelected()
         {
             if (!CanEquipSelected()) return;
-            _equipped[Slot] = _selected[Slot];
-            PlayerProfile.SetEquipped(Slot.ToString(), _equipped[Slot]);
+            foreach (WardrobeSlot slot in EquipSlots())
+            {
+                if (!CanEquip(slot)) continue;
+                _equipped[slot] = _selected[slot];
+                PlayerProfile.SetEquipped(slot.ToString(), _equipped[slot]);
+            }
             Notify();
         }
 
@@ -164,7 +200,8 @@ namespace Shields.Menu
             switch (slot)
             {
                 case WardrobeSlot.Head: return WardrobeCategory.Head;
-                case WardrobeSlot.Body: return WardrobeCategory.Body;
+                case WardrobeSlot.Body:
+                case WardrobeSlot.BodyColor: return WardrobeCategory.Body;
                 case WardrobeSlot.Hands: return WardrobeCategory.Hands;
                 default: return WardrobeCategory.Face;
             }
@@ -181,6 +218,7 @@ namespace Shields.Menu
                 case WardrobeSlot.Hands: return "HANDS";
                 case WardrobeSlot.Eyes: return "EYES";
                 case WardrobeSlot.Eyebrows: return "EYEBROWS";
+                case WardrobeSlot.BodyColor: return "BODY COLOR";
                 default: return "MOUTH";
             }
         }

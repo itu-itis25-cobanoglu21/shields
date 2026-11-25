@@ -57,6 +57,10 @@ namespace Shields.Players
         [Tooltip("Renderers that take the per player placeholder colour.")]
         [SerializeField] Renderer[] tintedRenderers;
 
+        [Header("Body Cosmetics (presentation only)")]
+        [Tooltip("The exported torso outfits. Shown under Body/BodyCosmeticAnchor; only the worn one is instantiated.")]
+        [SerializeField] BodyOutfitLibrary bodyOutfits;
+
         /// <summary>
         /// The layer the local player's own head is drawn on. The first-person gameplay
         /// camera leaves this one layer out, so the camera never looks out through the
@@ -162,9 +166,67 @@ namespace Shields.Players
 
             ApplyHeadVisibility(local);
 
-            // The local participant wears the face saved on this machine wherever they sit.
-            // Face cosmetics are not networked, so everyone else shows the default face.
+            // The local participant wears the face and body saved on this machine wherever
+            // they sit. Cosmetics are not networked, so everyone else shows the defaults.
             ShowFace(local ? PlayerProfile.EquippedFace() : FaceLoadout.Default);
+            ShowBody(BodyLoadout.ForParticipant(local, local ? PlayerProfile.EquippedBody() : BodyLoadout.Default));
+        }
+
+        /// <summary>The body outfit attachment point (Body/BodyCosmeticAnchor), or null without a Body.</summary>
+        public BodyCosmeticAnchor BodyCosmetics
+        {
+            get
+            {
+                if (_bodyCosmetics == null) _bodyCosmetics = BodyCosmeticAnchor.On(body);
+                return _bodyCosmetics;
+            }
+        }
+
+        BodyCosmeticAnchor _bodyCosmetics;
+        Material _seatMaterial;
+        string _bodyColor = BodyCatalog.DefaultColorId;
+
+        // One tinted material per body colour, shared by every character that wears it.
+        static readonly System.Collections.Generic.Dictionary<string, Material> BodyColorMaterials = new System.Collections.Generic.Dictionary<string, Material>();
+        static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+
+        /// <summary>
+        /// Shows a body outfit and base body colour on this character: the outfit under the
+        /// cosmetic anchor (Bare removes it), the colour on the body mesh. Independent of each
+        /// other; repeating the current look costs nothing. Presentation only.
+        /// </summary>
+        public void ShowBody(BodyLoadout look)
+        {
+            BodyCosmeticAnchor anchor = BodyCosmetics;
+            if (anchor != null) anchor.Show(look.Outfit, bodyOutfits != null ? bodyOutfits.PrefabFor(look.Outfit) : null);
+
+            _bodyColor = look.Color;
+            ApplyBodyColor();
+        }
+
+        // Seat colours keep the seat's placeholder material; any other colour tints it.
+        void ApplyBodyColor()
+        {
+            if (tintedRenderers == null) return;
+            if (_seatMaterial == null)
+                foreach (Renderer r in tintedRenderers)
+                    if (r != null && r.sharedMaterial != null) { _seatMaterial = r.sharedMaterial; break; }
+            if (_seatMaterial == null) return;
+
+            Material material = _seatMaterial;
+            BodyColor color = BodyCatalog.FindColor(_bodyColor);
+            if (color != null && !color.IsDefault)
+            {
+                if (!BodyColorMaterials.TryGetValue(color.Id, out material) || material == null)
+                {
+                    material = new Material(_seatMaterial) { name = "BodyColor_" + color.Id };
+                    if (material.HasProperty(BaseColorId)) material.SetColor(BaseColorId, new Color(color.R, color.G, color.B));
+                    BodyColorMaterials[color.Id] = material;
+                }
+            }
+
+            foreach (Renderer r in tintedRenderers)
+                if (r != null && r.sharedMaterial != material) r.sharedMaterial = material;
         }
 
         /// <summary>Shows a face on this character (FaceAnchor under the head visual). Presentation only.</summary>
@@ -210,8 +272,9 @@ namespace Shields.Players
         {
             if (material == null || tintedRenderers == null) return;
 
-            for (int i = 0; i < tintedRenderers.Length; i++)
-                if (tintedRenderers[i] != null) tintedRenderers[i].sharedMaterial = material;
+            // The seat colour is the base; a chosen body colour stays on top of it.
+            _seatMaterial = material;
+            ApplyBodyColor();
         }
 
         /// <summary>Editor convenience so the prefab can be rewired without hand dragging.</summary>

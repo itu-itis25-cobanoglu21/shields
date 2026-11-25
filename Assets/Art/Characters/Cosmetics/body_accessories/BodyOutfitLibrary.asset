@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8efeadc10531bd54780c829912bc73cd, type: 3}
+  m_Name: BodyOutfitLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::Shields.Players.BodyOutfitLibrary
+  outfits:
+  - {fileID: 919132149155446097, guid: 219dff326928c984aa051b76233ff1f3, type: 3}
+  - {fileID: 919132149155446097, guid: 79d0f5fb444afc24e8303c8758e30ad2, type: 3}
+  - {fileID: 919132149155446097, guid: 088e53167610c464ab352a47b2b3625f, type: 3}
+  - {fileID: 919132149155446097, guid: f74429d980fb10344a633e98c4ac01a7, type: 3}
+  - {fileID: 919132149155446097, guid: 502c1246b3973e140bd26dbd74aa308c, type: 3}
+  - {fileID: 919132149155446097, guid: f94048f73370afe4e92bf108b33392c7, type: 3}
+  - {fileID: 919132149155446097, guid: 25d043baf4f892c40a981435c5166bee, type: 3}
+  - {fileID: 919132149155446097, guid: 75223c8f92ca8db49a7e813099427357, type: 3}
+  - {fileID: 919132149155446097, guid: 0843c018b15f14a40b03864fe8a895e2, type: 3}
+  - {fileID: 919132149155446097, guid: 75a34779095657843ac3fd158bf502fa, type: 3}
+  - {fileID: 919132149155446097, guid: 4ca1f478669bb84428ae473cfa833137, type: 3}
+  - {fileID: 919132149155446097, guid: e631d593d24c5de4485b577aca2a0af8, type: 3}
+  - {fileID: 919132149155446097, guid: 3baf56b30ea66524b943f62fde967146, type: 3}
+  - {fileID: 919132149155446097, guid: e456e7e445486ca48936eb5a4cd8ecf9, type: 3}
+  - {fileID: 919132149155446097, guid: 2c0dc64dbf5f6f94bb2c179b55d4e742, type: 3}
+  - {fileID: 919132149155446097, guid: baabf4f3af2e03d40851c143bee1eb90, type: 3}

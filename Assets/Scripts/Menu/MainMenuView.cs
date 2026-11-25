@@ -346,7 +346,88 @@ namespace Shields.Menu
             Bind(() => { UiKit.SetActive(wardrobe, S.Tab == CustomizeTab.Wardrobe); UiKit.SetActive(shop, S.Tab == CustomizeTab.Shop); });
 
             BuildWardrobe(wardrobe);
+            BuildBodyColorBar(wardrobe, 1382, 128);
             BuildShop(shop);
+        }
+
+        // ---- BODY colour bar: the base body colours as swatches under the character.
+        const float SwatchSize = 40, SwatchGap = 10;
+
+        /// <summary>
+        /// The base body colours, shown under the character while BODY is open. A click tries
+        /// the colour on (EQUIP commits it with the outfit); the red ring is the try-on, the
+        /// check the equipped colour. Independent of the outfit cards.
+        /// </summary>
+        void BuildBodyColorBar(RectTransform root, float centreX, float bottom)
+        {
+            List<CosmeticItem> colors = S.ItemsIn(WardrobeSlot.BodyColor);
+            float rowW = colors.Count * SwatchSize + Mathf.Max(0, colors.Count - 1) * SwatchGap;
+
+            RectTransform bar = UiKit.Node(root, "BodyColorBar");
+            bar.At(0, 0, 0.5f, 0, centreX, bottom, rowW + 40, SwatchSize + 44);
+            var group = bar.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+
+            TextMeshProUGUI label = T(bar, "Label", "", 15, Bone, TextAlignmentOptions.Center);
+            label.rectTransform.At(0.5f, 1, 0.5f, 1, 0, 0, rowW + 40, 24);
+            label.characterSpacing = Sp(6);
+            label.richText = true;
+            string red = "#" + ColorUtility.ToHtmlStringRGB(Red), muted = "#" + ColorUtility.ToHtmlStringRGB(Muted);
+
+            for (int i = 0; i < colors.Count; i++)
+                BuildSwatch(bar, colors[i], -rowW * 0.5f + i * (SwatchSize + SwatchGap));
+
+            Bind(() =>
+            {
+                CosmeticItem sel = S.SelectedItem(WardrobeSlot.BodyColor);
+                if (sel == null) return;
+                string state = S.IsEquipped(sel) ? "EQUIPPED" : sel.Locked ? "LOCKED" : "PREVIEWING";
+                label.text = "<color=" + red + ">BODY COLOR</color>    " + sel.Name + "    <color=" + muted + ">·  " + state + "</color>";
+            });
+
+            TavernUI.Animator(root, "BodyColorBarFade", () => S.Tab == CustomizeTab.Wardrobe && MainMenuState.CategoryOf(S.Slot) == WardrobeCategory.Body, t =>
+            {
+                group.alpha = t;
+                group.interactable = group.blocksRaycasts = t > 0.5f;
+                bar.anchoredPosition = new Vector2(centreX, bottom - 10f * (1f - t));
+            });
+        }
+
+        void BuildSwatch(RectTransform bar, CosmeticItem item, float x)
+        {
+            Button b = TavernUI.Btn(bar, "Swatch_" + item.Id, () => S.Select(item), out UiFx fx);
+            RectTransform rt = b.GetComponent<RectTransform>().At(0.5f, 0, 0, 0, x, 0, SwatchSize, SwatchSize);
+
+            // Locked colours read darker, like locked cards' dimmed thumbnails.
+            Image fill = UiKit.Img(rt, "Fill", UiSprites.DeckledFill(), (item.Locked ? item.Swatch * 0.55f : item.Swatch).A(1f));
+            fill.rectTransform.Fill(3, 3, 3, 3);
+            Image frame = UiKit.Img(rt, "Frame", UiSprites.DeckledFrame(2), Bone.A(0.32f));
+            frame.rectTransform.Fill();
+            Image select = UiKit.Img(rt, "Select", UiSprites.DeckledFrame(3), Red.A(0f));
+            select.rectTransform.Fill(-5, -5, -5, -5);
+            Image lockIcon = UiKit.Img(rt, "Lock", UiSprites.Lock(), Bone.A(0.85f));
+            lockIcon.rectTransform.At(0.5f, 0.5f, 0.5f, 0.5f, 0, 0, 13, 16);
+            UiKit.SetActive(lockIcon, item.Locked);
+            Image defMark = UiKit.Img(rt, "DefaultMark", UiSprites.NoneMark(), Bone.A(0.8f));
+            defMark.rectTransform.At(0.5f, 0.5f, 0.5f, 0.5f, 0, 0, 13, 13);
+            UiKit.SetActive(defMark, item.IsDefault);
+            Image check = UiKit.Img(rt, "Equipped", UiSprites.Check(), Red);
+            check.rectTransform.At(1, 1, 0.5f, 0.5f, -1, -1, 14, 14);
+
+            Bind(() =>
+            {
+                fx.Selected = S.IsSelected(item);
+                UiKit.SetActive(check, S.IsEquipped(item));
+            });
+
+            fx.Apply = f =>
+            {
+                float s = UiFx.Ease(f.Select), h = UiFx.Ease(f.Hover);
+                frame.color = Bone.A(0.32f + 0.5f * Mathf.Max(h, s));
+                select.color = Red.A(s);
+                float sc = 1f + 0.12f * Mathf.Max(s, h) - 0.06f * f.Press;
+                rt.localScale = new Vector3(sc, sc, 1);
+            };
         }
 
         /// <summary>Invisible drag surface over the character, behind the rest of the UI.</summary>
@@ -592,6 +673,9 @@ namespace Shields.Menu
             {
                 CosmeticItem sel = S.SelectedItem(S.Slot);
                 if (sel == null) return;
+                // BODY: the outfit, with the colour tried on beside it when that is what changed.
+                CosmeticItem color = S.Slot == WardrobeSlot.Body ? S.SelectedItem(WardrobeSlot.BodyColor) : null;
+                if (color != null && S.IsEquipped(sel) && !S.IsEquipped(color) && !color.Locked) sel = color;
                 name.text = sel.Name;
                 bool eq = S.IsEquipped(sel);
                 string rarity = sel.IsDefault ? "DEFAULT" : MainMenuState.RarityName(sel.Rarity);

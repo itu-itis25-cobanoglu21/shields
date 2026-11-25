@@ -50,6 +50,10 @@ namespace Shields.Menu
         [SerializeField] Material darkMaterial;
         [SerializeField] Material seatMaterial;
 
+        [Header("Body outfits")]
+        [Tooltip("The exported torso outfits, shared with the gameplay PlayerCharacter.")]
+        [SerializeField] BodyOutfitLibrary bodyOutfits;
+
         // Where the Customize camera puts the character: camera yaw offset from looking
         // straight at it, the character's resting turn, aim height and field of view.
         const float PreviewYaw = -17.5f, PreviewTurn = -18f, PreviewLookHeight = 0.84f, PreviewFov = 44f;
@@ -135,18 +139,21 @@ namespace Shields.Menu
             Add("head_captain", "CAPTAIN'S TRICORN", WardrobeSlot.Head, ItemRarity.Rare, false, false, tricorn, Tint(seatMaterial, "Captain", new Color(0.5f, 0.1f, 0.1f)));
             Add("head_goldhat", "GOLDEN TRICORN", WardrobeSlot.Head, ItemRarity.Legendary, false, true, tricorn, Tint(metalMaterial, "GoldHat", new Color(0.9f, 0.68f, 0.22f)));
 
-            Add("body_seat", "SEAT COLORS", WardrobeSlot.Body, ItemRarity.Common, true, false, null, null);
-            Add("body_crimson", "CRIMSON TUNIC", WardrobeSlot.Body, ItemRarity.Common, false, false, null, Tint(seatMaterial, "Crimson", new Color(0.55f, 0.11f, 0.12f)));
-            Add("body_forest", "FOREST TUNIC", WardrobeSlot.Body, ItemRarity.Common, false, false, null, Tint(seatMaterial, "Forest", new Color(0.17f, 0.33f, 0.19f)));
-            Add("body_midnight", "MIDNIGHT TUNIC", WardrobeSlot.Body, ItemRarity.Common, false, false, null, Tint(seatMaterial, "Midnight", new Color(0.14f, 0.18f, 0.36f)));
-            Add("body_mustard", "MUSTARD TUNIC", WardrobeSlot.Body, ItemRarity.Rare, false, false, null, Tint(seatMaterial, "Mustard", new Color(0.78f, 0.56f, 0.16f)));
-            Add("body_coal", "COAL TUNIC", WardrobeSlot.Body, ItemRarity.Rare, false, false, null, Tint(seatMaterial, "Coal", new Color(0.12f, 0.12f, 0.13f)));
-            Add("body_motley", "JESTER MOTLEY", WardrobeSlot.Body, ItemRarity.Rare, false, true, null, Tint(seatMaterial, "Motley", new Color(0.42f, 0.16f, 0.46f)));
-            Add("body_gilded", "GILDED VEST", WardrobeSlot.Body, ItemRarity.Legendary, false, true, null, Tint(metalMaterial, "Gilded", new Color(0.86f, 0.62f, 0.2f)));
-            Add("body_plum", "PLUM TUNIC", WardrobeSlot.Body, ItemRarity.Common, false, false, null, Tint(seatMaterial, "Plum", new Color(0.36f, 0.14f, 0.3f)));
-            Add("body_sky", "SKY TUNIC", WardrobeSlot.Body, ItemRarity.Common, false, false, null, Tint(seatMaterial, "Sky", new Color(0.3f, 0.5f, 0.7f)));
-            Add("body_rose", "ROSE TUNIC", WardrobeSlot.Body, ItemRarity.Common, false, false, null, Tint(seatMaterial, "Rose", new Color(0.74f, 0.4f, 0.44f)));
-            Add("body_ash", "ASH TUNIC", WardrobeSlot.Body, ItemRarity.Rare, false, true, null, Tint(seatMaterial, "Ash", new Color(0.48f, 0.47f, 0.45f)));
+            // BODY: Bare and the exported outfits as cards; the base colours go on the colour bar.
+            foreach (BodyOutfit o in BodyCatalog.Outfits)
+            {
+                Add(o.Id, o.Name, WardrobeSlot.Body, ItemRarity.Common, o.IsDefault, false, null, null);
+                State.Items[State.Items.Count - 1].Outfit = bodyOutfits != null ? bodyOutfits.PrefabFor(o.Id) : null;
+                if (!o.IsDefault && State.Items[State.Items.Count - 1].Outfit == null)
+                    Debug.LogError("Body outfit model missing from the BodyOutfitLibrary: " + o.SourceAsset, this);
+            }
+            foreach (BodyColor c in BodyCatalog.Colors)
+            {
+                var color = new Color(c.R, c.G, c.B);
+                Material material = c.IsDefault ? null : Tint(c.Metal ? metalMaterial : seatMaterial, c.Name, color);
+                Add(c.Id, c.Name, WardrobeSlot.BodyColor, (ItemRarity)(int)c.Rarity, c.IsDefault, c.Locked, null, material);
+                State.Items[State.Items.Count - 1].Swatch = c.IsDefault && seatMaterial != null && seatMaterial.HasProperty("_BaseColor") ? seatMaterial.GetColor("_BaseColor") : color;
+            }
 
             Add("hands_bare", "BARE HANDS", WardrobeSlot.Hands, ItemRarity.Common, true, false, null, null);
             Add("hands_leather", "LEATHER GLOVES", WardrobeSlot.Hands, ItemRarity.Common, false, false, null, Tint(skinMaterial, "Leather", new Color(0.36f, 0.22f, 0.13f)));
@@ -201,7 +208,7 @@ namespace Shields.Menu
 
             _cosmetics = previewCharacter.GetComponent<CharacterCosmetics>();
             if (_cosmetics == null) _cosmetics = previewCharacter.gameObject.AddComponent<CharacterCosmetics>();
-            _cosmetics.Configure(_headVisual, _headMesh, _bodyMesh, _hands, _face);
+            _cosmetics.Configure(_headVisual, _headMesh, _bodyMesh, _hands, _face, BodyCosmeticAnchor.On(Find(previewCharacter, "Body")));
             if (turntable != null) turntable.SetBreathingTarget(previewCharacter);
         }
 
@@ -230,8 +237,10 @@ namespace Shields.Menu
                             : studio.Render(Stripped(_headVisual.gameObject), 192, 200f, 8f, 1.05f);
                         break;
                     case WardrobeSlot.Body:
-                        item.Thumbnail = studio.Render(Mannequin(item.Material), 192, 205f, 8f, 1.08f);
+                        item.Thumbnail = studio.Render(OutfitModel(item.Outfit), 192, 205f, 6f, 1.4f);
                         break;
+                    case WardrobeSlot.BodyColor:
+                        break;   // shown as colour swatches, not cards
                     case WardrobeSlot.Eyes:
                     case WardrobeSlot.Eyebrows:
                     case WardrobeSlot.Mouth:
@@ -252,13 +261,22 @@ namespace Shields.Menu
             return go;
         }
 
-        GameObject Mannequin(Material body)
+        /// <summary>
+        /// The preview character's body and head wearing one outfit (null: Bare), in the
+        /// default body colour, without head props or the floating hands, so the outfit's
+        /// silhouette fills the card.
+        /// </summary>
+        GameObject OutfitModel(GameObject outfit)
         {
             GameObject m = Stripped(previewCharacter.gameObject);
+            var drop = new System.Collections.Generic.List<GameObject>();
             foreach (Transform t in m.GetComponentsInChildren<Transform>(true))
-                if (t.name.StartsWith("HeadProp_")) Destroy(t.gameObject);
+                if (t.name.StartsWith("HeadProp_") || t.name == "LeftShoulderAnchor" || t.name == "RightShoulderAnchor") drop.Add(t.gameObject);
+            foreach (GameObject go in drop) DestroyImmediate(go);
             Transform bodyMesh = Find(m.transform, "BodyMesh");
-            if (body != null && bodyMesh != null) bodyMesh.GetComponent<Renderer>().sharedMaterial = body;
+            if (bodyMesh != null && _cosmetics != null && _cosmetics.DefaultBody != null) bodyMesh.GetComponent<Renderer>().sharedMaterial = _cosmetics.DefaultBody;
+            BodyCosmeticAnchor anchor = BodyCosmeticAnchor.On(Find(m.transform, "Body"));
+            if (anchor != null) anchor.Show(outfit != null ? outfit.name : null, outfit);
             return m;
         }
 
@@ -346,7 +364,7 @@ namespace Shields.Menu
             // The preview tries on the selection; outside the wardrobe it shows what is equipped.
             bool tryOn = State.Screen == MenuScreen.Customize && State.Tab == CustomizeTab.Wardrobe;
             CosmeticItem Pick(WardrobeSlot slot) { return tryOn ? State.SelectedItem(slot) : State.EquippedItem(slot); }
-            _cosmetics.Show(Pick(WardrobeSlot.Head), Pick(WardrobeSlot.Body), Pick(WardrobeSlot.Hands));
+            _cosmetics.Show(Pick(WardrobeSlot.Head), Pick(WardrobeSlot.Body), Pick(WardrobeSlot.BodyColor), Pick(WardrobeSlot.Hands));
             _cosmetics.ShowFace(Pick(WardrobeSlot.Eyes), Pick(WardrobeSlot.Eyebrows), Pick(WardrobeSlot.Mouth));
         }
 
